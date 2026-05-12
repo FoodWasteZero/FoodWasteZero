@@ -1,2 +1,2 @@
 # FoodWasteZero
-Praktikum II Projekt. Tema: FoodWasteZero
+Praktikum II Projekt 2026. Tema: FoodWasteZero
