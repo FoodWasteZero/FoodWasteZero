@@ -5,6 +5,8 @@ import 'widgets.dart';
 import 'heatmap_widget.dart';
 import 'ai_chef_widget.dart';
 import 'profile_page.dart';
+import 'add_listing_page.dart';   // ← NOVO
+import 'my_listings_page.dart';   // ← NOVO
 
 // ── Root scaffold with bottom nav ─────────────────────────────────────────────
 class HomeScreen extends StatefulWidget {
@@ -19,8 +21,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _pages = const [
     _HomePage(),
-    _AddPostPlaceholder(),
-    _MyListingsPlaceholder(),
+    AddListingPage(),   
+    MyListingsPage(),   
     ProfilePage(),
   ];
 
@@ -203,29 +205,20 @@ class _HomePageState extends State<_HomePage> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // Top greeting + header
             SliverToBoxAdapter(child: _buildHeader()),
-
-            // Search bar
             SliverToBoxAdapter(child: _buildSearchBar()),
-
-            // Heatmap preview
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
                 child: const HeatmapPreviewCard(),
               ),
             ),
-
-            // Quick filters
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
             SliverToBoxAdapter(
               child: FilterChipsRow(
                 onFilterChanged: (f) => setState(() => _activeFilter = f),
               ),
             ),
-
-            // Listings label
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
@@ -253,8 +246,6 @@ class _HomePageState extends State<_HomePage> {
                 ),
               ),
             ),
-
-            // Food cards list
             _filtered.isEmpty
                 ? SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
@@ -319,8 +310,7 @@ class _HomePageState extends State<_HomePage> {
           ),
           const Spacer(),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: kRadiusFull,
@@ -398,13 +388,11 @@ class _HomePageState extends State<_HomePage> {
                 onChanged: (v) => setState(() => _searchQuery = v),
                 decoration: const InputDecoration(
                   hintText: 'Išči hrano v okolici...',
-                  hintStyle:
-                      TextStyle(color: kTextLight, fontSize: 14),
+                  hintStyle: TextStyle(color: kTextLight, fontSize: 14),
                   border: InputBorder.none,
                   isDense: true,
                 ),
-                style:
-                    const TextStyle(fontSize: 14, color: kTextDark),
+                style: const TextStyle(fontSize: 14, color: kTextDark),
               ),
             ),
             if (_searchQuery.isNotEmpty)
@@ -445,75 +433,6 @@ class _HomePageState extends State<_HomePage> {
             style: TextStyle(fontSize: 13, color: kTextLight),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Stub pages ────────────────────────────────────────────────────────────────
-class _AddPostPlaceholder extends StatelessWidget {
-  const _AddPostPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: kGreenPale,
-                borderRadius: kRadiusFull,
-              ),
-              child: const Icon(Icons.add_circle_outline,
-                  color: kGreenMid, size: 36),
-            ),
-            const SizedBox(height: 16),
-            const Text('Dodaj oglas', style: kHeading2),
-            const SizedBox(height: 6),
-            const Text(
-              'Prihaja kmalu...',
-              style: TextStyle(color: kTextLight, fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MyListingsPlaceholder extends StatelessWidget {
-  const _MyListingsPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: kGreenPale,
-                borderRadius: kRadiusFull,
-              ),
-              child: const Icon(Icons.list_alt_rounded,
-                  color: kGreenMid, size: 36),
-            ),
-            const SizedBox(height: 16),
-            const Text('Moji oglasi', style: kHeading2),
-            const SizedBox(height: 6),
-            const Text(
-              'Tukaj bodo vaši oglasi',
-              style: TextStyle(color: kTextLight, fontSize: 14),
-            ),
-          ],
-        ),
       ),
     );
   }
