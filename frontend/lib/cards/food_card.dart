@@ -14,11 +14,27 @@ class FoodCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 14, left: 1, right: 1),
         decoration: BoxDecoration(
           color: kCard,
           borderRadius: kRadius16,
-          boxShadow: kCardShadow,
+          border: Border.all(color: Color(0x0F000000), width: 0.8),
+          boxShadow: const [
+            // Ambient shadow — soft, wide
+            BoxShadow(
+              color: Color(0x12000000),
+              blurRadius: 18,
+              spreadRadius: -2,
+              offset: Offset(0, 6),
+            ),
+            // Key shadow — crisp, close
+            BoxShadow(
+              color: Color(0x08000000),
+              blurRadius: 4,
+              spreadRadius: 0,
+              offset: Offset(0, 1),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -28,16 +44,24 @@ class FoodCard extends StatelessWidget {
                 topLeft: Radius.circular(16),
                 bottomLeft: Radius.circular(16),
               ),
-              child: Container(
+              child: SizedBox(
                 width: 110,
-                height: 140,
-                color: oglas.imageColor,
+                height: 130,
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Center(
-                      child: Icon(oglas.icon, size: 42,
-                          color: kGreenMid.withOpacity(0.55)),
+                    // Background colour fill
+                    Container(color: oglas.imageColor),
+                    // Perfectly centred icon
+                    Align(
+                      alignment: Alignment.center,
+                      child: Icon(
+                        oglas.icon,
+                        size: 44,
+                        color: kGreenMid.withOpacity(0.50),
+                      ),
                     ),
+                    // Badges
                     if (oglas.isExpiringSoon)
                       Positioned(
                         top: 8, left: 8,
@@ -90,19 +114,20 @@ class FoodCard extends StatelessWidget {
                       children: [
                         _StatusChip(status: oglas.status),
                         Container(
-                          width: 32, height: 32,
+                          width: 30, height: 30,
                           decoration: BoxDecoration(
                             color: kGreenMid,
                             borderRadius: kRadius8,
-                            boxShadow: [
+                            boxShadow: const [
                               BoxShadow(
-                                color: kGreenMid.withOpacity(0.35),
-                                blurRadius: 8, offset: const Offset(0, 3),
+                                color: Color(0x552E7D32),
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
                               ),
                             ],
                           ),
                           child: const Icon(Icons.arrow_forward_ios,
-                              color: Colors.white, size: 14),
+                              color: Colors.white, size: 13),
                         ),
                       ],
                     ),
@@ -148,9 +173,9 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withOpacity(0.12),
         borderRadius: kRadiusFull,
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withOpacity(0.35)),
       ),
       child: Text(
         statusLabel(status),

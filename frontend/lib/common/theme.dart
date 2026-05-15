@@ -10,7 +10,7 @@ const kGreenAccent = Color(0xFF00C853);
 const kOrange      = Color(0xFFFF6F00);
 const kOrangePale  = Color(0xFFFFF8E1);
 
-const kSurface     = Color(0xFFF7FAF7);
+const kSurface     = Color(0xFFF0F4F0);
 const kCard        = Colors.white;
 const kBorder      = Color(0xFFE0E0E0);
 
@@ -21,17 +21,27 @@ const kTextLight   = Color(0xFF9E9E9E);
 // ── Shadows ───────────────────────────────────────────────────────────────────
 List<BoxShadow> get kCardShadow => [
   BoxShadow(
-    color: Colors.black.withOpacity(0.06),
-    blurRadius: 16,
-    offset: const Offset(0, 4),
+    color: Colors.black.withOpacity(0.10),
+    blurRadius: 20,
+    offset: const Offset(0, 6),
+  ),
+  BoxShadow(
+    color: Colors.black.withOpacity(0.05),
+    blurRadius: 6,
+    offset: const Offset(0, 2),
   ),
 ];
 
 List<BoxShadow> get kElevatedShadow => [
   BoxShadow(
-    color: kGreenMid.withOpacity(0.15),
-    blurRadius: 24,
-    offset: const Offset(0, 8),
+    color: kGreenMid.withOpacity(0.20),
+    blurRadius: 28,
+    offset: const Offset(0, 10),
+  ),
+  BoxShadow(
+    color: Colors.black.withOpacity(0.06),
+    blurRadius: 8,
+    offset: const Offset(0, 3),
   ),
 ];
 
