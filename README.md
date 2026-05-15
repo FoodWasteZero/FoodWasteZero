@@ -66,4 +66,4 @@ Aplikacija je optimizirana za hitro kroženje dveh tipov hrane:
 ---
 
 ## Namestitev (Setup)
-
+firebase: namesti flutterfire CLI in flutterfire configure
