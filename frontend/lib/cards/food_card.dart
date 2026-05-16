@@ -36,7 +36,9 @@ class FoodCard extends StatelessWidget {
             ),
           ],
         ),
+      child: IntrinsicHeight(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Left image block
             ClipRRect(
@@ -45,9 +47,8 @@ class FoodCard extends StatelessWidget {
                 bottomLeft: Radius.circular(16),
               ),
               child: SizedBox(
-                width: 110,
-                height: 130,
-                child: Stack(
+                  width: MediaQuery.of(context).size.width * 0.38,
+                  child: Stack(
                   fit: StackFit.expand,
                   children: [
                     // Background colour fill
@@ -114,7 +115,7 @@ class FoodCard extends StatelessWidget {
                       children: [
                         _StatusChip(status: oglas.status),
                         Container(
-                          width: 30, height: 30,
+                          width: 40, height: 40,
                           decoration: BoxDecoration(
                             color: kGreenMid,
                             borderRadius: kRadius8,
@@ -137,6 +138,7 @@ class FoodCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
