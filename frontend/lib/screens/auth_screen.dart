@@ -28,6 +28,7 @@ class _AuthScreenState extends State<AuthScreen>
   // ── Tab ──────────────────────────────────────────────────────────────────────
   late TabController _tabController;
   bool _isLoading = false;
+  bool _isDismissed = false; 
 
   // ── Login ────────────────────────────────────────────────────────────────────
   final _loginEmailCtrl = TextEditingController();
@@ -79,6 +80,14 @@ class _AuthScreenState extends State<AuthScreen>
       Future.delayed(const Duration(milliseconds: 900), () {
         if (mounted) _animCtrl.forward();
       });
+    });
+
+
+    //t
+    _animCtrl.addStatusListener((status) {
+      if (status == AnimationStatus.dismissed && mounted) {
+        setState(() => _isDismissed = true);
+      }
     });
   }
 
@@ -187,6 +196,11 @@ class _AuthScreenState extends State<AuthScreen>
   Widget build(BuildContext context) {
     final screenH = MediaQuery.of(context).size.height;
 
+    //t
+    if (_isDismissed) {
+      return const HomeScreen();
+    }
+
     return Stack(
       children: [
         // 1. HomeScreen u pozadini (bez interakcije)
@@ -238,116 +252,126 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── Kartica (nije fullscreen) ─────────────────────────────────────────────────
+    // ── Kartica (nije fullscreen) ─────────────────────────────────────────────────
   Widget _buildCard(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.82,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [
-          BoxShadow(color: Color(0x40000000), blurRadius: 48, offset: Offset(0, -8)),
-          BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, -2)),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          const SizedBox(height: 14),
-          Center(
-            child: Container(
-              width: 44, height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E0E0),
-                borderRadius: BorderRadius.circular(100),
+    return GestureDetector(
+      // t
+      // ── drag handle ───────────────────────────────────────────────── 
+      onVerticalDragUpdate: (details) {
+        if (details.primaryDelta! > 6) {
+          _animCtrl.reverse();
+        }
+      },
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.82,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(color: Color(0x40000000), blurRadius: 48, offset: Offset(0, -8)),
+            BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, -2)),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle — now VISUALLY indicates it's draggable too
+            const SizedBox(height: 14),
+            Center(
+              child: Container(
+                width: 44, height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0E0E0),
+                  borderRadius: BorderRadius.circular(100),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Logo + naziv
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(children: [
-              Container(
-                width: 42, height: 42,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1B5E20), Color(0xFF43A047)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+            // Logo + naziv
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(children: [
+                Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1B5E20), Color(0xFF43A047)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2E7D32).withOpacity(0.4),
+                        blurRadius: 14, offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  child: const Icon(Icons.eco_rounded, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('FoodWasteZero',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
+                      color: Color(0xFF1A2E1A), letterSpacing: -0.3)),
+                  Text('Reši hrano. Pomagaj skupnosti.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF78909C))),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 16),
+
+            // Tab bar
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F7F5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                labelColor: Colors.white,
+                unselectedLabelColor: kTextMid,
+                indicator: BoxDecoration(
+                  color: kGreenMid,
+                  borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2E7D32).withOpacity(0.4),
-                      blurRadius: 14, offset: const Offset(0, 5),
+                      color: kGreenMid.withOpacity(0.4),
+                      blurRadius: 10, offset: const Offset(0, 3),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.eco_rounded, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('FoodWasteZero',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A2E1A), letterSpacing: -0.3)),
-                Text('Reši hrano. Pomagaj skupnosti.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF78909C))),
-              ]),
-            ]),
-          ),
-          const SizedBox(height: 16),
-
-          // Tab bar
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F7F5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Colors.white,
-              unselectedLabelColor: kTextMid,
-              indicator: BoxDecoration(
-                color: kGreenMid,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: kGreenMid.withOpacity(0.4),
-                    blurRadius: 10, offset: const Offset(0, 3),
-                  ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                tabs: const [
+                  Tab(text: 'Prijava'),
+                  Tab(text: 'Registracija'),
                 ],
               ),
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.transparent,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-              tabs: const [
-                Tab(text: 'Prijava'),
-                Tab(text: 'Registracija'),
-              ],
             ),
-          ),
-          const SizedBox(height: 4),
+            const SizedBox(height: 4),
 
-          // Tab content
-          Flexible(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildLoginTab(),
-                _buildRegisterTab(),
-              ],
+            // Tab content
+            Flexible(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildLoginTab(),
+                  _buildRegisterTab(),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+  
 
   // ── Login tab ─────────────────────────────────────────────────────────────────
   Widget _buildLoginTab() {
