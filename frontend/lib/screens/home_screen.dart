@@ -402,11 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(children: [
-        if (_isDavatelj)
-          Expanded(child: _QuickAction(
-            icon: Icons.add_circle_rounded, label: 'Dodaj oglas', color: kGreenMid,
-            onTap: _showAddOglas))
-        else
+        
           Expanded(child: _QuickAction(
             icon: Icons.bookmark_outline_rounded, label: 'Shranjeno',
             color: const Color(0xFF5C6BC0), onTap: _showShranjeno)),

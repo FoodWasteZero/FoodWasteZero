@@ -28,7 +28,6 @@ class _AuthScreenState extends State<AuthScreen>
   // ── Tab ──────────────────────────────────────────────────────────────────────
   late TabController _tabController;
   bool _isLoading = false;
-  bool _isDismissed = false; 
 
   // ── Login ────────────────────────────────────────────────────────────────────
   final _loginEmailCtrl = TextEditingController();
@@ -82,13 +81,6 @@ class _AuthScreenState extends State<AuthScreen>
       });
     });
 
-
-    //t
-    _animCtrl.addStatusListener((status) {
-      if (status == AnimationStatus.dismissed && mounted) {
-        setState(() => _isDismissed = true);
-      }
-    });
   }
 
   @override
@@ -196,11 +188,6 @@ class _AuthScreenState extends State<AuthScreen>
   Widget build(BuildContext context) {
     final screenH = MediaQuery.of(context).size.height;
 
-    //t
-    if (_isDismissed) {
-      return const HomeScreen();
-    }
-
     return Stack(
       children: [
         // 1. HomeScreen u pozadini (bez interakcije)
@@ -254,15 +241,7 @@ class _AuthScreenState extends State<AuthScreen>
 
     // ── Kartica (nije fullscreen) ─────────────────────────────────────────────────
   Widget _buildCard(BuildContext context) {
-    return GestureDetector(
-      // t
-      // ── drag handle ───────────────────────────────────────────────── 
-      onVerticalDragUpdate: (details) {
-        if (details.primaryDelta! > 6) {
-          _animCtrl.reverse();
-        }
-      },
-      child: Container(
+    return Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.82,
         ),
@@ -277,7 +256,7 @@ class _AuthScreenState extends State<AuthScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle — now VISUALLY indicates it's draggable too
+            // Drag handle 
             const SizedBox(height: 14),
             Center(
               child: Container(
@@ -368,7 +347,6 @@ class _AuthScreenState extends State<AuthScreen>
             ),
           ],
         ),
-      ),
     );
   }
   

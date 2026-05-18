@@ -233,10 +233,6 @@ class _MojeScreenState extends State<MineScreen> {
                 ],
               ),
 
-              // ── Gumb "Dodaj oglas" ─────────────────────────────────────
-              if (_isDavatelj)
-                SliverToBoxAdapter(child: _buildAddButton()),
-
               // ── Lista ──────────────────────────────────────────────────
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
@@ -324,7 +320,6 @@ class _MojeScreenState extends State<MineScreen> {
               style: TextStyle(
                   color: Colors.white, fontWeight: FontWeight.w800)),
         ),
-        if (_isDavatelj) SliverToBoxAdapter(child: _buildAddButton()),
         SliverFillRemaining(
           child: Center(
             child: Padding(
@@ -344,7 +339,7 @@ class _MojeScreenState extends State<MineScreen> {
                   const SizedBox(height: 8),
                   const Text('Še niste objavili nobenega oglasa.',
                       style: kBody, textAlign: TextAlign.center),
-                  //if (_isDavatelj) ...[
+                  if (_isDavatelj) ...[
                     const SizedBox(height: 28),
                     GestureDetector(
                       onTap: _showAddOglas,
@@ -383,7 +378,7 @@ class _MojeScreenState extends State<MineScreen> {
                       ),
                     ),
                   ],
-                //],
+                ],
               ),
             ),
           ),
