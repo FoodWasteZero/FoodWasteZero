@@ -4,7 +4,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
-import 'screens/auth_screen.dart';
 import 'common/theme.dart';
 
 void main() async {
@@ -75,7 +74,7 @@ class FoodWasteZeroApp extends StatelessWidget {
   }
 }
 
-// ── Auth gate — automatski preusmjerava na login ili home ─────────────────────
+// ── Auth gate — gost može ući odmah, prijavljen ide na HomeScreen ─────────────
 class _AuthGate extends StatelessWidget {
   const _AuthGate();
 
@@ -84,35 +83,43 @@ class _AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Loading
+        // Loading splash
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF2E7D32),
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.eco_rounded, color: Colors.white, size: 56),
-                  SizedBox(height: 16),
-                  Text('FoodWasteZero',
-                    style: TextStyle(color: Colors.white, fontSize: 22,
-                      fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-                  SizedBox(height: 24),
-                  CircularProgressIndicator(color: Colors.white60, strokeWidth: 2),
-                ],
-              ),
-            ),
-          );
+          return const _SplashScreen();
         }
 
-        // Prijavljen → HomeScreen
-        if (snapshot.hasData) {
-          return const HomeScreen();
-        }
-
-        // Ni prijavljen → AuthScreen
-        return const AuthScreen();
+        // Prijavljen ili gost — uvijek na HomeScreen
+        // HomeScreen sam zna je li user null (gost)
+        return const HomeScreen();
       },
+    );
+  }
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF2E7D32),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.eco_rounded, color: Colors.white, size: 56),
+            SizedBox(height: 16),
+            Text('FoodWasteZero',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5)),
+            SizedBox(height: 24),
+            CircularProgressIndicator(color: Colors.white60, strokeWidth: 2),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -65,21 +65,15 @@ class _ProfilePageState extends State<ProfilePage>
   Future<void> _logout() async {
     try {
       await FirebaseAuth.instance.signOut();
-      // FirebaseAuth.instance.currentUser je sad null,
-      // rebuild će otkriti _isGuest==true i prikazati guest view
+      // Nakon odjave, ostanemo na HomeScreen koji sam osvježava stanje
+      // ProfilePage će se prikazati kao Guest view
       if (mounted) setState(() {
         _displayName = '';
         _email = '';
         _userType = 'uporabnik';
         _loadingUser = false;
       });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Napaka pri odjavi: $e'),
-              backgroundColor: Colors.red.shade700));
-      }
-    }
+    } catch (_) {}
   }
 
   @override
@@ -114,85 +108,10 @@ class _ProfilePageState extends State<ProfilePage>
 
   bool get _isGuest => FirebaseAuth.instance.currentUser == null;
 
-  // Pokaže auth popup (dismissible) i ne navigira nikud
-  void _showAuthPopup() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const AuthScreen(isModal: true),
-    );
-  }
-
-  Widget _buildGuestView(BuildContext ctx) {
-    return Scaffold(
-      backgroundColor: kSurface,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 96, height: 96,
-                  decoration: BoxDecoration(
-                    color: kGreenPale,
-                    borderRadius: kRadiusFull,
-                  ),
-                  child: const Icon(Icons.person_outline_rounded,
-                      size: 52, color: kGreenMid),
-                ),
-                const SizedBox(height: 24),
-                const Text('Niste prijavljeni',
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: kTextDark)),
-                const SizedBox(height: 10),
-                const Text(
-                  'Prijavite se ali se registrirajte, da dostopate do profila in svojih oglasov.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _showAuthPopup,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kGreenMid,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: const RoundedRectangleBorder(
-                          borderRadius: kRadius12),
-                    ),
-                    child: const Text('Prijava / Registracija',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: Colors.white)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Prikaži loading samo dok čekamo Firebase odgovor
-    if (_loadingUser) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     // Ako je gost — prikaži guest view s pozivom za prijavo
-    if (_isGuest) {
+    if (_isGuest && !_loadingUser) {
       return _buildGuestView(context);
     }
 

@@ -14,7 +14,6 @@ import '../cards/food_card.dart';
 import '../cards/food_detail_sheet.dart';
 import 'profile_page.dart';
 import 'mine_screen.dart';
-import 'auth_screen.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,16 +168,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _activeFilter = (_activeFilter == f) ? null : f);
   }
 
-  void _showAuthPopup() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const AuthScreen(isModal: true),
-    );
-  }
-
   // ── Navigation ──────────────────────────────────────────────────────────────
   void _goToProfile() => Navigator.push(
     context, MaterialPageRoute(builder: (_) => const ProfilePage()));
@@ -214,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: kSurface,
       body: _buildBody(),
       floatingActionButton: _navIndex == 0
-          ? (FirebaseAuth.instance.currentUser != null && _isDavatelj ? _buildFAB() : null)
+          ? (_isDavatelj ? _buildFAB() : null)
           : null,
       bottomNavigationBar: _buildBottomNav(),
     );
@@ -587,34 +576,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Bottom nav ──────────────────────────────────────────────────────────────
   Widget _buildBottomNav() {
-    final isGuest = FirebaseAuth.instance.currentUser == null;
     return Container(
       decoration: BoxDecoration(color: Colors.white, boxShadow: [
         BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 30, offset: const Offset(0, -6)),
       ]),
       child: NavigationBar(
         selectedIndex: _navIndex,
-        onDestinationSelected: (i) {
-          // Gost može slobodno gledat Domov i Zemljevid,
-          // ali za Moje i Profil/Prijava → otvori auth popup
-          if (isGuest && (i == 2 || i == 3)) {
-            _showAuthPopup();
-            return;
-          }
-          setState(() => _navIndex = i);
-        },
+        onDestinationSelected: (i) => setState(() => _navIndex = i),
         backgroundColor: Colors.transparent, elevation: 0,
         indicatorColor: kGreenPale,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: [
-          const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: kGreenMid), label: 'Domov'),
-          const NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map_rounded, color: kGreenMid), label: 'Zemljevid'),
-          const NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid), label: 'Moje'),
-          NavigationDestination(
-            icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded),
-            selectedIcon: Icon(isGuest ? Icons.login_rounded : Icons.person_rounded, color: kGreenMid),
-            label: isGuest ? 'Prijava' : 'Profil',
-          ),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: kGreenMid), label: 'Domov'),
+          NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map_rounded, color: kGreenMid), label: 'Zemljevid'),
+          NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid), label: 'Moje'),
+          NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded, color: kGreenMid), label: 'Profil'),
         ],
       ),
     );

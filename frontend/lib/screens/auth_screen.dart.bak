@@ -6,8 +6,7 @@ import '../common/theme.dart';
 import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
-  final bool isModal;
-  const AuthScreen({super.key, this.isModal = false});
+  const AuthScreen({super.key});
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -116,8 +115,6 @@ class _AuthScreenState extends State<AuthScreen>
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email, password: pass);
-      // Ako je modal bottom sheet — zatvori ga
-      if (mounted && widget.isModal) Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
       _showError(_authError(e.code));
     } finally {
@@ -162,8 +159,6 @@ class _AuthScreenState extends State<AuthScreen>
         });
 
       await cred.user!.updateDisplayName(name);
-      // Ako je modal bottom sheet — zatvori ga
-      if (mounted && widget.isModal) Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
       _showError(_authError(e.code));
     } finally {
@@ -186,11 +181,6 @@ class _AuthScreenState extends State<AuthScreen>
   // ── BUILD ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Kad je modal (bottom sheet) — samo kartica, bez background HomeScreen
-    if (widget.isModal) {
-      return _buildCard(context);
-    }
-
     final screenH = MediaQuery.of(context).size.height;
 
     return Stack(
@@ -480,17 +470,17 @@ class _AuthScreenState extends State<AuthScreen>
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: _UserTypeCard(
-              icon: Icons.person_rounded,
-              title: 'Uporabnik',
+              icon: Icons.search_rounded,
+              title: 'Iščem hrano',
               subtitle: 'Pregledavam in rezerviram oglase',
               selected: _userType == 'uporabnik',
               onTap: () => setState(() => _userType = 'uporabnik'),
             )),
             const SizedBox(width: 12),
             Expanded(child: _UserTypeCard(
-              icon: Icons.store_rounded,
-              title: 'Organizacija',
-              subtitle: 'Restavracija ali podjetje z odvečno hrano',
+              icon: Icons.volunteer_activism_rounded,
+              title: 'Dajem hrano',
+              subtitle: 'Objavljam oglase z odvečno hrano',
               selected: _userType == 'davatelj',
               onTap: () => setState(() => _userType = 'davatelj'),
             )),
