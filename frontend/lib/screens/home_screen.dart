@@ -15,6 +15,7 @@ import '../cards/food_detail_sheet.dart';
 import 'profile_page.dart';
 import 'mine_screen.dart';
 import 'auth_screen.dart';
+import 'ai_chef_page.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -223,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBody() {
     switch (_navIndex) {
       case 0: return _buildHomeWithStream();
-      case 1: return _buildPlaceholder(Icons.map_outlined, 'Zemljevid', 'Interaktivni zemljevid prihaja kmalu.');
+      case 1: return const AIChefPage();
       case 2: return const MineScreen();
       case 3: return const ProfilePage();
       default: return _buildHomeWithStream();
@@ -608,7 +609,7 @@ class _HomeScreenState extends State<HomeScreen> {
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
           const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: kGreenMid), label: 'Domov'),
-          const NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map_rounded, color: kGreenMid), label: 'Zemljevid'),
+          const NavigationDestination(icon: Icon(Icons.restaurant_rounded), selectedIcon: Icon(Icons.restaurant_rounded, color: kGreenMid), label: 'AI Chef'),
           const NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid), label: 'Moje'),
           NavigationDestination(
             icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded),
