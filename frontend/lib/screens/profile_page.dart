@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,11 +24,30 @@ class _ProfilePageState extends State<ProfilePage>
   String _userType = 'uporabnik';
   bool _loadingUser = true;
 
+  StreamSubscription<User?>? _authSub;
+
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
     _loadUserData();
+    // Kad se korisnik prijavi kroz popup — odmah rebuild profila
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (!mounted) return;
+      if (user != null) {
+        // Upravo se prijavio — učitaj podatke
+        setState(() => _loadingUser = true);
+        _loadUserData();
+      } else {
+        // Upravo se odjavio — resetuj
+        setState(() {
+          _displayName = '';
+          _email = '';
+          _userType = 'uporabnik';
+          _loadingUser = false;
+        });
+      }
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -84,6 +104,7 @@ class _ProfilePageState extends State<ProfilePage>
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _tabCtrl.dispose();
     super.dispose();
   }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../common/theme.dart';
 import '../models/models.dart';
@@ -57,13 +58,18 @@ class FoodDetailSheet extends StatelessWidget {
                   // ── Image / icon header
                   Container(
                     width: double.infinity,
-                    height: 140,
+                    height: 200,
                     color: oglas.imageColor,
                     child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        Center(
-                          child: Icon(oglas.icon, size: 64, color: kGreenMid.withOpacity(0.45)),
-                        ),
+                        // Base64 slika iz Firestora (brez Firebase Storage!)
+                        if (oglas.imageBase64 != null)
+                          _buildBase64Image(oglas.imageBase64!)
+                        else
+                          Center(
+                            child: Icon(oglas.icon, size: 64, color: kGreenMid.withOpacity(0.45)),
+                          ),
                         if (oglas.isExpiringSoon)
                           Positioned(
                             top: 12, left: 16,
@@ -225,6 +231,17 @@ class _Badge extends StatelessWidget {
     decoration: BoxDecoration(color: color, borderRadius: kRadiusFull),
     child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
   );
+}
+
+
+// ── Base64 image helper ───────────────────────────────────────────────────────
+Widget _buildBase64Image(String base64) {
+  try {
+    final bytes = base64Decode(base64);
+    return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+  } catch (_) {
+    return const SizedBox.shrink();
+  }
 }
 
 class _InfoChip extends StatelessWidget {

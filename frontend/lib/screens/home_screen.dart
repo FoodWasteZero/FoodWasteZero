@@ -4,6 +4,7 @@
 // – Funkcionalni filteri: Na voljo / Kmalu poteče / Rezervirano / Najbližje
 // – Stats kartice se računaju iz live podataka
 
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -104,9 +105,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
   int _navIndex = 0;
   String _searchQuery = '';
-  // Posebni filter: null = brez, 'available', 'expiring', 'reserved', 'nearest'
   String? _activeFilter;
   final TextEditingController _searchCtrl = TextEditingController();
+
+  // Sluša promjene auth stanja (login/logout) i rebuilda UI
+  StreamSubscription<User?>? _authSub;
 
   static const _tabs = ['Vse', 'Kuhano', 'Sestavine', 'Peka', 'Sadje & zelenjava'];
 
@@ -114,6 +117,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserType();
+    // Kad se korisnik prijavi ili odjavi — rebuild + reload user type
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (!mounted) return;
+      if (user == null) {
+        // Odjava — resetuj stanje, vrati na Domov tab
+        setState(() {
+          _isDavatelj = false;
+          _navIndex = 0;
+        });
+      } else {
+        // Prijava — učitaj userType iz Firestorea
+        _loadUserType();
+      }
+    });
   }
 
   Future<void> _loadUserType() async {
@@ -127,7 +144,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  void dispose() { _searchCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _authSub?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   // ── Filtriranje ─────────────────────────────────────────────────────────────
   List<FoodOglas> _applyFilters(List<FoodOglas> all) {

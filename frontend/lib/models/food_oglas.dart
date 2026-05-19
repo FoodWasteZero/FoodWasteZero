@@ -20,12 +20,14 @@ class FoodOglas {
   final OglasStatus status;
   final String? username;
   final Color imageColor;
-  final String category;   // 'Kuhano' | 'Sestavine' | 'Peka' | 'Sadje & zelenjava'
+  final String category;
   final bool isFree;
   final bool isExpiringSoon;
   final double distanceKm;
   final IconData icon;
   final LatLng? latLng;
+  // Slika shranjena kot base64 direktno v Firestore — brez Firebase Storage!
+  final String? imageBase64;
 
   const FoodOglas({
     required this.id,
@@ -42,6 +44,7 @@ class FoodOglas {
     this.distanceKm = 1.2,
     required this.icon,
     this.latLng,
+    this.imageBase64,
   });
 }
 
