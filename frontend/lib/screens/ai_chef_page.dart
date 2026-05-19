@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,11 +18,21 @@ class _AIChefPageState extends State<AIChefPage> {
   List<String> _selectedIngredients = [];
   String? _recipeSuggestions;
   bool _isLoading = false;
+  StreamSubscription<User?>? _authSub;
 
   @override
   void initState() {
     super.initState();
     _geminiService = GeminiService();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   List<String> _extractIngredientsFromDocs(List<DocumentSnapshot> docs) {

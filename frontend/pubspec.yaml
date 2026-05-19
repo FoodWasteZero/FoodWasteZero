@@ -18,12 +18,14 @@ dependencies:
   firebase_auth: ^5.0.0
   cloud_firestore: ^5.0.0
 
-   # Slike & Storage
+  # Slike — firebase_storage UKLONJEN, image_picker ostaje
   image_picker: ^1.1.2
-  firebase_storage: ^12.0.0
 
   # AI & API
   google_generative_ai: ^0.4.0
+
+  # Zemljevid
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

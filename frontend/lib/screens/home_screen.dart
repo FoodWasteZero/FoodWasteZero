@@ -4,6 +4,7 @@
 // – Funkcionalni filteri: Na voljo / Kmalu poteče / Rezervirano / Najbližje
 // – Stats kartice se računaju iz live podataka
 
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,7 +21,7 @@ import 'ai_chef_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Firestore doc → FoodOglas
-// ─────────────────────────────────────────────────────────────────────────────
+
 FoodOglas _docToOglas(DocumentSnapshot doc) {
   final d = doc.data() as Map<String, dynamic>;
   final statusStr = d['status'] as String? ?? 'naRazpolago';
@@ -29,7 +30,7 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
       : statusStr == 'prevzeto'
           ? OglasStatus.prevzeto
           : OglasStatus.naRazpolago;
-
+ 
   final category = d['category'] as String? ?? 'Sestavine';
   final IconData icon;
   final Color color;
@@ -40,11 +41,12 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
       icon = Icons.bakery_dining_rounded; color = const Color(0xFFEFEBE9); break;
     case 'Sadje & zelenjava':
       icon = Icons.apple_rounded; color = const Color(0xFFE8F5E9); break;
+    case 'Ostalo':
+      icon = Icons.more_horiz_rounded; color = const Color(0xFFE8EAF6); break;
     default:
       icon = Icons.grass_rounded; color = const Color(0xFFF1F8E9);
   }
-
-  // Izračunaj distanceKm iz koordinata (Maribor center kao referenca)
+ 
   double distKm = 1.0;
   final lat = (d['lat'] as num?)?.toDouble();
   final lng = (d['lng'] as num?)?.toDouble();
@@ -54,15 +56,17 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     final dLng = (lng - refLng) * 111.0 * cos(refLat * pi / 180);
     distKm = sqrt(dLat * dLat + dLng * dLng);
   }
-
-  // Kmalu poteče — ako je dodano unutar zadnjeg sata ili je oznaka postavljena
-  bool expiringSoon = d['expiringSoon'] as bool? ?? false;
+ 
   final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
-  if (createdAt != null) {
-    final age = DateTime.now().difference(createdAt);
-    if (age.inMinutes < 60) expiringSoon = true;
+  final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
+ 
+  // "Kmalu poteče" = rok uporabe je jutri ali prej
+  bool expiringSoon = d['expiringSoon'] as bool? ?? false;
+  if (expiryDate != null) {
+    final hoursLeft = expiryDate.difference(DateTime.now()).inHours;
+    if (hoursLeft <= 24 && hoursLeft >= 0) expiringSoon = true;
   }
-
+ 
   return FoodOglas(
     id: doc.id,
     title: d['title'] as String? ?? '',
@@ -78,8 +82,12 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     distanceKm: distKm,
     icon: icon,
     latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
+    imageBase64: d['imageBase64'] as String?,       // ← DODANO prej
+    reservedByUid: d['reservedByUid'] as String?,   // ← NOVO
+    expiryDate: expiryDate,                          // ← NOVO
   );
 }
+
 
 String _timeAgo(DateTime? dt) {
   if (dt == null) return 'Pravkar';
@@ -104,9 +112,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
   int _navIndex = 0;
   String _searchQuery = '';
-  // Posebni filter: null = brez, 'available', 'expiring', 'reserved', 'nearest'
   String? _activeFilter;
   final TextEditingController _searchCtrl = TextEditingController();
+
+  // Sluša promjene auth stanja (login/logout) i rebuilda UI
+  StreamSubscription<User?>? _authSub;
 
   static const _tabs = ['Vse', 'Kuhano', 'Sestavine', 'Peka', 'Sadje & zelenjava'];
 
@@ -114,6 +124,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserType();
+    // Kad se korisnik prijavi ili odjavi — rebuild + reload user type
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (!mounted) return;
+      if (user == null) {
+        // Odjava — resetuj stanje, vrati na Domov tab
+        setState(() {
+          _isDavatelj = false;
+          _navIndex = 0;
+        });
+      } else {
+        // Prijava — učitaj userType iz Firestorea
+        _loadUserType();
+      }
+    });
   }
 
   Future<void> _loadUserType() async {
@@ -127,7 +151,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  void dispose() { _searchCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _authSub?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   // ── Filtriranje ─────────────────────────────────────────────────────────────
   List<FoodOglas> _applyFilters(List<FoodOglas> all) {
