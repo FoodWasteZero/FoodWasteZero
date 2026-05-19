@@ -26,6 +26,8 @@ dependencies:
 
   # Zemljevid
   url_launcher: ^6.3.0
+  http: ^1.6.0
+  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -34,3 +36,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - .env

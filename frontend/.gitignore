@@ -59,3 +59,5 @@ macos/Runner/GoogleService-Info.plist
 .firebase/
 firebase.log
 .vscode/
+
+.env

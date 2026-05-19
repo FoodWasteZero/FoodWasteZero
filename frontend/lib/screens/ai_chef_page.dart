@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../common/theme.dart';
 import '../models/models.dart';
-import '../services/gemini_service.dart';
+import '../services/deepseek_service.dart'; // <--- Uvožen nov servis
 
 class AIChefPage extends StatefulWidget {
   const AIChefPage({super.key});
@@ -14,7 +14,7 @@ class AIChefPage extends StatefulWidget {
 }
 
 class _AIChefPageState extends State<AIChefPage> {
-  late GeminiService _geminiService;
+  late DeepSeekService _deepseekService; // <--- Spremenjeno iz GeminiService
   List<String> _selectedIngredients = [];
   String? _recipeSuggestions;
   bool _isLoading = false;
@@ -23,7 +23,7 @@ class _AIChefPageState extends State<AIChefPage> {
   @override
   void initState() {
     super.initState();
-    _geminiService = GeminiService();
+    _deepseekService = DeepSeekService(); // <--- Inicializacija DeepSeek servisa
     _authSub = FirebaseAuth.instance.authStateChanges().listen((_) {
       if (mounted) setState(() {});
     });
@@ -72,7 +72,8 @@ class _AIChefPageState extends State<AIChefPage> {
 
     setState(() => _isLoading = true);
     try {
-      final suggestions = await _geminiService.generateRecipeSuggestions(_selectedIngredients);
+      // Klic posodobljenega servisa, ki uporablja OpenRouter in DeepSeek
+      final suggestions = await _deepseekService.generateRecipeSuggestions(_selectedIngredients);
       setState(() => _recipeSuggestions = suggestions);
     } catch (e) {
       if (mounted) {
@@ -121,7 +122,7 @@ class _AIChefPageState extends State<AIChefPage> {
     return Scaffold(
       backgroundColor: kSurface,
       appBar: AppBar(
-        title: const Text('AI Chef 👨‍🍳', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        title: const Text('Recepti', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         backgroundColor: Colors.white,
         foregroundColor: kTextDark,
         elevation: 0,
