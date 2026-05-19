@@ -21,7 +21,7 @@ import 'ai_chef_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Firestore doc → FoodOglas
-// ─────────────────────────────────────────────────────────────────────────────
+
 FoodOglas _docToOglas(DocumentSnapshot doc) {
   final d = doc.data() as Map<String, dynamic>;
   final statusStr = d['status'] as String? ?? 'naRazpolago';
@@ -30,7 +30,7 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
       : statusStr == 'prevzeto'
           ? OglasStatus.prevzeto
           : OglasStatus.naRazpolago;
-
+ 
   final category = d['category'] as String? ?? 'Sestavine';
   final IconData icon;
   final Color color;
@@ -41,11 +41,12 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
       icon = Icons.bakery_dining_rounded; color = const Color(0xFFEFEBE9); break;
     case 'Sadje & zelenjava':
       icon = Icons.apple_rounded; color = const Color(0xFFE8F5E9); break;
+    case 'Ostalo':
+      icon = Icons.more_horiz_rounded; color = const Color(0xFFE8EAF6); break;
     default:
       icon = Icons.grass_rounded; color = const Color(0xFFF1F8E9);
   }
-
-  // Izračunaj distanceKm iz koordinata (Maribor center kao referenca)
+ 
   double distKm = 1.0;
   final lat = (d['lat'] as num?)?.toDouble();
   final lng = (d['lng'] as num?)?.toDouble();
@@ -55,15 +56,17 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     final dLng = (lng - refLng) * 111.0 * cos(refLat * pi / 180);
     distKm = sqrt(dLat * dLat + dLng * dLng);
   }
-
-  // Kmalu poteče — ako je dodano unutar zadnjeg sata ili je oznaka postavljena
-  bool expiringSoon = d['expiringSoon'] as bool? ?? false;
+ 
   final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
-  if (createdAt != null) {
-    final age = DateTime.now().difference(createdAt);
-    if (age.inMinutes < 60) expiringSoon = true;
+  final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
+ 
+  // "Kmalu poteče" = rok uporabe je jutri ali prej
+  bool expiringSoon = d['expiringSoon'] as bool? ?? false;
+  if (expiryDate != null) {
+    final hoursLeft = expiryDate.difference(DateTime.now()).inHours;
+    if (hoursLeft <= 24 && hoursLeft >= 0) expiringSoon = true;
   }
-
+ 
   return FoodOglas(
     id: doc.id,
     title: d['title'] as String? ?? '',
@@ -79,8 +82,12 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     distanceKm: distKm,
     icon: icon,
     latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
+    imageBase64: d['imageBase64'] as String?,       // ← DODANO prej
+    reservedByUid: d['reservedByUid'] as String?,   // ← NOVO
+    expiryDate: expiryDate,                          // ← NOVO
   );
 }
+
 
 String _timeAgo(DateTime? dt) {
   if (dt == null) return 'Pravkar';

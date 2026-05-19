@@ -28,6 +28,9 @@ class FoodOglas {
   final LatLng? latLng;
   // Slika shranjena kot base64 direktno v Firestore — brez Firebase Storage!
   final String? imageBase64;
+  final String? reservedByUid;   //  uid uporabnika ki je rezerviral
+  final DateTime? expiryDate;    //  rok uporabe
+
 
   const FoodOglas({
     required this.id,
@@ -45,6 +48,8 @@ class FoodOglas {
     required this.icon,
     this.latLng,
     this.imageBase64,
+    this.reservedByUid,
+    this.expiryDate,
   });
 }
 

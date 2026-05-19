@@ -64,11 +64,13 @@ FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
     distKm = sqrt(dLat * dLat + dLng * dLng);
   }
 
+   final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
+  final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
+
   bool expiringSoon = d['expiringSoon'] as bool? ?? false;
-  final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
-  if (createdAt != null &&
-      DateTime.now().difference(createdAt).inMinutes < 60) {
-    expiringSoon = true;
+  if (expiryDate != null) {
+    final hoursLeft = expiryDate.difference(DateTime.now()).inHours;
+    if (hoursLeft <= 24 && hoursLeft >= 0) expiringSoon = true;
   }
 
   return FoodOglas(
@@ -87,6 +89,8 @@ FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
     icon: icon,
     latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
     imageBase64: d['imageBase64'] as String?,  // ← base64 iz Firestora
+    reservedByUid: d['reservedByUid'] as String?, 
+    expiryDate: expiryDate,  
   );
 }
 
