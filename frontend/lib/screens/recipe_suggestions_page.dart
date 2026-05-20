@@ -27,7 +27,7 @@ class RecipeSuggestionsPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: kSurface,
       appBar: AppBar(
-        title: const Text('Predlogi receptov', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        title: const Text('Predlogi receptov', style: TextStyle(fontWeight: FontWeight.w800, fontSize: kFontLarge)),
         backgroundColor: Colors.white,
         foregroundColor: kTextDark,
         elevation: 0,
@@ -43,7 +43,7 @@ class RecipeSuggestionsPage extends StatelessWidget {
                 children: ingredients.map((i) => Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadiusFull),
-                  child: Text(i, style: const TextStyle(color: kGreenMid, fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(i, style: const TextStyle(color: kGreenMid, fontSize: kFontSmall, fontWeight: FontWeight.w600)),
                 )).toList(),
               ),
             ),
@@ -72,7 +72,7 @@ class RecipeSuggestionsPage extends StatelessWidget {
                       Text(r['name'] as String, style: kBodyBold),
                       const SizedBox(height: 4),
                       Row(children: [
-                        const Icon(Icons.access_time, size: 12, color: kTextLight),
+                        const Icon(Icons.access_time, size: kFontSmall, color: kTextLight),
                         const SizedBox(width: 4),
                         Text(r['time'] as String, style: kCaption),
                       ]),

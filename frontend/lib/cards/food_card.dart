@@ -101,7 +101,7 @@ class FoodCard extends StatelessWidget {
                         ),
                         child: Text(oglas.category,
                             style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: kGreenMid)),
                       ),
@@ -186,7 +186,7 @@ class _InfoRow extends StatelessWidget {
         const SizedBox(width: 4),
         Flexible(
           child: Text(text,
-              style: kCaption.copyWith(fontSize: 11),
+              style: kCaption.copyWith(fontSize: 13),
               overflow: TextOverflow.ellipsis),
         ),
       ],
@@ -212,7 +212,7 @@ class _StatusChip extends StatelessWidget {
         statusLabel(status),
         style: TextStyle(
           color: color,
-          fontSize: 9,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
         ),
@@ -236,7 +236,7 @@ class _PillBadge extends StatelessWidget {
       child: Text(label,
           style: const TextStyle(
               color: Colors.white,
-              fontSize: 8,
+              fontSize: 12,
               fontWeight: FontWeight.w700)),
     );
   }

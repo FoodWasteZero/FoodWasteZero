@@ -276,7 +276,7 @@ class FoodDetailSheet extends StatelessWidget {
                               color: kGreenPale, borderRadius: kRadiusFull),
                           child: Text(oglas.category,
                               style: const TextStyle(
-                                  fontSize: 11, fontWeight: FontWeight.w600, color: kGreenMid)),
+                                  fontSize: 13, fontWeight: FontWeight.w600, color: kGreenMid)),
                         ),
                         const SizedBox(height: 8),
                         Text(oglas.title,
@@ -519,7 +519,7 @@ class _StatusBadge extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.4)),
       ),
       child: Text(statusLabel(status),
-          style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -534,7 +534,7 @@ class _Badge extends StatelessWidget {
         decoration: BoxDecoration(color: color, borderRadius: kRadiusFull),
         child: Text(label,
             style: const TextStyle(
-                color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
       );
 }
 
@@ -558,7 +558,7 @@ class _InfoBox extends StatelessWidget {
           Expanded(
             child: Text(text,
                 style: TextStyle(
-                    fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+                    fontSize: 14, color: color, fontWeight: FontWeight.w500)),
           ),
         ]),
       );
@@ -583,7 +583,7 @@ class _InfoChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(label,
               style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   color: color ?? kTextMid,
                   fontWeight: FontWeight.w500)),
         ]),

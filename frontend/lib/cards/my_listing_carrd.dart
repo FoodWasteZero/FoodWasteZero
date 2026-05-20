@@ -77,7 +77,7 @@ class MyListingCard extends StatelessWidget {
                           Text(
                             oglas.location,
                             style: const TextStyle(
-                                fontSize: 11, color: kTextLight),
+                                fontSize: 14, color: kTextLight),
                           ),
                         ],
                       ),
@@ -160,7 +160,7 @@ class MyListingCard extends StatelessWidget {
           Text(
             isExp ? 'Potekajoč' : 'Aktiven',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               color: isExp ? kOrange : kGreenMid,
             ),
@@ -180,7 +180,7 @@ class MyListingCard extends StatelessWidget {
       child: Text(
         oglas.isFree ? 'BREZPLAČNO' : 'PLAČLJIVO',
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 14,
           fontWeight: FontWeight.w800,
           color: oglas.isFree ? kGreenMid : kTextMid,
         ),
@@ -200,7 +200,7 @@ class MyListingCard extends StatelessWidget {
         Text(
           oglas.time,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 13,
             color: oglas.isExpiringSoon ? kOrange : kTextLight,
             fontWeight: oglas.isExpiringSoon
                 ? FontWeight.w600
@@ -219,13 +219,13 @@ class MyListingCard extends StatelessWidget {
         Text(
           count,
           style: const TextStyle(
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               color: kTextMid),
         ),
         const SizedBox(width: 2),
         Text(label,
-            style: const TextStyle(fontSize: 10, color: kTextLight)),
+            style: const TextStyle(fontSize: 14, color: kTextLight)),
       ],
     );
   }

@@ -45,29 +45,49 @@ List<BoxShadow> get kElevatedShadow => [
   ),
 ];
 
+// ── Standard font sizes ───────────────────────────────────────────────────────
+const double kFontXSmall  = 12.0;
+const double kFontSmall   = 14.0;
+const double kFontBase    = 16.0;
+const double kFontMedium  = 18.0;
+const double kFontLarge   = 20.0;
+const double kFontXLarge  = 24.0;
+const double kFont2XLarge = 28.0;
+const double kFont3XLarge = 32.0;
+
 // ── Text styles ───────────────────────────────────────────────────────────────
 const kHeading1 = TextStyle(
-  fontSize: 28, fontWeight: FontWeight.w900,
+  fontSize: kFont3XLarge, fontWeight: FontWeight.w900,
   color: kTextDark, letterSpacing: -0.5,
 );
 const kHeading2 = TextStyle(
-  fontSize: 20, fontWeight: FontWeight.w800,
+  fontSize: kFontXLarge, fontWeight: FontWeight.w800,
   color: kTextDark,
 );
 const kHeading3 = TextStyle(
-  fontSize: 16, fontWeight: FontWeight.w700,
+  fontSize: kFontMedium, fontWeight: FontWeight.w700,
   color: kTextDark,
 );
 const kBody = TextStyle(
-  fontSize: 14, fontWeight: FontWeight.w400,
+  fontSize: kFontBase, fontWeight: FontWeight.w400,
   color: kTextMid,
 );
 const kBodyBold = TextStyle(
-  fontSize: 14, fontWeight: FontWeight.w600,
+  fontSize: kFontBase, fontWeight: FontWeight.w600,
   color: kTextDark,
 );
 const kCaption = TextStyle(
-  fontSize: 12, fontWeight: FontWeight.w400,
+  fontSize: kFontSmall, fontWeight: FontWeight.w400,
+  color: kTextLight,
+);
+
+// ── Additional semantic text styles ───────────────────────────────────────────
+const kButtonText = TextStyle(
+  fontSize: kFontBase, fontWeight: FontWeight.w700,
+  color: Colors.white,
+);
+const kSmallCaption = TextStyle(
+  fontSize: kFontXSmall, fontWeight: FontWeight.w400,
   color: kTextLight,
 );
 

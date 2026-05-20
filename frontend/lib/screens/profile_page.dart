@@ -485,7 +485,7 @@ class _OglasListCard extends StatelessWidget {
                 maxLines: 1, overflow: TextOverflow.ellipsis)),
           ]),
           const SizedBox(height: 2),
-          Text(timeStr, style: kCaption.copyWith(fontSize: 11)),
+          Text(timeStr, style: kCaption.copyWith(fontSize: 14)),
         ])),
         const SizedBox(width: 8),
         Container(
@@ -496,7 +496,7 @@ class _OglasListCard extends StatelessWidget {
             border: Border.all(color: color.withOpacity(0.3)),
           ),
           child: Text(statusLabel(status),
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
         ),
       ]),
     );

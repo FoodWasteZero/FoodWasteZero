@@ -10,7 +10,7 @@ import '../cards/food_detail_sheet.dart';
 import 'profile_page.dart';
 import 'mine_screen.dart';
 import 'auth_screen.dart';
-import 'ai_chef_page.dart';
+import 'recipe_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Firestore doc → FoodOglas
@@ -193,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Text(m,
                       style: const TextStyle(
-                          fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
+                          fontSize: 14, color: kGreenMid, fontWeight: FontWeight.w600)),
                 ),
               ),
           ]),
@@ -293,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBody() {
     switch (_navIndex) {
       case 0: return _buildHomeWithStream();
-      case 1: return const AIChefPage();
+      case 1: return const RecipePage();
       case 2: return const MineScreen();
       case 3: return const ProfilePage();
       default: return _buildHomeWithStream();
@@ -334,7 +334,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return CustomScrollView(slivers: [
       _buildSliverAppBar(),
       SliverToBoxAdapter(child: _buildSearchBar()),
-      SliverToBoxAdapter(child: _buildStatsRow(availableCount, expiringCount, reservedCount)),
       SliverToBoxAdapter(child: _buildQuickActionsRow()),
       SliverToBoxAdapter(child: _buildHeatmapSection()),
       SliverToBoxAdapter(child: _buildListingsHeader(filtered.length)),
@@ -360,7 +359,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return CustomScrollView(slivers: [
       _buildOrgSliverAppBar(),
       SliverToBoxAdapter(child: _buildSearchBar()),
-      SliverToBoxAdapter(child: _buildOrgStatsRow(available, expiring, reserved)),
       SliverToBoxAdapter(child: _buildOrgQuickActions()),
       SliverToBoxAdapter(child: _buildListingsHeader(filtered.length)),
       SliverToBoxAdapter(child: _buildTabRow()),
@@ -406,17 +404,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Icon(Icons.store_rounded, size: 13, color: kGreenMid),
                     const SizedBox(width: 5),
                     Text('Organizacija', style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w700, color: kGreenMid)),
+                      fontSize: 14, fontWeight: FontWeight.w700, color: kGreenMid)),
                   ]),
                 ),
               ]),
               const SizedBox(height: 6),
-              const Text('Dobrodošli nazaj 👋',
+              const Text('Dobrodošli nazaj',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
                   color: kTextDark, letterSpacing: -0.5)),
               const SizedBox(height: 2),
               const Text('Upravljajte vaše oglase in doseg.',
-                style: TextStyle(fontSize: 12, color: kTextMid)),
+                style: TextStyle(fontSize: 14, color: kTextMid)),
             ]),
           )),
         ),
@@ -459,12 +457,8 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
             child: Column(mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start, children: const [
-              Text('Hrana blizu tebe 🌿',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
-                    color: Colors.white, letterSpacing: -0.5)),
-              SizedBox(height: 3),
               Text('Reši hrano. Pomagaj skupnosti.',
-                style: TextStyle(fontSize: 12, color: Colors.white70)),
+                style: TextStyle(fontSize: 15, color: Colors.white70)),
             ]),
           )),
         ),
@@ -494,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 3),
               Text(_mesto,
                 style: const TextStyle(
-                    fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                    fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
               const SizedBox(width: 2),
               const Icon(Icons.keyboard_arrow_down_rounded,
                   size: 13, color: Colors.white70),
@@ -548,37 +542,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  Widget _buildStatsRow(int available, int expiring, int reserved) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(children: [
-        Expanded(child: GestureDetector(
-          onTap: () => _setFilter('available'),
-          child: _StatCard(
-            icon: Icons.eco_rounded, value: '$available', label: 'Na voljo',
-            iconColor: kGreenLight, bgColor: kGreenPale,
-            active: _activeFilter == 'available',
-          ))),
-        const SizedBox(width: 10),
-        Expanded(child: GestureDetector(
-          onTap: () => _setFilter('expiring'),
-          child: _StatCard(
-            icon: Icons.bolt_rounded, value: '$expiring', label: 'Kmalu poteče',
-            iconColor: kOrange, bgColor: kOrangePale,
-            active: _activeFilter == 'expiring',
-          ))),
-        const SizedBox(width: 10),
-        Expanded(child: GestureDetector(
-          onTap: () => _setFilter('reserved'),
-          child: _StatCard(
-            icon: Icons.queue_rounded, value: '$reserved', label: 'V čakalni vrsti',
-            iconColor: const Color(0xFF5C6BC0), bgColor: const Color(0xFFE8EAF6),
-            active: _activeFilter == 'reserved',
-          ))),
-      ]),
-    );
-  }
 
   // ── Quick actions — BEZ Shranjeno ──────────────────────────────────────────
   Widget _buildQuickActionsRow() {
@@ -659,7 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(children: [
                     Text(_filterLabel(_activeFilter!),
                       style: const TextStyle(
-                          color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                          color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                     const SizedBox(width: 3),
                     const Icon(Icons.close, color: Colors.white, size: 10),
                   ]),
@@ -670,7 +633,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 2),
           Text('$count rezultatov najdenih',
             style: kCaption.copyWith(
-                color: kGreenMid, fontWeight: FontWeight.w600, fontSize: 11)),
+                color: kGreenMid, fontWeight: FontWeight.w600, fontSize: 14)),
         ]),
         const Spacer(),
         GestureDetector(
@@ -735,7 +698,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             blurRadius: 8, offset: const Offset(0, 2))],
                 ),
                 child: Text(_tabs[i], style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   color: active ? Colors.white : kTextMid,
                 )),
@@ -895,7 +858,7 @@ class _QuickAction extends StatelessWidget {
               borderRadius: kRadius8),
             child: Icon(icon, color: active ? Colors.white : color, size: 18)),
           const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+          Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
             color: active ? Colors.white : color),
             textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
         ]),
@@ -965,7 +928,7 @@ class _OrgStatCard extends StatelessWidget {
           Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
             color: active ? Colors.white : color)),
           Text(label, style: kCaption.copyWith(
-            fontSize: 10, color: active ? Colors.white70 : color.withOpacity(0.8)),
+            fontSize: 14, color: active ? Colors.white70 : color.withOpacity(0.8)),
             overflow: TextOverflow.ellipsis),
         ])),
       ]),
@@ -997,7 +960,7 @@ class _OrgQuickAction extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, color: active ? Colors.white : color, size: 22),
           const SizedBox(height: 5),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+          Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
             color: active ? Colors.white : color),
             textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
         ]),
@@ -1034,7 +997,7 @@ class _StatCard extends StatelessWidget {
           Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
             color: active ? Colors.white : iconColor)),
           Text(label, style: kCaption.copyWith(
-            fontSize: 10, color: active ? Colors.white70 : null),
+            fontSize: 14, color: active ? Colors.white70 : null),
             overflow: TextOverflow.ellipsis),
         ])),
       ]),
@@ -1088,7 +1051,7 @@ class HeatmapPreviewCard extends StatelessWidget {
           Row(children: [
             Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: kGreenAccent, borderRadius: kRadiusFull),
-              child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 9,
+              child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 14,
                 fontWeight: FontWeight.w800, letterSpacing: 1.2))),
             const SizedBox(width: 8),
             const Flexible(child: Text('Toplotna karta hrane',
@@ -1101,7 +1064,7 @@ class HeatmapPreviewCard extends StatelessWidget {
             builder: (_, snap) {
               final count = snap.data?.docs.length ?? kSampleOglasi.length;
               return Text('$count aktivnih oglasov',
-                style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12));
+                style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 14));
             },
           ),
         ])),
@@ -1206,7 +1169,7 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> with SingleTickerProv
                   child: Row(children: [
                     const Icon(Icons.circle, color: Colors.white, size: 8), const SizedBox(width: 4),
                     Text('$count aktivnih', style: const TextStyle(
-                        color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                        color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                   ]));
               },
             ),
@@ -1225,7 +1188,7 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> with SingleTickerProv
               Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadiusFull),
                 child: const Text('Maribor', style: TextStyle(
-                    color: kGreenMid, fontSize: 12, fontWeight: FontWeight.w700))),
+                    color: kGreenMid, fontSize: 14, fontWeight: FontWeight.w700))),
             ]),
             const SizedBox(height: 14),
             Row(children: [

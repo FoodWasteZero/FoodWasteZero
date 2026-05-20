@@ -290,7 +290,7 @@ class _MojeScreenState extends State<MineScreen> {
                         foregroundColor: kGreenMid,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                         shape: RoundedRectangleBorder(borderRadius: kRadius8),
                       ),
                     ),
@@ -654,7 +654,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
             ),
             Text(
               _step == 0 ? 'Izberi kategorijo' : 'Izpolni podatke',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ]),
         ]),
@@ -744,7 +744,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                     const SizedBox(width: 6),
                     Text(_selectedCategory!,
                         style: const TextStyle(
-                            fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w700)),
+                            fontSize: 14, color: kGreenMid, fontWeight: FontWeight.w700)),
                   ]),
                 ),
 
@@ -823,7 +823,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                             ? 'Rok: ${_formatDate(_expiryDate!)}'
                             : 'Izberite datum roka uporabe...',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: _expiryDate != null ? FontWeight.w600 : FontWeight.w400,
                           color: _expiryDate != null ? kTextDark : kTextLight,
                         ),
@@ -849,7 +849,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               Padding(
                 padding: const EdgeInsets.only(top: 6, left: 2),
                 child: Text('Vnesite ulico in kraj prevzema.',
-                    style: kCaption.copyWith(color: kTextLight, fontSize: 11)),
+                    style: kCaption.copyWith(color: kTextLight, fontSize: 13)),
               ),
               const SizedBox(height: 24),
 
@@ -930,7 +930,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
         const Text('Dodajte fotografijo',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kGreenMid)),
         const SizedBox(height: 4),
-        Text('Tapnite za izbiro iz galerije', style: kCaption.copyWith(fontSize: 11)),
+        Text('Kliknite za izbiro iz galerije', style: kCaption.copyWith(fontSize: 13)),
       ],
     );
   }
@@ -946,7 +946,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           Icon(Icons.edit_rounded, color: Colors.white, size: 13),
           SizedBox(width: 4),
           Text('Zamenjaj',
-              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
         ]),
       ),
     ),
