@@ -1,7 +1,3 @@
-// lib/screens/mine_screen.dart
-// Slike se shranjujejo kot base64 direktno v Firestore.
-// Brez Firebase Storage — deluje na brezplačnem Spark planu!
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -33,38 +29,28 @@ FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
   final Color color;
   switch (category) {
     case 'Kuhano':
-      icon = Icons.soup_kitchen_rounded;
-      color = const Color(0xFFFFE0B2);
-      break;
+      icon = Icons.soup_kitchen_rounded; color = const Color(0xFFFFE0B2); break;
     case 'Peka':
-      icon = Icons.bakery_dining_rounded;
-      color = const Color(0xFFEFEBE9);
-      break;
+      icon = Icons.bakery_dining_rounded; color = const Color(0xFFEFEBE9); break;
     case 'Sadje & zelenjava':
-      icon = Icons.apple_rounded;
-      color = const Color(0xFFE8F5E9);
-      break;
+      icon = Icons.apple_rounded; color = const Color(0xFFE8F5E9); break;
     case 'Ostalo':
-      icon = Icons.more_horiz_rounded;
-      color = const Color(0xFFE8EAF6);
-      break;
+      icon = Icons.more_horiz_rounded; color = const Color(0xFFE8EAF6); break;
     default:
-      icon = Icons.grass_rounded;
-      color = const Color(0xFFF1F8E9);
+      icon = Icons.grass_rounded; color = const Color(0xFFF1F8E9);
   }
 
   double distKm = 1.0;
   final lat = (d['lat'] as num?)?.toDouble();
   final lng = (d['lng'] as num?)?.toDouble();
   if (lat != null && lng != null) {
-    const refLat = 46.5547;
-    const refLng = 15.6459;
+    const refLat = 46.5547; const refLng = 15.6459;
     final dLat = (lat - refLat) * 111.0;
     final dLng = (lng - refLng) * 111.0 * cos(refLat * pi / 180);
     distKm = sqrt(dLat * dLat + dLng * dLng);
   }
 
-   final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
+  final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
   final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
 
   bool expiringSoon = d['expiringSoon'] as bool? ?? false;
@@ -72,6 +58,11 @@ FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
     final hoursLeft = expiryDate.difference(DateTime.now()).inHours;
     if (hoursLeft <= 24 && hoursLeft >= 0) expiringSoon = true;
   }
+
+  final waitlistRaw = d['waitlist'];
+  final waitlist = (waitlistRaw is List)
+      ? waitlistRaw.map((e) => e.toString()).toList()
+      : <String>[];
 
   return FoodOglas(
     id: doc.id,
@@ -88,9 +79,10 @@ FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
     distanceKm: distKm,
     icon: icon,
     latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
-    imageBase64: d['imageBase64'] as String?,  // ← base64 iz Firestora
-    reservedByUid: d['reservedByUid'] as String?, 
-    expiryDate: expiryDate,  
+    imageBase64: d['imageBase64'] as String?,
+    reservedByUid: d['reservedByUid'] as String?,
+    expiryDate: expiryDate,
+    waitlist: waitlist,
   );
 }
 
@@ -103,8 +95,7 @@ String _timeAgoMoje(DateTime? dt) {
   return 'Pred ${diff.inDays} dni';
 }
 
-String _formatDate(DateTime dt) =>
-    '${dt.day}. ${dt.month}. ${dt.year}';
+String _formatDate(DateTime dt) => '${dt.day}. ${dt.month}. ${dt.year}';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MineScreen
@@ -124,7 +115,6 @@ class _MojeScreenState extends State<MineScreen> {
   void initState() {
     super.initState();
     _loadUserType();
-    // Kad se korisnik prijavi/odjavi — rebuild
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
       if (user != null) {
@@ -135,6 +125,7 @@ class _MojeScreenState extends State<MineScreen> {
     });
   }
 
+  // FIX: sad pravilno provjerava userType vrijednost
   Future<void> _loadUserType() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -143,7 +134,7 @@ class _MojeScreenState extends State<MineScreen> {
         .doc(user.uid)
         .get();
     if (doc.exists && mounted) {
-      setState(() => _isDavatelj = true);
+      setState(() => _isDavatelj = doc.data()?['userType'] == 'davatelj');
     }
   }
 
@@ -177,8 +168,7 @@ class _MojeScreenState extends State<MineScreen> {
         initialDesc: d['description'] as String? ?? '',
         initialCategory: d['category'] as String? ?? 'Sestavine',
         initialLocation: d['location'] as String? ?? '',
-        initialIsFree: d['isFree'] as bool? ?? true,
-        initialImageBase64: d['imageBase64'] as String?,  // ← base64
+        initialImageBase64: d['imageBase64'] as String?,
         initialExpiryDate: (d['expiryDate'] as Timestamp?)?.toDate(),
         onSaved: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -197,41 +187,30 @@ class _MojeScreenState extends State<MineScreen> {
         shape: RoundedRectangleBorder(borderRadius: kRadius12),
         title: const Text('Izbriši oglas', style: kHeading2),
         content: const Text(
-          'Ali ste prepričani, da želite izbrisati ta oglas? Tega dejanja ni mogoče razveljaviti.',
+          'Ali ste prepričani, da želite izbrisati ta oglas?',
           style: kBody,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Prekliči',
-                style: TextStyle(
-                    color: kTextLight, fontWeight: FontWeight.w600)),
+            child: const Text('Prekliči', style: TextStyle(color: kTextLight, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              elevation: 0,
+              backgroundColor: Colors.red, elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: kRadius8),
             ),
-            child: const Text('Izbriši',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700)),
+            child: const Text('Izbriši', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
     );
     if (confirmed == true && mounted) {
-      await FirebaseFirestore.instance
-          .collection('oglasi')
-          .doc(docId)
-          .delete();
+      await FirebaseFirestore.instance.collection('oglasi').doc(docId).delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Oglas je bil izbrisan.'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Oglas je bil izbrisan.'), backgroundColor: Colors.red),
         );
       }
     }
@@ -252,20 +231,16 @@ class _MojeScreenState extends State<MineScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                        color: kGreenPale, shape: BoxShape.circle),
-                    child: const Icon(Icons.lock_outline_rounded,
-                        size: 40, color: kGreenMid),
+                    width: 80, height: 80,
+                    decoration: BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
+                    child: const Icon(Icons.lock_outline_rounded, size: 40, color: kGreenMid),
                   ),
                   const SizedBox(height: 20),
                   const Text('Niste prijavljeni', style: kHeading2),
                   const SizedBox(height: 8),
                   const Text(
                     'Za ogled in dodajanje oglasov\nse prijavite v račun.',
-                    style: kBody,
-                    textAlign: TextAlign.center,
+                    style: kBody, textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -285,8 +260,7 @@ class _MojeScreenState extends State<MineScreen> {
             .snapshots(),
         builder: (context, snap) {
           if (!snap.hasData) {
-            return const Center(
-                child: CircularProgressIndicator(color: kGreenMid));
+            return const Center(child: CircularProgressIndicator(color: kGreenMid));
           }
 
           final docs = snap.data!.docs;
@@ -301,32 +275,26 @@ class _MojeScreenState extends State<MineScreen> {
               SliverAppBar(
                 pinned: true,
                 backgroundColor: const Color(0xFF2E7D32),
-                title: const Text(
-                  'Moji oglasi',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w800),
-                ),
+                title: const Text('Moje objave',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
                 actions: [
-                  if (_isDavatelj)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: ElevatedButton.icon(
-                        onPressed: _showAddOglas,
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Dodaj'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: kGreenMid,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          textStyle: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: kRadius8),
-                        ),
+                  // Svi mogu dodavati
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: ElevatedButton.icon(
+                      onPressed: _showAddOglas,
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Dodaj'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: kGreenMid,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                        shape: RoundedRectangleBorder(borderRadius: kRadius8),
                       ),
                     ),
+                  ),
                 ],
               ),
               SliverPadding(
@@ -335,8 +303,7 @@ class _MojeScreenState extends State<MineScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (_, i) => _OglasCard(
                       oglas: moji[i],
-                      onTap: () =>
-                          FoodDetailSheet.show(context, moji[i]),
+                      onTap: () => FoodDetailSheet.show(context, moji[i]),
                       onEdit: () => _showEditOglas(docs[i]),
                       onDelete: () => _deleteOglas(docs[i].id),
                     ),
@@ -357,9 +324,8 @@ class _MojeScreenState extends State<MineScreen> {
         SliverAppBar(
           pinned: true,
           backgroundColor: const Color(0xFF2E7D32),
-          title: const Text('Moji oglasi',
-              style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w800)),
+          title: const Text('Moje objave',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
         ),
         SliverFillRemaining(
           child: Center(
@@ -370,55 +336,41 @@ class _MojeScreenState extends State<MineScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                        color: kGreenPale, shape: BoxShape.circle),
-                    child: const Icon(Icons.inbox_outlined,
-                        size: 48, color: kGreenMid),
+                    decoration: BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
+                    child: const Icon(Icons.inbox_outlined, size: 48, color: kGreenMid),
                   ),
                   const SizedBox(height: 18),
-                  const Text('Moji oglasi', style: kHeading2),
+                  const Text('Moje objave', style: kHeading2),
                   const SizedBox(height: 8),
                   const Text('Še niste objavili nobenega oglasa.',
                       style: kBody, textAlign: TextAlign.center),
-                  if (_isDavatelj) ...[
-                    const SizedBox(height: 28),
-                    GestureDetector(
-                      onTap: _showAddOglas,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 28, vertical: 14),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
-                          ),
-                          borderRadius: kRadiusFull,
-                          boxShadow: [
-                            BoxShadow(
-                              color: kGreenMid.withOpacity(0.3),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
+                  const SizedBox(height: 28),
+                  GestureDetector(
+                    onTap: _showAddOglas,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add_rounded,
-                                color: Colors.white, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Dodaj prvi oglas',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
+                        borderRadius: kRadiusFull,
+                        boxShadow: [
+                          BoxShadow(color: kGreenMid.withOpacity(0.3),
+                              blurRadius: 16, offset: const Offset(0, 6)),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text('Dodaj prvi oglas',
+                              style: TextStyle(color: Colors.white,
+                                  fontWeight: FontWeight.w800, fontSize: 15)),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -453,22 +405,13 @@ class _OglasCard extends StatelessWidget {
         children: [
           FoodCard(oglas: oglas, onTap: onTap),
           Positioned(
-            top: 8,
-            right: 8,
+            top: 8, right: 8,
             child: Row(children: [
-              _ActionChip(
-                icon: Icons.edit_rounded,
-                color: kGreenMid,
-                onTap: onEdit,
-                tooltip: 'Uredi',
-              ),
+              _ActionChip(icon: Icons.edit_rounded, color: kGreenMid,
+                  onTap: onEdit, tooltip: 'Uredi'),
               const SizedBox(width: 6),
-              _ActionChip(
-                icon: Icons.delete_outline_rounded,
-                color: Colors.red,
-                onTap: onDelete,
-                tooltip: 'Izbriši',
-              ),
+              _ActionChip(icon: Icons.delete_outline_rounded, color: Colors.red,
+                  onTap: onDelete, tooltip: 'Izbriši'),
             ]),
           ),
         ],
@@ -483,12 +426,8 @@ class _ActionChip extends StatelessWidget {
   final VoidCallback onTap;
   final String tooltip;
 
-  const _ActionChip({
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    required this.tooltip,
-  });
+  const _ActionChip({required this.icon, required this.color,
+      required this.onTap, required this.tooltip});
 
   @override
   Widget build(BuildContext context) {
@@ -497,17 +436,11 @@ class _ActionChip extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 32,
-          height: 32,
+          width: 32, height: 32,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: kRadius8,
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2)),
-            ],
+            color: Colors.white, borderRadius: kRadius8,
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12),
+                blurRadius: 8, offset: const Offset(0, 2))],
           ),
           child: Icon(icon, color: color, size: 16),
         ),
@@ -517,7 +450,7 @@ class _ActionChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AddOglasSheet — slike shranjujemo kot base64 v Firestore (brez Storage!)
+// AddOglasSheet — BEZ isFree togglea, z vsemi kategorijami
 // ─────────────────────────────────────────────────────────────────────────────
 class AddOglasSheet extends StatefulWidget {
   final VoidCallback? onSaved;
@@ -526,8 +459,7 @@ class AddOglasSheet extends StatefulWidget {
   final String? initialDesc;
   final String? initialCategory;
   final String? initialLocation;
-  final bool? initialIsFree;
-  final String? initialImageBase64;   // ← base64 namesto URL
+  final String? initialImageBase64;
   final DateTime? initialExpiryDate;
 
   const AddOglasSheet({
@@ -538,7 +470,6 @@ class AddOglasSheet extends StatefulWidget {
     this.initialDesc,
     this.initialCategory,
     this.initialLocation,
-    this.initialIsFree,
     this.initialImageBase64,
     this.initialExpiryDate,
   });
@@ -551,30 +482,25 @@ class AddOglasSheet extends StatefulWidget {
 
 class _AddOglasSheetState extends State<AddOglasSheet> {
   int _step = 0;
-  String? _selectedCategory;  // null = ništa nije odabrano
+  String? _selectedCategory;
   bool _loading = false;
 
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _locationCtrl;
-  late bool _isFree;
   bool _titleError = false;
 
-  // ── Slika ─────────────────────────────────────────────────────────────────
-  Uint8List? _pickedBytes;    // bajti slike za prikaz (web-compatible)
-  String? _existingBase64;    // obstoječ base64 (pri urejanju)
-
+  Uint8List? _pickedBytes;
+  String? _existingBase64;
   DateTime? _expiryDate;
 
   @override
   void initState() {
     super.initState();
-    // Kategorija: postavi samo pri urejanju, sicer null (korisnik mora odabrati)
     _selectedCategory = widget.initialCategory;
     _titleCtrl = TextEditingController(text: widget.initialTitle ?? '');
     _descCtrl = TextEditingController(text: widget.initialDesc ?? '');
     _locationCtrl = TextEditingController(text: widget.initialLocation ?? '');
-    _isFree = widget.initialIsFree ?? true;
     _existingBase64 = widget.initialImageBase64;
     _expiryDate = widget.initialExpiryDate;
     if (widget.isEditing) _step = 1;
@@ -588,22 +514,19 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     super.dispose();
   }
 
-  // ── Izbira slike iz galerije ───────────────────────────────────────────────
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 60,   // kompresija — manjša slika = manjši base64
-      maxWidth: 800,      // max širina 800px je dovolj za prikaz
+      imageQuality: 60,
+      maxWidth: 800,
     );
     if (picked != null && mounted) {
-      // readAsBytes() radi na webu i mobilno (za razliku od File())
       final bytes = await picked.readAsBytes();
       setState(() => _pickedBytes = bytes);
     }
   }
 
-  // ── Pretvori sliko v base64 ────────────────────────────────────────────────
   Future<String?> _encodeImageToBase64() async {
     if (_pickedBytes == null) return _existingBase64;
     try {
@@ -636,21 +559,16 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     }
   }
 
-  // ── Shrani oglas ──────────────────────────────────────────────────────────
   Future<void> _save() async {
     if (_titleCtrl.text.trim().isEmpty) {
       setState(() => _titleError = true);
       return;
     }
-    setState(() {
-      _titleError = false;
-      _loading = true;
-    });
+    setState(() { _titleError = false; _loading = true; });
 
     final user = FirebaseAuth.instance.currentUser;
 
     try {
-      // Pretvori sliko v base64 (ali ohrani obstoječ)
       final imageBase64 = await _encodeImageToBase64();
 
       if (widget.isEditing) {
@@ -662,7 +580,6 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           'description': _descCtrl.text.trim(),
           'category': _selectedCategory ?? 'Ostalo',
           'location': _locationCtrl.text.trim(),
-          'isFree': _isFree,
           'updatedAt': FieldValue.serverTimestamp(),
           if (imageBase64 != null) 'imageBase64': imageBase64,
           'expiryDate': _expiryDate != null
@@ -676,17 +593,15 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           'description': _descCtrl.text.trim(),
           'category': _selectedCategory ?? 'Ostalo',
           'location': _locationCtrl.text.trim(),
-          'isFree': _isFree,
+          'isFree': true, // default
           'status': 'naRazpolago',
           'uid': user?.uid,
-          'username': user?.displayName != null
-              ? '@${user!.displayName}'
-              : null,
+          'username': user?.displayName != null ? '@${user!.displayName}' : null,
           'createdAt': FieldValue.serverTimestamp(),
           'expiringSoon': false,
+          'waitlist': [], // NOVO: inicijalna prazna lista
           if (imageBase64 != null) 'imageBase64': imageBase64,
-          if (_expiryDate != null)
-            'expiryDate': Timestamp.fromDate(_expiryDate!),
+          if (_expiryDate != null) 'expiryDate': Timestamp.fromDate(_expiryDate!),
         });
       }
 
@@ -696,8 +611,8 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Napaka: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Napaka: $e')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -722,17 +637,12 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
         ),
         title: Row(children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 32, height: 32,
             decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: kRadius8),
+                color: Colors.white.withOpacity(0.2), borderRadius: kRadius8),
             child: Icon(
-              widget.isEditing
-                  ? Icons.edit_rounded
-                  : Icons.add_circle_outline_rounded,
-              color: Colors.white,
-              size: 18,
+              widget.isEditing ? Icons.edit_rounded : Icons.add_circle_outline_rounded,
+              color: Colors.white, size: 18,
             ),
           ),
           const SizedBox(width: 10),
@@ -740,16 +650,11 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
             Text(
               widget.isEditing ? 'Uredi oglas' : 'Dodaj oglas',
               style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16),
+                  color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
             ),
             Text(
               _step == 0 ? 'Izberi kategorijo' : 'Izpolni podatke',
-              style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ]),
         ]),
@@ -760,94 +665,96 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-            // ── Korak 0: kategorija ────────────────────────────────────
+            // ── Korak 0: Kategorija ──────────────────────────────────────
             if (_step == 0) ...[
               const SizedBox(height: 4),
               _OglasCategory(
-                icon: Icons.soup_kitchen_rounded,
-                label: 'Kuhano',
+                icon: Icons.soup_kitchen_rounded, label: 'Kuhano',
                 sub: 'Pripravljeni obroki, juhe, enolončnice...',
-                color: kOrange,
-                bgColor: kOrangePale,
-                selected: _selectedCategory != null && _selectedCategory == 'Kuhano',
+                color: kOrange, bgColor: kOrangePale,
+                selected: _selectedCategory == 'Kuhano',
                 onTap: () => setState(() { _selectedCategory = 'Kuhano'; _step = 1; }),
               ),
               const SizedBox(height: 10),
               _OglasCategory(
-                icon: Icons.grass_rounded,
-                label: 'Sestavine',
+                icon: Icons.grass_rounded, label: 'Sestavine',
                 sub: 'Sadje, zelenjava, moka, jajca...',
-                color: kGreenLight,
-                bgColor: kGreenPale,
-                selected: _selectedCategory != null && _selectedCategory == 'Sestavine',
+                color: kGreenLight, bgColor: kGreenPale,
+                selected: _selectedCategory == 'Sestavine',
                 onTap: () => setState(() { _selectedCategory = 'Sestavine'; _step = 1; }),
               ),
               const SizedBox(height: 10),
               _OglasCategory(
-                icon: Icons.bakery_dining_rounded,
-                label: 'Peka',
+                icon: Icons.bakery_dining_rounded, label: 'Peka',
                 sub: 'Kruh, kolači, pecivo...',
-                color: const Color(0xFF8D6E63),
-                bgColor: const Color(0xFFEFEBE9),
-                selected: _selectedCategory != null && _selectedCategory == 'Peka',
+                color: const Color(0xFF8D6E63), bgColor: const Color(0xFFEFEBE9),
+                selected: _selectedCategory == 'Peka',
                 onTap: () => setState(() { _selectedCategory = 'Peka'; _step = 1; }),
               ),
               const SizedBox(height: 10),
               _OglasCategory(
-                icon: Icons.apple_rounded,
-                label: 'Sadje & zelenjava',
+                icon: Icons.apple_rounded, label: 'Sadje & zelenjava',
                 sub: 'Sveže iz vrta ali kmetije...',
-                color: const Color(0xFF00897B),
-                bgColor: const Color(0xFFE0F2F1),
-                selected: _selectedCategory != null && _selectedCategory == 'Sadje & zelenjava',
+                color: const Color(0xFF00897B), bgColor: const Color(0xFFE0F2F1),
+                selected: _selectedCategory == 'Sadje & zelenjava',
                 onTap: () => setState(() { _selectedCategory = 'Sadje & zelenjava'; _step = 1; }),
               ),
               const SizedBox(height: 10),
+              // Ostalo je zdaj vedno vidno
               _OglasCategory(
-                icon: Icons.more_horiz_rounded,
-                label: 'Ostalo',
+                icon: Icons.more_horiz_rounded, label: 'Ostalo',
                 sub: 'Vse, kar ne spada v zgornje kategorije...',
-                color: const Color(0xFF5C6BC0),
-                bgColor: const Color(0xFFE8EAF6),
-                selected: _selectedCategory != null && _selectedCategory == 'Ostalo',
+                color: const Color(0xFF5C6BC0), bgColor: const Color(0xFFE8EAF6),
+                selected: _selectedCategory == 'Ostalo',
                 onTap: () => setState(() { _selectedCategory = 'Ostalo'; _step = 1; }),
               ),
             ],
 
-            // ── Korak 1: detalji ───────────────────────────────────────
+            // ── Korak 1: Detalji ─────────────────────────────────────────
             if (_step == 1) ...[
               // Back gumb
               if (!widget.isEditing)
                 GestureDetector(
                   onTap: () => setState(() => _step = 0),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                        color: kGreenPale, borderRadius: kRadius8),
+                    decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius8),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.arrow_back_rounded,
-                          color: kGreenMid, size: 16),
+                      const Icon(Icons.arrow_back_rounded, color: kGreenMid, size: 16),
                       const SizedBox(width: 6),
                       Text('Nazaj na kategorije',
                           style: kCaption.copyWith(
-                              color: kGreenMid,
-                              fontWeight: FontWeight.w600)),
+                              color: kGreenMid, fontWeight: FontWeight.w600)),
                     ]),
                   ),
                 ),
 
-              // ── Slika ────────────────────────────────────────────────
-              const _SectionLabel(
-                  icon: Icons.image_rounded,
-                  label: 'Fotografija (neobvezno)'),
+              // Izbrana kategorija chip
+              if (_selectedCategory != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: kGreenPale, borderRadius: kRadiusFull,
+                    border: Border.all(color: kGreenMid.withOpacity(0.3)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.label_rounded, color: kGreenMid, size: 14),
+                    const SizedBox(width: 6),
+                    Text(_selectedCategory!,
+                        style: const TextStyle(
+                            fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+
+              // Slika
+              const _SectionLabel(icon: Icons.image_rounded, label: 'Fotografija (neobvezno)'),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
-                  height: 160,
-                  width: double.infinity,
+                  height: 160, width: double.infinity,
                   clipBehavior: Clip.hardEdge,
                   decoration: BoxDecoration(
                     color: const Color(0xFFF5F7F5),
@@ -859,7 +766,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               ),
               const SizedBox(height: 16),
 
-              // ── Naziv ────────────────────────────────────────────────
+              // Naziv
               _OglasFormField(
                 ctrl: _titleCtrl,
                 label: 'Naziv oglasa',
@@ -874,18 +781,15 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 2),
                   child: Row(children: [
-                    const Icon(Icons.error_outline_rounded,
-                        color: Colors.red, size: 14),
+                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
                     const SizedBox(width: 4),
                     Text('Naziv oglasa je obvezen.',
-                        style: kCaption.copyWith(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w600)),
+                        style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
                   ]),
                 ),
               const SizedBox(height: 12),
 
-              // ── Opis ─────────────────────────────────────────────────
+              // Opis
               _OglasFormField(
                 ctrl: _descCtrl,
                 label: 'Opis (neobvezno)',
@@ -895,30 +799,23 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               ),
               const SizedBox(height: 16),
 
-              // ── Rok uporabe ──────────────────────────────────────────
+              // Rok uporabe
               const _SectionLabel(
-                  icon: Icons.calendar_today_rounded,
-                  label: 'Rok uporabe (neobvezno)'),
+                  icon: Icons.calendar_today_rounded, label: 'Rok uporabe (neobvezno)'),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _pickDate,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 13),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                   decoration: BoxDecoration(
-                    color: _expiryDate != null
-                        ? kGreenPale
-                        : const Color(0xFFF5F7F5),
+                    color: _expiryDate != null ? kGreenPale : const Color(0xFFF5F7F5),
                     borderRadius: kRadius12,
                     border: Border.all(
-                        color: _expiryDate != null
-                            ? kGreenMid.withOpacity(0.4)
-                            : kBorder),
+                        color: _expiryDate != null ? kGreenMid.withOpacity(0.4) : kBorder),
                   ),
                   child: Row(children: [
                     Icon(Icons.event_rounded,
-                        color: _expiryDate != null ? kGreenMid : kTextLight,
-                        size: 18),
+                        color: _expiryDate != null ? kGreenMid : kTextLight, size: 18),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -927,9 +824,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                             : 'Izberite datum roka uporabe...',
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: _expiryDate != null
-                              ? FontWeight.w600
-                              : FontWeight.w400,
+                          fontWeight: _expiryDate != null ? FontWeight.w600 : FontWeight.w400,
                           color: _expiryDate != null ? kTextDark : kTextLight,
                         ),
                       ),
@@ -937,15 +832,14 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                     if (_expiryDate != null)
                       GestureDetector(
                         onTap: () => setState(() => _expiryDate = null),
-                        child: const Icon(Icons.close_rounded,
-                            color: kTextLight, size: 16),
+                        child: const Icon(Icons.close_rounded, color: kTextLight, size: 16),
                       ),
                   ]),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // ── Naslov prevzema ──────────────────────────────────────
+              // Lokacija
               _OglasFormField(
                 ctrl: _locationCtrl,
                 label: 'Naslov prevzema',
@@ -954,92 +848,35 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 6, left: 2),
-                child: Text(
-                  'Vnesite ulico in kraj prevzema.',
-                  style: kCaption.copyWith(color: kTextLight, fontSize: 11),
-                ),
+                child: Text('Vnesite ulico in kraj prevzema.',
+                    style: kCaption.copyWith(color: kTextLight, fontSize: 11)),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // ── Brezplačno toggle ────────────────────────────────────
-              GestureDetector(
-                onTap: () => setState(() => _isFree = !_isFree),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _isFree ? kGreenPale : kOrangePale,
-                    borderRadius: kRadius12,
-                    border: Border.all(
-                        color: (_isFree ? kGreenMid : kOrange).withOpacity(0.3)),
-                  ),
-                  child: Row(children: [
-                    Icon(
-                        _isFree
-                            ? Icons.volunteer_activism_rounded
-                            : Icons.attach_money_rounded,
-                        color: _isFree ? kGreenMid : kOrange,
-                        size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text(
-                            _isFree ? 'Brezplačno' : 'Simbolična cena',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: _isFree ? kGreenMid : kOrange)),
-                        Text(
-                            _isFree ? 'Hrana je brezplačna' : 'Cena po dogovoru',
-                            style: kCaption),
-                      ]),
-                    ),
-                    Switch(
-                      value: _isFree,
-                      onChanged: (v) => setState(() => _isFree = v),
-                      activeColor: kGreenMid,
-                    ),
-                  ]),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Submit ────────────────────────────────────────────────
+              // Submit gumb
               SizedBox(
-                width: double.infinity,
-                height: 50,
+                width: double.infinity, height: 50,
                 child: ElevatedButton(
                   onPressed: _loading ? null : _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: kGreenMid,
-                    elevation: 0,
-                    shape: const RoundedRectangleBorder(
-                        borderRadius: kRadius12),
+                    backgroundColor: kGreenMid, elevation: 0,
+                    shape: const RoundedRectangleBorder(borderRadius: kRadius12),
                   ),
                   child: _loading
-                      ? const SizedBox(
-                          width: 20, height: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(width: 20, height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              widget.isEditing
-                                  ? Icons.save_rounded
-                                  : Icons.check_circle_rounded,
+                              widget.isEditing ? Icons.save_rounded : Icons.check_circle_rounded,
                               color: Colors.white, size: 18,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              widget.isEditing
-                                  ? 'Shrani spremembe'
-                                  : 'Objavi oglas',
+                              widget.isEditing ? 'Shrani spremembe' : 'Objavi oglas',
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15),
+                                  color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
                             ),
                           ],
                         ),
@@ -1052,9 +889,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     );
   }
 
-  // ── Prikaz slike ──────────────────────────────────────────────────────────
   Widget _buildImagePreview() {
-    // 1. Nova izbrana slika (bajti — web-compatible)
     if (_pickedBytes != null) {
       return Stack(fit: StackFit.expand, children: [
         Image.memory(_pickedBytes!, fit: BoxFit.cover),
@@ -1064,10 +899,8 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
             onTap: () => setState(() => _pickedBytes = null),
             child: Container(
               padding: const EdgeInsets.all(6),
-              decoration:
-                  BoxDecoration(color: Colors.red, borderRadius: kRadius8),
-              child: const Icon(Icons.close_rounded,
-                  color: Colors.white, size: 14),
+              decoration: BoxDecoration(color: Colors.red, borderRadius: kRadius8),
+              child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
             ),
           ),
         ),
@@ -1075,7 +908,6 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
       ]);
     }
 
-    // 2. Obstoječa slika iz Firestora (base64)
     if (_existingBase64 != null) {
       try {
         final bytes = base64Decode(_existingBase64!);
@@ -1083,59 +915,45 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           Image.memory(bytes, fit: BoxFit.cover),
           _replaceImageBtn(),
         ]);
-      } catch (_) {
-        // base64 decode fail — prikaži placeholder
-      }
+      } catch (_) {}
     }
 
-    // 3. Prazen placeholder
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
           width: 52, height: 52,
           decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius12),
-          child: const Icon(Icons.add_photo_alternate_rounded,
-              color: kGreenMid, size: 26),
+          child: const Icon(Icons.add_photo_alternate_rounded, color: kGreenMid, size: 26),
         ),
         const SizedBox(height: 10),
         const Text('Dodajte fotografijo',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: kGreenMid)),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kGreenMid)),
         const SizedBox(height: 4),
-        Text('Tapnite za izbiro iz galerije',
-            style: kCaption.copyWith(fontSize: 11)),
+        Text('Tapnite za izbiro iz galerije', style: kCaption.copyWith(fontSize: 11)),
       ],
     );
   }
 
   Widget _replaceImageBtn() => Positioned(
-        bottom: 8, left: 8,
-        child: GestureDetector(
-          onTap: _pickImage,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration:
-                BoxDecoration(color: Colors.black54, borderRadius: kRadius8),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.edit_rounded, color: Colors.white, size: 13),
-              SizedBox(width: 4),
-              Text('Zamenjaj',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ),
-      );
+    bottom: 8, left: 8,
+    child: GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: Colors.black54, borderRadius: kRadius8),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.edit_rounded, color: Colors.white, size: 13),
+          SizedBox(width: 4),
+          Text('Zamenjaj',
+              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+        ]),
+      ),
+    ),
+  );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper widgeti
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Helper widgets ────────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
   final IconData icon;
@@ -1150,10 +968,7 @@ class _SectionLabel extends StatelessWidget {
         Icon(icon, color: kGreenMid, size: 16),
         const SizedBox(width: 6),
         Text(label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: kTextDark)),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kTextDark)),
       ]),
     );
   }
@@ -1184,19 +999,14 @@ class _OglasFormField extends StatelessWidget {
         Icon(icon, color: kGreenMid, size: 16),
         const SizedBox(width: 6),
         Text(label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: kTextDark)),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kTextDark)),
       ]),
       const SizedBox(height: 6),
       Container(
         decoration: BoxDecoration(
           color: const Color(0xFFF5F7F5),
           borderRadius: kRadius12,
-          border: Border.all(
-              color: hasError ? Colors.red : kBorder,
-              width: hasError ? 1.5 : 1),
+          border: Border.all(color: hasError ? Colors.red : kBorder, width: hasError ? 1.5 : 1),
         ),
         child: TextField(
           controller: ctrl,
@@ -1206,8 +1016,7 @@ class _OglasFormField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: kCaption.copyWith(fontSize: 13),
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: InputBorder.none,
           ),
         ),
@@ -1247,30 +1056,21 @@ class _OglasCategory extends StatelessWidget {
               color: selected ? color : color.withOpacity(0.25),
               width: selected ? 2 : 1),
           boxShadow: [
-            BoxShadow(
-                color: color.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 3))
+            BoxShadow(color: color.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 3))
           ],
         ),
         child: Row(children: [
           Container(
             width: 44, height: 44,
-            decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: kRadius12),
+            decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: kRadius12),
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-              Text(label, style: kBodyBold),
-              const SizedBox(height: 2),
-              Text(sub, style: kCaption),
-            ]),
-          ),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: kBodyBold),
+            const SizedBox(height: 2),
+            Text(sub, style: kCaption),
+          ])),
           Icon(Icons.chevron_right_rounded, color: color, size: 22),
         ]),
       ),

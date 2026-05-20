@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 
-// ── Food listing status ───────────────────────────────────────────────────────
 enum OglasStatus { naRazpolago, rezervirano, prevzeto }
 
-// ── LatLng helper ─────────────────────────────────────────────────────────────
 class LatLng {
   final double lat;
   final double lng;
   const LatLng(this.lat, this.lng);
 }
 
-// ── Food listing model ────────────────────────────────────────────────────────
 class FoodOglas {
   final String id;
   final String title;
@@ -26,11 +23,10 @@ class FoodOglas {
   final double distanceKm;
   final IconData icon;
   final LatLng? latLng;
-  // Slika shranjena kot base64 direktno v Firestore — brez Firebase Storage!
   final String? imageBase64;
-  final String? reservedByUid;   //  uid uporabnika ki je rezerviral
-  final DateTime? expiryDate;    //  rok uporabe
-
+  final String? reservedByUid;
+  final DateTime? expiryDate;
+  final List<String> waitlist; // NOVO
 
   const FoodOglas({
     required this.id,
@@ -50,15 +46,15 @@ class FoodOglas {
     this.imageBase64,
     this.reservedByUid,
     this.expiryDate,
+    this.waitlist = const [],
   });
 }
 
-// ── Sample listings ───────────────────────────────────────────────────────────
 final List<FoodOglas> kSampleOglasi = [
   const FoodOglas(
     id: '1',
     title: 'Domača jabolka z vrta (cca 5 kg)',
-    description: 'Sveža domača jabolka, sort Zlati delišes. Brez škropljenja, ekološko pridelano.',
+    description: 'Sveža domača jabolka, sort Zlati delišes. Brez škropljenja.',
     location: 'Maribor, Center',
     time: 'Pred 32 min',
     status: OglasStatus.naRazpolago,
@@ -88,7 +84,7 @@ final List<FoodOglas> kSampleOglasi = [
   const FoodOglas(
     id: '3',
     title: 'Svež domač kmečki kruh (polovica)',
-    description: 'Pol štruce domačega kruha, pečenega danes. Cena simbolična.',
+    description: 'Pol štruce domačega kruha, pečenega danes.',
     location: 'Hoče',
     time: 'Pred 2 urama',
     status: OglasStatus.prevzeto,
@@ -103,7 +99,7 @@ final List<FoodOglas> kSampleOglasi = [
   const FoodOglas(
     id: '4',
     title: 'Rižota s piščancem',
-    description: 'Domača rižota s piščančjim filejem in zelenjavo. Še topla.',
+    description: 'Domača rižota s piščančjim filejem in zelenjavo.',
     location: 'Center, Maribor',
     time: 'Pred 3 urama',
     status: OglasStatus.naRazpolago,
@@ -117,7 +113,7 @@ final List<FoodOglas> kSampleOglasi = [
   const FoodOglas(
     id: '5',
     title: 'Paradižnik iz vrta (2 kg)',
-    description: 'Zrel domač paradižnik, različne sorte. Idealen za solato ali omako.',
+    description: 'Zrel domač paradižnik, različne sorte.',
     location: 'Pobrežje',
     time: 'Pred 20 min',
     status: OglasStatus.naRazpolago,
@@ -131,7 +127,6 @@ final List<FoodOglas> kSampleOglasi = [
   ),
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 Color statusColor(OglasStatus s) {
   switch (s) {
     case OglasStatus.naRazpolago: return const Color(0xFF4CAF50);

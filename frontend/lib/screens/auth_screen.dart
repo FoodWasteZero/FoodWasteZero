@@ -490,6 +490,7 @@ class _AuthScreenState extends State<AuthScreen>
             Expanded(child: _UserTypeCard(
               icon: Icons.store_rounded,
               title: 'Organizacija',
+              isOrg: true,
               subtitle: 'Restavracija ali podjetje z odvečno hrano',
               selected: _userType == 'davatelj',
               onTap: () => setState(() => _userType = 'davatelj'),
@@ -593,6 +594,7 @@ class _UserTypeCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool selected;
+  final bool isOrg;   // Organizacija — reversed stil
   final VoidCallback onTap;
 
   const _UserTypeCard({
@@ -601,25 +603,38 @@ class _UserTypeCard extends StatelessWidget {
     required this.subtitle,
     required this.selected,
     required this.onTap,
+    this.isOrg = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Reversed boje za Organizaciju: kad selected → tamno zelena pozadina, bijeli tekst
+    final bg = selected
+        ? (isOrg ? kGreenMid : kGreenPale)
+        : Colors.white;
+    final borderColor = selected ? kGreenMid : kBorder;
+    final titleColor = selected
+        ? (isOrg ? Colors.white : kGreenMid)
+        : kTextDark;
+    final iconBg = selected
+        ? (isOrg ? Colors.white.withOpacity(0.2) : kGreenMid)
+        : kSurface;
+    final iconColor = selected
+        ? (isOrg ? Colors.white : Colors.white)
+        : kTextMid;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected ? kGreenPale : Colors.white,
+          color: bg,
           borderRadius: kRadius12,
-          border: Border.all(
-            color: selected ? kGreenMid : kBorder,
-            width: selected ? 2 : 1,
-          ),
+          border: Border.all(color: borderColor, width: selected ? 2 : 1),
           boxShadow: selected ? [
-            BoxShadow(color: kGreenMid.withOpacity(0.15),
-              blurRadius: 12, offset: const Offset(0, 4)),
+            BoxShadow(color: kGreenMid.withOpacity(0.22),
+              blurRadius: 14, offset: const Offset(0, 5)),
           ] : [
             BoxShadow(color: Colors.black.withOpacity(0.05),
               blurRadius: 8, offset: const Offset(0, 2)),
@@ -629,27 +644,26 @@ class _UserTypeCard extends StatelessWidget {
           children: [
             Container(
               width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: selected ? kGreenMid : kSurface,
-                borderRadius: kRadius12,
-              ),
-              child: Icon(icon, color: selected ? Colors.white : kTextMid, size: 22),
+              decoration: BoxDecoration(color: iconBg, borderRadius: kRadius12),
+              child: Icon(icon, color: iconColor, size: 22),
             ),
             const SizedBox(height: 10),
             Text(title,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                color: selected ? kGreenMid : kTextDark),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: titleColor),
               textAlign: TextAlign.center),
             const SizedBox(height: 4),
             Text(subtitle,
-              style: const TextStyle(fontSize: 10, color: kTextLight),
+              style: TextStyle(fontSize: 10,
+                color: selected && isOrg ? Colors.white70 : kTextLight),
               textAlign: TextAlign.center, maxLines: 2),
             const SizedBox(height: 8),
             if (selected)
               Container(
                 width: 20, height: 20,
-                decoration: const BoxDecoration(color: kGreenMid, shape: BoxShape.circle),
-                child: const Icon(Icons.check, color: Colors.white, size: 13),
+                decoration: BoxDecoration(
+                  color: isOrg ? Colors.white : kGreenMid,
+                  shape: BoxShape.circle),
+                child: Icon(Icons.check, color: isOrg ? kGreenMid : Colors.white, size: 13),
               )
             else
               Container(

@@ -1,9 +1,3 @@
-// lib/screens/home_screen.dart
-// – Firestore stream za live oglase
-// – Pravi form za dodavanje (naziv, opis, kategorija, lokacija po izboru)
-// – Funkcionalni filteri: Na voljo / Kmalu poteče / Rezervirano / Najbližje
-// – Stats kartice se računaju iz live podataka
-
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -18,10 +12,9 @@ import 'mine_screen.dart';
 import 'auth_screen.dart';
 import 'ai_chef_page.dart';
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Firestore doc → FoodOglas
-
+// ─────────────────────────────────────────────────────────────────────────────
 FoodOglas _docToOglas(DocumentSnapshot doc) {
   final d = doc.data() as Map<String, dynamic>;
   final statusStr = d['status'] as String? ?? 'naRazpolago';
@@ -30,7 +23,7 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
       : statusStr == 'prevzeto'
           ? OglasStatus.prevzeto
           : OglasStatus.naRazpolago;
- 
+
   final category = d['category'] as String? ?? 'Sestavine';
   final IconData icon;
   final Color color;
@@ -46,7 +39,7 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     default:
       icon = Icons.grass_rounded; color = const Color(0xFFF1F8E9);
   }
- 
+
   double distKm = 1.0;
   final lat = (d['lat'] as num?)?.toDouble();
   final lng = (d['lng'] as num?)?.toDouble();
@@ -56,17 +49,22 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     final dLng = (lng - refLng) * 111.0 * cos(refLat * pi / 180);
     distKm = sqrt(dLat * dLat + dLng * dLng);
   }
- 
+
   final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
   final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
- 
-  // "Kmalu poteče" = rok uporabe je jutri ali prej
+
   bool expiringSoon = d['expiringSoon'] as bool? ?? false;
   if (expiryDate != null) {
     final hoursLeft = expiryDate.difference(DateTime.now()).inHours;
     if (hoursLeft <= 24 && hoursLeft >= 0) expiringSoon = true;
   }
- 
+
+  // NOVO: čitaj waitlist
+  final waitlistRaw = d['waitlist'];
+  final waitlist = (waitlistRaw is List)
+      ? waitlistRaw.map((e) => e.toString()).toList()
+      : <String>[];
+
   return FoodOglas(
     id: doc.id,
     title: d['title'] as String? ?? '',
@@ -82,12 +80,12 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     distanceKm: distKm,
     icon: icon,
     latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
-    imageBase64: d['imageBase64'] as String?,       // ← DODANO prej
-    reservedByUid: d['reservedByUid'] as String?,   // ← NOVO
-    expiryDate: expiryDate,                          // ← NOVO
+    imageBase64: d['imageBase64'] as String?,
+    reservedByUid: d['reservedByUid'] as String?,
+    expiryDate: expiryDate,
+    waitlist: waitlist, // NOVO
   );
 }
-
 
 String _timeAgo(DateTime? dt) {
   if (dt == null) return 'Pravkar';
@@ -113,9 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _navIndex = 0;
   String _searchQuery = '';
   String? _activeFilter;
+  String _mesto = 'Maribor'; // NOVO: tappable lokacija
   final TextEditingController _searchCtrl = TextEditingController();
-
-  // Sluša promjene auth stanja (login/logout) i rebuilda UI
   StreamSubscription<User?>? _authSub;
 
   static const _tabs = ['Vse', 'Kuhano', 'Sestavine', 'Peka', 'Sadje & zelenjava'];
@@ -124,17 +121,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserType();
-    // Kad se korisnik prijavi ili odjavi — rebuild + reload user type
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
       if (user == null) {
-        // Odjava — resetuj stanje, vrati na Domov tab
-        setState(() {
-          _isDavatelj = false;
-          _navIndex = 0;
-        });
+        setState(() { _isDavatelj = false; _navIndex = 0; });
       } else {
-        // Prijava — učitaj userType iz Firestorea
         _loadUserType();
       }
     });
@@ -146,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final doc = await FirebaseFirestore.instance
         .collection('users').doc(user.uid).get();
     if (doc.exists && mounted) {
-      setState(() => _isDavatelj = doc['userType'] == 'davatelj');
+      setState(() => _isDavatelj = doc.data()?['userType'] == 'davatelj');
     }
   }
 
@@ -157,16 +148,80 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // NOVO: Dialog za promjenu mesta/lokacije
+  void _showMestoDialog() {
+    final ctrl = TextEditingController(text: _mesto);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: kRadius16),
+        title: const Row(children: [
+          Icon(Icons.location_on_rounded, color: kGreenMid, size: 20),
+          SizedBox(width: 8),
+          Text('Spremeni lokacijo', style: kHeading3),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Vnesite mesto...',
+              filled: true,
+              fillColor: kSurface,
+              border: OutlineInputBorder(
+                borderRadius: kRadius12,
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 12),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Hitre možnosti
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final m in ['Maribor', 'Ljubljana', 'Celje', 'Kranj', 'Koper'])
+              GestureDetector(
+                onTap: () {
+                  ctrl.text = m;
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: kGreenPale,
+                    borderRadius: kRadiusFull,
+                    border: Border.all(color: kGreenMid.withOpacity(0.3)),
+                  ),
+                  child: Text(m,
+                      style: const TextStyle(
+                          fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
+                ),
+              ),
+          ]),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Prekliči', style: TextStyle(color: kTextLight)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final novo = ctrl.text.trim();
+              if (novo.isNotEmpty) setState(() => _mesto = novo);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Potrdi'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Filtriranje ─────────────────────────────────────────────────────────────
   List<FoodOglas> _applyFilters(List<FoodOglas> all) {
     var list = List<FoodOglas>.from(all);
-
-    // Tab filter (kategorija)
     if (_selectedTab != 0) {
       list = list.where((o) => o.category == _tabs[_selectedTab]).toList();
     }
-
-    // Quick action filteri
     switch (_activeFilter) {
       case 'available':
         list = list.where((o) => o.status == OglasStatus.naRazpolago).toList();
@@ -181,8 +236,6 @@ class _HomeScreenState extends State<HomeScreen> {
         list.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
         break;
     }
-
-    // Iskanje
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       list = list.where((o) =>
@@ -190,7 +243,6 @@ class _HomeScreenState extends State<HomeScreen> {
         o.location.toLowerCase().contains(q) ||
         o.category.toLowerCase().contains(q)).toList();
     }
-
     return list;
   }
 
@@ -208,7 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Navigation ──────────────────────────────────────────────────────────────
   void _goToProfile() => Navigator.push(
     context, MaterialPageRoute(builder: (_) => const ProfilePage()));
 
@@ -224,26 +275,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showShranjeno() => showModalBottomSheet(
-    context: context, isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => const _ShranjenoSheet());
-
-  void _showRezervacije() => showModalBottomSheet(
-    context: context, isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => const _RezervacijeSheet());
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BUILD
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kSurface,
       body: _buildBody(),
       floatingActionButton: _navIndex == 0
-          ? (FirebaseAuth.instance.currentUser != null && _isDavatelj ? _buildFAB() : null)
+          ? (FirebaseAuth.instance.currentUser != null && _isDavatelj
+              ? _buildFAB()
+              : null)
           : null,
       bottomNavigationBar: _buildBottomNav(),
     );
@@ -259,7 +300,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ── Firestore stream wraper ─────────────────────────────────────────────────
   Widget _buildHomeWithStream() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -269,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, snap) {
         final oglasi = snap.hasData
             ? snap.data!.docs.map(_docToOglas).toList()
-            : kSampleOglasi; // fallback na sample dok se učitava
+            : kSampleOglasi;
 
         final filtered = _applyFilters(oglasi);
         final availableCount = oglasi.where((o) => o.status == OglasStatus.naRazpolago).length;
@@ -288,6 +328,9 @@ class _HomeScreenState extends State<HomeScreen> {
     int expiringCount,
     int reservedCount,
   ) {
+    if (_isDavatelj) {
+      return _buildOrgHomeContent(filtered, availableCount, expiringCount, reservedCount);
+    }
     return CustomScrollView(slivers: [
       _buildSliverAppBar(),
       SliverToBoxAdapter(child: _buildSearchBar()),
@@ -311,19 +354,94 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-  Widget _buildPlaceholder(IconData icon, String title, String sub) {
-    return SafeArea(child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Container(padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
-        child: Icon(icon, size: 48, color: kGreenMid)),
-      const SizedBox(height: 18),
-      Text(title, style: kHeading2),
-      const SizedBox(height: 8),
-      Text(sub, style: kBody, textAlign: TextAlign.center),
-    ])));
+  // ── Organizacija homepage ──────────────────────────────────────────────────
+  Widget _buildOrgHomeContent(
+    List<FoodOglas> filtered, int available, int expiring, int reserved) {
+    return CustomScrollView(slivers: [
+      _buildOrgSliverAppBar(),
+      SliverToBoxAdapter(child: _buildSearchBar()),
+      SliverToBoxAdapter(child: _buildOrgStatsRow(available, expiring, reserved)),
+      SliverToBoxAdapter(child: _buildOrgQuickActions()),
+      SliverToBoxAdapter(child: _buildListingsHeader(filtered.length)),
+      SliverToBoxAdapter(child: _buildTabRow()),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 100),
+        sliver: filtered.isEmpty
+            ? const SliverToBoxAdapter(child: _EmptyState())
+            : SliverList(delegate: SliverChildBuilderDelegate(
+                (_, i) => FoodCard(
+                  oglas: filtered[i],
+                  onTap: () => FoodDetailSheet.show(context, filtered[i]),
+                ),
+                childCount: filtered.length,
+              )),
+      ),
+    ]);
   }
 
-  // ── AppBar ──────────────────────────────────────────────────────────────────
+  // ── Org AppBar ─────────────────────────────────────────────────────────────
+  Widget _buildOrgSliverAppBar() {
+    return SliverAppBar(
+      expandedHeight: 110, pinned: true, elevation: 2,
+      backgroundColor: Colors.white,
+      shadowColor: Colors.black.withOpacity(0.12),
+      surfaceTintColor: Colors.transparent, forceElevated: true,
+      flexibleSpace: FlexibleSpaceBar(
+        collapseMode: CollapseMode.pin,
+        background: Container(
+          color: Colors.white,
+          child: SafeArea(child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
+            child: Column(mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: kGreenPale,
+                    borderRadius: kRadiusFull,
+                    border: Border.all(color: kGreenMid.withOpacity(0.3)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.store_rounded, size: 13, color: kGreenMid),
+                    const SizedBox(width: 5),
+                    Text('Organizacija', style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w700, color: kGreenMid)),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              const Text('Dobrodošli nazaj 👋',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
+                  color: kTextDark, letterSpacing: -0.5)),
+              const SizedBox(height: 2),
+              const Text('Upravljajte vaše oglase in doseg.',
+                style: TextStyle(fontSize: 12, color: kTextMid)),
+            ]),
+          )),
+        ),
+      ),
+      title: Row(children: [
+        Container(width: 26, height: 26,
+          decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius8),
+          child: const Icon(Icons.eco, color: kGreenMid, size: 15)),
+        const SizedBox(width: 8),
+        const Text('FoodWasteZero',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+            color: kTextDark, letterSpacing: -0.2)),
+      ]),
+      centerTitle: false,
+      actions: [
+        Padding(padding: const EdgeInsets.only(right: 8),
+          child: _NotifButton(onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ni novih obvestil'))))),
+        Padding(padding: const EdgeInsets.only(right: 12),
+          child: _AvatarButton(onTap: _goToProfile, dark: true)),
+      ],
+    );
+  }
+
+  // ── AppBar — s tappable lokacijo ───────────────────────────────────────────
   Widget _buildSliverAppBar() {
     return SliverAppBar(
       expandedHeight: 110, pinned: true, elevation: 2,
@@ -342,7 +460,8 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start, children: const [
               Text('Hrana blizu tebe 🌿',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5)),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
+                    color: Colors.white, letterSpacing: -0.5)),
               SizedBox(height: 3),
               Text('Reši hrano. Pomagaj skupnosti.',
                 style: TextStyle(fontSize: 12, color: Colors.white70)),
@@ -352,15 +471,36 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       title: Row(children: [
         Container(width: 26, height: 26,
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: kRadius8),
+          decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2), borderRadius: kRadius8),
           child: const Icon(Icons.eco, color: Colors.white, size: 15)),
         const SizedBox(width: 8),
         const Text('FoodWasteZero',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.2)),
-        const SizedBox(width: 6),
-        const Icon(Icons.location_on, size: 12, color: Colors.white60),
-        const Text('Maribor',
-          style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w500)),
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+              color: Colors.white, letterSpacing: -0.2)),
+        const SizedBox(width: 8),
+        // NOVO: tappable lokacija
+        GestureDetector(
+          onTap: _showMestoDialog,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: kRadiusFull,
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.location_on, size: 11, color: Colors.white70),
+              const SizedBox(width: 3),
+              Text(_mesto,
+                style: const TextStyle(
+                    fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 2),
+              const Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 13, color: Colors.white70),
+            ]),
+          ),
+        ),
       ]),
       centerTitle: false,
       actions: [
@@ -373,14 +513,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Search ──────────────────────────────────────────────────────────────────
+  // ── Search — BEZ filter gumba ──────────────────────────────────────────────
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Container(
         decoration: BoxDecoration(color: Colors.white, borderRadius: kRadius16,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 6)),
+            BoxShadow(color: Colors.black.withOpacity(0.08),
+                blurRadius: 24, offset: const Offset(0, 6)),
           ]),
         child: TextField(
           controller: _searchCtrl,
@@ -390,13 +531,15 @@ class _HomeScreenState extends State<HomeScreen> {
             hintText: 'Išči hrano v bližini...',
             hintStyle: kCaption.copyWith(fontSize: 14),
             prefixIcon: const Icon(Icons.search_rounded, color: kGreenMid, size: 22),
+            // NOVO: samo clear gumb, brez filter ikone
             suffixIcon: _searchQuery.isNotEmpty
                 ? GestureDetector(
-                    onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
+                    onTap: () {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    },
                     child: const Icon(Icons.cancel_rounded, color: kTextLight, size: 20))
-                : Container(margin: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadius8),
-                    child: const Icon(Icons.tune_rounded, color: Colors.white, size: 17)),
+                : null,
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             border: InputBorder.none,
           ),
@@ -405,7 +548,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Stats ───────────────────────────────────────────────────────────────────
+  // ── Stats ──────────────────────────────────────────────────────────────────
   Widget _buildStatsRow(int available, int expiring, int reserved) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -429,7 +572,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Expanded(child: GestureDetector(
           onTap: () => _setFilter('reserved'),
           child: _StatCard(
-            icon: Icons.handshake_rounded, value: '$reserved', label: 'Rezervirano',
+            icon: Icons.queue_rounded, value: '$reserved', label: 'V čakalni vrsti',
             iconColor: const Color(0xFF5C6BC0), bgColor: const Color(0xFFE8EAF6),
             active: _activeFilter == 'reserved',
           ))),
@@ -437,16 +580,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Quick actions ───────────────────────────────────────────────────────────
+  // ── Quick actions — BEZ Shranjeno ──────────────────────────────────────────
   Widget _buildQuickActionsRow() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(children: [
-        
-          Expanded(child: _QuickAction(
-            icon: Icons.bookmark_outline_rounded, label: 'Shranjeno',
-            color: const Color(0xFF5C6BC0), onTap: _showShranjeno)),
-        const SizedBox(width: 10),
         Expanded(child: _QuickAction(
           icon: Icons.bolt_rounded, label: 'Kmalu poteče',
           color: const Color(0xFFE53935), active: _activeFilter == 'expiring',
@@ -461,11 +599,16 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.eco_rounded, label: 'Na voljo',
           color: kGreenMid, active: _activeFilter == 'available',
           onTap: () => _setFilter('available'))),
+        const SizedBox(width: 10),
+        Expanded(child: _QuickAction(
+          icon: Icons.queue_rounded, label: 'Čakalna vrsta',
+          color: const Color(0xFF5C6BC0), active: _activeFilter == 'reserved',
+          onTap: () => _setFilter('reserved'))),
       ]),
     );
   }
 
-  // ── Heatmap ─────────────────────────────────────────────────────────────────
+  // ── Heatmap ────────────────────────────────────────────────────────────────
   Widget _buildHeatmapSection() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
@@ -476,7 +619,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const Text('Toplotna karta', style: kHeading3),
             const Spacer(),
             GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HeatmapFullPage())),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const HeatmapFullPage())),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadiusFull,
@@ -484,7 +628,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(children: [
                   const Icon(Icons.open_in_full_rounded, size: 12, color: kGreenMid),
                   const SizedBox(width: 4),
-                  Text('Odpri', style: kCaption.copyWith(color: kGreenMid, fontWeight: FontWeight.w700)),
+                  Text('Odpri', style: kCaption.copyWith(
+                      color: kGreenMid, fontWeight: FontWeight.w700)),
                 ]),
               ),
             ),
@@ -496,7 +641,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Listings header ─────────────────────────────────────────────────────────
+  // ── Listings header ────────────────────────────────────────────────────────
   Widget _buildListingsHeader(int count) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
@@ -513,7 +658,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull),
                   child: Row(children: [
                     Text(_filterLabel(_activeFilter!),
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                     const SizedBox(width: 3),
                     const Icon(Icons.close, color: Colors.white, size: 10),
                   ]),
@@ -523,7 +669,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ]),
           const SizedBox(height: 2),
           Text('$count rezultatov najdenih',
-            style: kCaption.copyWith(color: kGreenMid, fontWeight: FontWeight.w600, fontSize: 11)),
+            style: kCaption.copyWith(
+                color: kGreenMid, fontWeight: FontWeight.w600, fontSize: 11)),
         ]),
         const Spacer(),
         GestureDetector(
@@ -533,11 +680,12 @@ class _HomeScreenState extends State<HomeScreen> {
             decoration: BoxDecoration(
               color: _activeFilter == 'nearest' ? kGreenMid : Colors.white,
               borderRadius: kRadius8,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 10, offset: const Offset(0, 2))],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07),
+                  blurRadius: 10, offset: const Offset(0, 2))],
             ),
             child: Row(children: [
               Icon(Icons.sort_rounded, size: 14,
-                color: _activeFilter == 'nearest' ? Colors.white : kTextMid),
+                  color: _activeFilter == 'nearest' ? Colors.white : kTextMid),
               const SizedBox(width: 4),
               Text('Razdalja', style: kCaption.copyWith(
                 fontWeight: FontWeight.w600,
@@ -553,13 +701,13 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (f) {
       case 'available': return 'Na voljo';
       case 'expiring':  return 'Kmalu poteče';
-      case 'reserved':  return 'Rezervirano';
+      case 'reserved':  return 'Čakalna vrsta';
       case 'nearest':   return 'Najbližje';
       default: return f;
     }
   }
 
-  // ── Tab row ─────────────────────────────────────────────────────────────────
+  // ── Tab row ────────────────────────────────────────────────────────────────
   Widget _buildTabRow() {
     return Padding(
       padding: const EdgeInsets.only(top: 14),
@@ -581,8 +729,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: active ? kGreenMid : Colors.white,
                   borderRadius: kRadiusFull,
                   boxShadow: active
-                      ? [BoxShadow(color: kGreenMid.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 5))]
-                      : [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
+                      ? [BoxShadow(color: kGreenMid.withOpacity(0.4),
+                            blurRadius: 16, offset: const Offset(0, 5))]
+                      : [BoxShadow(color: Colors.black.withOpacity(0.06),
+                            blurRadius: 8, offset: const Offset(0, 2))],
                 ),
                 child: Text(_tabs[i], style: TextStyle(
                   fontSize: 12,
@@ -597,11 +747,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── FAB ─────────────────────────────────────────────────────────────────────
+  // ── FAB ────────────────────────────────────────────────────────────────────
   Widget _buildFAB() {
     return Container(
       decoration: BoxDecoration(borderRadius: kRadius16, boxShadow: [
-        BoxShadow(color: kGreenMid.withOpacity(0.5), blurRadius: 28, offset: const Offset(0, 10)),
+        BoxShadow(color: kGreenMid.withOpacity(0.5),
+            blurRadius: 28, offset: const Offset(0, 10)),
       ]),
       child: FloatingActionButton.extended(
         onPressed: _showAddOglas,
@@ -614,18 +765,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Bottom nav ──────────────────────────────────────────────────────────────
+  // ── Bottom nav ─────────────────────────────────────────────────────────────
   Widget _buildBottomNav() {
     final isGuest = FirebaseAuth.instance.currentUser == null;
     return Container(
       decoration: BoxDecoration(color: Colors.white, boxShadow: [
-        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 30, offset: const Offset(0, -6)),
+        BoxShadow(color: Colors.black.withOpacity(0.1),
+            blurRadius: 30, offset: const Offset(0, -6)),
       ]),
       child: NavigationBar(
         selectedIndex: _navIndex,
         onDestinationSelected: (i) {
-          // Gost može slobodno gledat Domov i Zemljevid,
-          // ali za Moje i Profil/Prijava → otvori auth popup
           if (isGuest && (i == 2 || i == 3)) {
             _showAuthPopup();
             return;
@@ -636,21 +786,87 @@ class _HomeScreenState extends State<HomeScreen> {
         indicatorColor: kGreenPale,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
-          const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: kGreenMid), label: 'Domov'),
-          const NavigationDestination(icon: Icon(Icons.restaurant_rounded), selectedIcon: Icon(Icons.restaurant_rounded, color: kGreenMid), label: 'AI Chef'),
-          const NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid), label: 'Moje'),
+          const NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded, color: kGreenMid),
+              label: 'Domov'),
+          const NavigationDestination(
+              icon: Icon(Icons.restaurant_rounded),
+              selectedIcon: Icon(Icons.restaurant_rounded, color: kGreenMid),
+              label: 'AI Chef'),
+          const NavigationDestination(
+              icon: Icon(Icons.inbox_outlined),
+              selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid),
+              label: 'Moje objave'),
           NavigationDestination(
             icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded),
-            selectedIcon: Icon(isGuest ? Icons.login_rounded : Icons.person_rounded, color: kGreenMid),
+            selectedIcon: Icon(isGuest ? Icons.login_rounded : Icons.person_rounded,
+                color: kGreenMid),
             label: isGuest ? 'Prijava' : 'Profil',
           ),
         ],
       ),
     );
   }
+
+  // ── Org stats ──────────────────────────────────────────────────────────────
+  Widget _buildOrgStatsRow(int available, int expiring, int reserved) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Row(children: [
+        Expanded(child: GestureDetector(
+          onTap: () => _setFilter('available'),
+          child: _OrgStatCard(
+            icon: Icons.eco_rounded, value: '$available', label: 'Aktivni oglasi',
+            color: kGreenMid, active: _activeFilter == 'available',
+          ))),
+        const SizedBox(width: 10),
+        Expanded(child: GestureDetector(
+          onTap: () => _setFilter('expiring'),
+          child: _OrgStatCard(
+            icon: Icons.bolt_rounded, value: '$expiring', label: 'Poteče kmalu',
+            color: kOrange, active: _activeFilter == 'expiring',
+          ))),
+        const SizedBox(width: 10),
+        Expanded(child: GestureDetector(
+          onTap: () => _setFilter('reserved'),
+          child: _OrgStatCard(
+            icon: Icons.queue_rounded, value: '$reserved', label: 'Rezervirano',
+            color: const Color(0xFF5C6BC0), active: _activeFilter == 'reserved',
+          ))),
+      ]),
+    );
+  }
+
+  Widget _buildOrgQuickActions() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Row(children: [
+        Expanded(child: _OrgQuickAction(
+          icon: Icons.add_circle_outline_rounded, label: 'Nov oglas',
+          color: kGreenMid, onTap: _showAddOglas)),
+        const SizedBox(width: 10),
+        Expanded(child: _OrgQuickAction(
+          icon: Icons.bolt_rounded, label: 'Poteče kmalu',
+          color: kOrange, active: _activeFilter == 'expiring',
+          onTap: () => _setFilter('expiring'))),
+        const SizedBox(width: 10),
+        Expanded(child: _OrgQuickAction(
+          icon: Icons.near_me_rounded, label: 'Najbližje',
+          color: const Color(0xFF0288D1), active: _activeFilter == 'nearest',
+          onTap: () => _setFilter('nearest'))),
+        const SizedBox(width: 10),
+        Expanded(child: _OrgQuickAction(
+          icon: Icons.eco_rounded, label: 'Na voljo',
+          color: kGreenMid, active: _activeFilter == 'available',
+          onTap: () => _setFilter('available'))),
+      ]),
+    );
+  }
 }
 
-// ── Quick action ──────────────────────────────────────────────────────────────
+// ── Widgets ───────────────────────────────────────────────────────────────────
+
 class _QuickAction extends StatelessWidget {
   final IconData icon; final String label; final Color color;
   final VoidCallback onTap; final bool active;
@@ -688,35 +904,108 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-// ── Notification button ───────────────────────────────────────────────────────
 class _NotifButton extends StatelessWidget {
   final VoidCallback? onTap;
   const _NotifButton({this.onTap});
   @override
-  Widget build(BuildContext context) => GestureDetector(onTap: onTap,
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
     child: Container(width: 38, height: 38,
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.18),
-        borderRadius: kRadius12, border: Border.all(color: Colors.white.withOpacity(0.25))),
+      decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18), borderRadius: kRadius12,
+          border: Border.all(color: Colors.white.withOpacity(0.25))),
       child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 20)));
 }
 
-// ── Avatar button ─────────────────────────────────────────────────────────────
 class _AvatarButton extends StatelessWidget {
   final VoidCallback? onTap;
-  const _AvatarButton({this.onTap});
+  final bool dark;
+  const _AvatarButton({this.onTap, this.dark = false});
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final initials = (user?.displayName?.isNotEmpty == true)
         ? user!.displayName![0].toUpperCase() : 'U';
-    return GestureDetector(onTap: onTap,
-      child: CircleAvatar(radius: 19, backgroundColor: Colors.white,
+    return GestureDetector(
+      onTap: onTap,
+      child: CircleAvatar(
+        radius: 19,
+        backgroundColor: dark ? kGreenPale : Colors.white,
         child: Text(initials,
-          style: TextStyle(fontWeight: FontWeight.w900, color: kGreenMid, fontSize: 16))));
+          style: const TextStyle(fontWeight: FontWeight.w900, color: kGreenMid, fontSize: 16))));
   }
 }
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
+class _OrgStatCard extends StatelessWidget {
+  final IconData icon; final String value, label;
+  final Color color; final bool active;
+  const _OrgStatCard({required this.icon, required this.value, required this.label,
+    required this.color, this.active = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 13),
+      decoration: BoxDecoration(
+        color: active ? color : color.withOpacity(0.08),
+        borderRadius: kRadius12,
+        border: Border.all(color: color.withOpacity(active ? 0 : 0.25), width: 1.5),
+        boxShadow: [BoxShadow(color: color.withOpacity(active ? 0.35 : 0.10),
+            blurRadius: 18, offset: const Offset(0, 5))],
+      ),
+      child: Row(children: [
+        Container(width: 34, height: 34,
+          decoration: BoxDecoration(
+            color: active ? Colors.white.withOpacity(0.25) : color.withOpacity(0.15),
+            borderRadius: kRadius8),
+          child: Icon(icon, size: 17, color: active ? Colors.white : color)),
+        const SizedBox(width: 8),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
+            color: active ? Colors.white : color)),
+          Text(label, style: kCaption.copyWith(
+            fontSize: 10, color: active ? Colors.white70 : color.withOpacity(0.8)),
+            overflow: TextOverflow.ellipsis),
+        ])),
+      ]),
+    );
+  }
+}
+
+class _OrgQuickAction extends StatelessWidget {
+  final IconData icon; final String label;
+  final Color color; final bool active;
+  final VoidCallback onTap;
+  const _OrgQuickAction({required this.icon, required this.label,
+    required this.color, required this.onTap, this.active = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: active ? color : Colors.white,
+          borderRadius: kRadius12,
+          border: Border.all(color: active ? color : kBorder, width: 1.5),
+          boxShadow: [BoxShadow(color: color.withOpacity(active ? 0.3 : 0.06),
+              blurRadius: 14, offset: const Offset(0, 4))],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: active ? Colors.white : color, size: 22),
+          const SizedBox(height: 5),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+            color: active ? Colors.white : color),
+            textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
+        ]),
+      ),
+    );
+  }
+}
+
 class _StatCard extends StatelessWidget {
   final IconData icon; final String value, label;
   final Color iconColor, bgColor; final bool active;
@@ -731,10 +1020,8 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: active ? iconColor : Colors.white,
         borderRadius: kRadius12,
-        boxShadow: [
-          BoxShadow(color: iconColor.withOpacity(active ? 0.4 : 0.12),
-            blurRadius: 20, offset: const Offset(0, 5)),
-        ],
+        boxShadow: [BoxShadow(color: iconColor.withOpacity(active ? 0.4 : 0.12),
+            blurRadius: 20, offset: const Offset(0, 5))],
       ),
       child: Row(children: [
         Container(width: 34, height: 34,
@@ -755,7 +1042,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
   @override
@@ -775,78 +1061,8 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ── Shranjeno sheet ───────────────────────────────────────────────────────────
-class _ShranjenoSheet extends StatelessWidget {
-  const _ShranjenoSheet();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 32),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Center(child: Container(width: 40, height: 4,
-          decoration: BoxDecoration(color: kBorder, borderRadius: kRadiusFull))),
-        const SizedBox(height: 22),
-        Row(children: [
-          Container(width: 40, height: 40,
-            decoration: BoxDecoration(color: const Color(0xFFEDE7F6), borderRadius: kRadius12),
-            child: const Icon(Icons.bookmark_rounded, color: Color(0xFF5C6BC0), size: 22)),
-          const SizedBox(width: 12),
-          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Shranjeni oglasi', style: kHeading2),
-            Text('Oglasi, ki si jih shranil', style: kBody),
-          ]),
-        ]),
-        const SizedBox(height: 24),
-        Center(child: Column(children: [
-          Icon(Icons.bookmark_border_rounded, size: 48, color: kBorder),
-          const SizedBox(height: 8),
-          const Text('Ni shranjenih oglasov', style: TextStyle(color: kTextLight, fontSize: 14)),
-        ])),
-        const SizedBox(height: 24),
-      ]),
-    );
-  }
-}
-
-// ── Rezervacije sheet ─────────────────────────────────────────────────────────
-class _RezervacijeSheet extends StatelessWidget {
-  const _RezervacijeSheet();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 32),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Center(child: Container(width: 40, height: 4,
-          decoration: BoxDecoration(color: kBorder, borderRadius: kRadiusFull))),
-        const SizedBox(height: 22),
-        Row(children: [
-          Container(width: 40, height: 40,
-            decoration: BoxDecoration(color: kOrangePale, borderRadius: kRadius12),
-            child: const Icon(Icons.bookmark_added_rounded, color: kOrange, size: 22)),
-          const SizedBox(width: 12),
-          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Moje rezervacije', style: kHeading2),
-            Text('Prihaja v naslednji verziji', style: kBody),
-          ]),
-        ]),
-        const SizedBox(height: 24),
-        Center(child: Column(children: [
-          Icon(Icons.inbox_outlined, size: 48, color: kBorder),
-          const SizedBox(height: 8),
-          const Text('Ni aktivnih rezervacij', style: TextStyle(color: kTextLight, fontSize: 14)),
-        ])),
-        const SizedBox(height: 24),
-      ]),
-    );
-  }
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
-// Heatmap (ostaje isto)
+// Heatmap (ostaja isto)
 // ══════════════════════════════════════════════════════════════════════════════
 class HeatmapPreviewCard extends StatelessWidget {
   final VoidCallback? onTap;
@@ -857,7 +1073,8 @@ class HeatmapPreviewCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       height: 170,
       decoration: BoxDecoration(borderRadius: kRadius16, boxShadow: [
-        BoxShadow(color: const Color(0xFF1B5E20).withOpacity(0.3), blurRadius: 28, offset: const Offset(0, 8)),
+        BoxShadow(color: const Color(0xFF1B5E20).withOpacity(0.3),
+            blurRadius: 28, offset: const Offset(0, 8)),
       ]),
       child: ClipRRect(borderRadius: kRadius16, child: Stack(fit: StackFit.expand, children: [
         const _MockMapBackground(),
@@ -883,7 +1100,7 @@ class HeatmapPreviewCard extends StatelessWidget {
             stream: FirebaseFirestore.instance.collection('oglasi').snapshots(),
             builder: (_, snap) {
               final count = snap.data?.docs.length ?? kSampleOglasi.length;
-              return Text('$count aktivnih oglasov v Mariboru',
+              return Text('$count aktivnih oglasov',
                 style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12));
             },
           ),
@@ -949,7 +1166,6 @@ class _HeatmapPainter extends CustomPainter {
   @override bool shouldRepaint(_HeatmapPainter o) => o.p != p;
 }
 
-// ── Full heatmap page ─────────────────────────────────────────────────────────
 class HeatmapFullPage extends StatefulWidget {
   const HeatmapFullPage({super.key});
   @override State<HeatmapFullPage> createState() => _HeatmapFullPageState();
@@ -977,7 +1193,8 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> with SingleTickerProv
                 borderRadius: kRadius12, border: Border.all(color: Colors.white.withOpacity(0.25))),
               child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20))),
             const SizedBox(width: 12),
-            const Text('Toplotna karta', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+            const Text('Toplotna karta', style: TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
             const Spacer(),
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('oglasi').snapshots(),
@@ -988,7 +1205,8 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> with SingleTickerProv
                   decoration: BoxDecoration(color: kGreenAccent.withOpacity(0.9), borderRadius: kRadiusFull),
                   child: Row(children: [
                     const Icon(Icons.circle, color: Colors.white, size: 8), const SizedBox(width: 4),
-                    Text('$count aktivnih', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                    Text('$count aktivnih', style: const TextStyle(
+                        color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
                   ]));
               },
             ),
@@ -999,13 +1217,15 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> with SingleTickerProv
             borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: kBorder, borderRadius: kRadiusFull)),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: kBorder, borderRadius: kRadiusFull)),
             const SizedBox(height: 18),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text('Razporeditev hrane', style: kHeading3),
               Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadiusFull),
-                child: const Text('Maribor', style: TextStyle(color: kGreenMid, fontSize: 12, fontWeight: FontWeight.w700))),
+                child: const Text('Maribor', style: TextStyle(
+                    color: kGreenMid, fontSize: 12, fontWeight: FontWeight.w700))),
             ]),
             const SizedBox(height: 14),
             Row(children: [
@@ -1017,7 +1237,7 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> with SingleTickerProv
             ]),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: () { Navigator.pop(context); },
+              onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.my_location_rounded, size: 16),
               label: const Text('Pokaži bližnje oglase'),
               style: OutlinedButton.styleFrom(foregroundColor: kGreenMid,

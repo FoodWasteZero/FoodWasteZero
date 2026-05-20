@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../common/theme.dart';
 import '../models/models.dart';
 
-// ── Detail bottom sheet ───────────────────────────────────────────────────────
 class FoodDetailSheet extends StatelessWidget {
   final FoodOglas oglas;
 
@@ -21,29 +20,64 @@ class FoodDetailSheet extends StatelessWidget {
     );
   }
 
-  // ── Rezerviraj ali prekliči rezervacijo ───────────────────────────────────
-  Future<void> _toggleRezervacija(BuildContext context) async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
+  // ── Rezerviraj (samo ako je naRazpolago) ─────────────────────────────────
+  Future<void> _rezerviraj(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Prijavite se za rezervacijo.')),
       );
       return;
     }
-
-    final jeMojaRezervacija =
-        oglas.status == OglasStatus.rezervirano &&
-        oglas.reservedByUid == currentUser.uid;
-
     Navigator.pop(context);
-
     try {
-      if (jeMojaRezervacija) {
-        // Prekliči rezervacijo
-        await FirebaseFirestore.instance
-            .collection('oglasi')
-            .doc(oglas.id)
-            .update({
+      await FirebaseFirestore.instance
+          .collection('oglasi')
+          .doc(oglas.id)
+          .update({
+        'status': 'rezervirano',
+        'reservedByUid': user.uid,
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Oglas rezerviran! ✓')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Napaka. Poskusite znova.'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ── Prekliči svojo rezervacijo ────────────────────────────────────────────
+  Future<void> _preklici(BuildContext context) async {
+    Navigator.pop(context);
+    try {
+      final ref = FirebaseFirestore.instance.collection('oglasi').doc(oglas.id);
+
+      // Če je čakalna vrsta — prvi v vrsti avtomatsko dobi rezervacijo
+      if (oglas.waitlist.isNotEmpty) {
+        final naslednji = oglas.waitlist.first;
+        final novaVrsta = oglas.waitlist.skip(1).toList();
+        await ref.update({
+          'status': 'rezervirano',
+          'reservedByUid': naslednji,
+          'waitlist': novaVrsta,
+        });
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Rezervacija preklicana. Naslednji v vrsti je obveščen.'),
+              backgroundColor: kOrange,
+            ),
+          );
+        }
+      } else {
+        await ref.update({
           'status': 'naRazpolago',
           'reservedByUid': FieldValue.delete(),
         });
@@ -55,41 +89,77 @@ class FoodDetailSheet extends StatelessWidget {
             ),
           );
         }
-      } else {
-        // Rezerviraj
-        await FirebaseFirestore.instance
-            .collection('oglasi')
-            .doc(oglas.id)
-            .update({
-          'status': 'rezervirano',
-          'reservedByUid': currentUser.uid,
-        });
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Oglas rezerviran! ✓'),
-              backgroundColor: kGreenMid,
-            ),
-          );
-        }
       }
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Napaka. Poskusite znova.'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Napaka. Poskusite znova.'),
+              backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  // ── Google Maps navigacija ────────────────────────────────────────────────
-  Future<void> _openGoogleMapsNavigation(BuildContext context) async {
+  // ── Postavi se v čakalno vrsto ────────────────────────────────────────────
+  Future<void> _dodajVVrsto(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Prijavite se za čakalno vrsto.')),
+      );
+      return;
+    }
+    Navigator.pop(context);
+    try {
+      await FirebaseFirestore.instance
+          .collection('oglasi')
+          .doc(oglas.id)
+          .update({
+        'waitlist': FieldValue.arrayUnion([user.uid]),
+      });
+      if (context.mounted) {
+        final pos = oglas.waitlist.length + 1;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Postavljeni ste v čakalno vrsto (${pos}. mesto).')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Napaka. Poskusite znova.'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ── Zapusti čakalno vrsto ─────────────────────────────────────────────────
+  Future<void> _zapustiVrsto(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    Navigator.pop(context);
+    try {
+      await FirebaseFirestore.instance
+          .collection('oglasi')
+          .doc(oglas.id)
+          .update({
+        'waitlist': FieldValue.arrayRemove([user.uid]),
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Zapustili ste čakalno vrsto.'),
+            backgroundColor: kOrange,
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  // ── Google Maps ───────────────────────────────────────────────────────────
+  Future<void> _openGoogleMaps(BuildContext context) async {
     final latLng = oglas.latLng;
     Uri uri;
-
     if (latLng != null) {
       uri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1'
@@ -104,39 +174,39 @@ class FoodDetailSheet extends StatelessWidget {
         '&travelmode=driving',
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lokacija ni na voljo.')),
-      );
-      return;
-    }
-
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ne morem odpreti Google Maps.')),
+          const SnackBar(content: Text('Lokacija ni na voljo.')),
         );
       }
+      return;
+    }
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    final color = statusColor(oglas.status);
+    final user = FirebaseAuth.instance.currentUser;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // Rezerviran od tega uporabnika?
-    final jeMojaRezervacija =
-        oglas.status == OglasStatus.rezervirano &&
+    final jeMojaRezervacija = oglas.status == OglasStatus.rezervirano &&
         oglas.reservedByUid != null &&
-        oglas.reservedByUid == currentUser?.uid;
+        oglas.reservedByUid == user?.uid;
 
-    // Gumb aktiven: na razpolago (vsak) ali moja rezervacija (preklic)
-    final rezervirajAktiven =
-        oglas.status == OglasStatus.naRazpolago || jeMojaRezervacija;
+    final semVVrsti = user != null && oglas.waitlist.contains(user.uid);
+    final mojaPozijaVVrsti = semVVrsti
+        ? oglas.waitlist.indexOf(user!.uid) + 1
+        : 0;
+
+    // Statusi gumbov:
+    // naRazpolago → "Rezerviraj"
+    // rezervirano + sem jaz rezerviral → "Prekliči rezervacijo"
+    // rezervirano + sem v vrsti → "Zapusti čakalno vrsto"
+    // rezervirano + nisem v vrsti → "Postavi se v čakalno vrsto"
+    // prevzeto → gumb onemogočen
 
     return Container(
       decoration: const BoxDecoration(
@@ -148,7 +218,7 @@ class FoodDetailSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Handle
+          // Handle
           Center(
             child: Padding(
               padding: const EdgeInsets.only(top: 14, bottom: 20),
@@ -159,14 +229,14 @@ class FoodDetailSheet extends StatelessWidget {
             ),
           ),
 
-          // ── Scrollable vsebina
+          // Scrollable vsebina
           Flexible(
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: bottomInset),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Image / icon header
+                  // Image header
                   Container(
                     width: double.infinity,
                     height: 200,
@@ -188,63 +258,44 @@ class FoodDetailSheet extends StatelessWidget {
                           ),
                         Positioned(
                           top: 12, right: 16,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.15),
-                              borderRadius: kRadiusFull,
-                              border: Border.all(color: color.withOpacity(0.4)),
-                            ),
-                            child: Text(statusLabel(oglas.status),
-                                style: TextStyle(
-                                    color: color,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700)),
-                          ),
+                          child: _StatusBadge(status: oglas.status),
                         ),
                       ],
                     ),
                   ),
 
-                  // ── Content
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Kategorija
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                               color: kGreenPale, borderRadius: kRadiusFull),
                           child: Text(oglas.category,
                               style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: kGreenMid)),
+                                  fontSize: 11, fontWeight: FontWeight.w600, color: kGreenMid)),
                         ),
                         const SizedBox(height: 8),
                         Text(oglas.title,
                             style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: kTextDark)),
+                                fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark)),
                         const SizedBox(height: 4),
                         if (oglas.username != null)
                           Text('Objavljeno od ${oglas.username}',
                               style: kCaption.copyWith(
-                                  color: kGreenMid,
-                                  fontWeight: FontWeight.w600)),
+                                  color: kGreenMid, fontWeight: FontWeight.w600)),
 
                         const SizedBox(height: 16),
 
                         if (oglas.description.isNotEmpty) ...[
-                          Text(oglas.description,
-                              style: kBody.copyWith(height: 1.5)),
+                          Text(oglas.description, style: kBody.copyWith(height: 1.5)),
                           const SizedBox(height: 16),
                         ],
 
+                        // Info chips
                         Wrap(
                           spacing: 8, runSpacing: 8,
                           children: [
@@ -252,11 +303,6 @@ class FoodDetailSheet extends StatelessWidget {
                             _InfoChip(Icons.access_time_outlined, oglas.time),
                             _InfoChip(Icons.near_me_outlined,
                                 '${oglas.distanceKm.toStringAsFixed(1)} km stran'),
-                            if (oglas.isFree)
-                              _InfoChip(
-                                  Icons.volunteer_activism_rounded, 'Brezplačno',
-                                  color: kGreenMid),
-                            // Pokaži rok uporabe če obstaja
                             if (oglas.expiryDate != null)
                               _InfoChip(
                                 Icons.event_outlined,
@@ -266,34 +312,32 @@ class FoodDetailSheet extends StatelessWidget {
                           ],
                         ),
 
-                        // Obvestilo če je to moja rezervacija
-                        if (jeMojaRezervacija) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: kOrange.withOpacity(0.08),
-                              borderRadius: kRadius8,
-                              border: Border.all(
-                                  color: kOrange.withOpacity(0.3)),
-                            ),
-                            child: Row(children: [
-                              Icon(Icons.info_outline_rounded,
-                                  size: 15, color: kOrange),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Ta oglas ste rezervirali vi. Kliknite "Prekliči" za odstranitev rezervacije.',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: kOrange,
-                                      fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                            ]),
+                        const SizedBox(height: 14),
+
+                        // Moja rezervacija info
+                        if (jeMojaRezervacija)
+                          _InfoBox(
+                            icon: Icons.info_outline_rounded,
+                            color: kOrange,
+                            text: 'Ta oglas ste rezervirali vi. Kliknite "Prekliči" za odstranitev rezervacije.',
                           ),
-                        ],
+
+                        // V čakalni vrsti info
+                        if (semVVrsti && !jeMojaRezervacija)
+                          _InfoBox(
+                            icon: Icons.queue_rounded,
+                            color: const Color(0xFF5C6BC0),
+                            text: 'Ste na $mojaPozijaVVrsti. mestu v čakalni vrsti. Obveščeni boste, ko bo oglas na voljo.',
+                          ),
+
+                        // Čakalna vrsta (koliko čaka)
+                        if (oglas.status == OglasStatus.rezervirano &&
+                            oglas.waitlist.isNotEmpty)
+                          _InfoBox(
+                            icon: Icons.people_outline_rounded,
+                            color: kTextMid,
+                            text: '${oglas.waitlist.length} ${oglas.waitlist.length == 1 ? 'oseba čaka' : 'osebe čakajo'} v vrsti.',
+                          ),
 
                         const SizedBox(height: 16),
                       ],
@@ -304,7 +348,7 @@ class FoodDetailSheet extends StatelessWidget {
             ),
           ),
 
-          // ── Gumbi — pritrjeni na dno
+          // Gumbi — pritrjeni na dno
           Container(
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -313,95 +357,172 @@ class FoodDetailSheet extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomInset),
             child: SafeArea(
               top: false,
-              child: Row(
-                children: [
-                  // Shrani
-                  OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Oglas shranjen! ✓')));
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF5C6BC0),
-                      side: const BorderSide(
-                          color: Color(0xFF5C6BC0), width: 1.5),
-                      shape: const RoundedRectangleBorder(
-                          borderRadius: kRadius12),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 13, horizontal: 14),
-                    ),
-                    child: const Icon(Icons.bookmark_outline_rounded, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Rezerviraj / Prekliči rezervacijo
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: rezervirajAktiven
-                          ? () => _toggleRezervacija(context)
-                          : null,
-                      icon: Icon(
-                        jeMojaRezervacija
-                            ? Icons.cancel_outlined
-                            : Icons.check_circle_outline_rounded,
-                        size: 16,
-                      ),
-                      label: Text(jeMojaRezervacija ? 'Prekliči' : 'Rezerviraj'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            jeMojaRezervacija ? kOrange : kGreenMid,
-                        side: BorderSide(
-                          color: jeMojaRezervacija ? kOrange : kGreenMid,
-                          width: 1.5,
-                        ),
-                        shape: const RoundedRectangleBorder(
-                            borderRadius: kRadius12),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 13),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Pelji me tja → Google Maps
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed:
-                          (oglas.latLng != null || oglas.location.isNotEmpty)
-                              ? () {
-                                  Navigator.pop(context);
-                                  _openGoogleMapsNavigation(context);
-                                }
-                              : null,
-                      icon: const Icon(Icons.directions_rounded,
-                          size: 18, color: Colors.white),
-                      label: const Text('Pelji me tja',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kGreenMid,
-                        elevation: 0,
-                        shadowColor: Colors.transparent,
-                        shape: const RoundedRectangleBorder(
-                            borderRadius: kRadius12),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              child: _buildActionButtons(context, jeMojaRezervacija, semVVrsti),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildActionButtons(
+    BuildContext context,
+    bool jeMojaRezervacija,
+    bool semVVrsti,
+  ) {
+    final hasLocation = oglas.latLng != null || oglas.location.isNotEmpty;
+
+    // Navigacija gumb — vedno desno
+    final navBtn = Expanded(
+      flex: 2,
+      child: ElevatedButton.icon(
+        onPressed: hasLocation
+            ? () {
+                Navigator.pop(context);
+                _openGoogleMaps(context);
+              }
+            : null,
+        icon: const Icon(Icons.directions_rounded, size: 18, color: Colors.white),
+        label: const Text('Pelji me tja',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kGreenMid,
+          elevation: 0,
+          shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+          padding: const EdgeInsets.symmetric(vertical: 13),
+        ),
+      ),
+    );
+
+    if (oglas.status == OglasStatus.naRazpolago) {
+      // Rezerviraj
+      return Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _rezerviraj(context),
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+            label: const Text('Rezerviraj'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: kGreenMid,
+              side: const BorderSide(color: kGreenMid, width: 1.5),
+              shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        navBtn,
+      ]);
+    }
+
+    if (oglas.status == OglasStatus.rezervirano) {
+      if (jeMojaRezervacija) {
+        // Prekliči svojo rezervacijo
+        return Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _preklici(context),
+              icon: const Icon(Icons.cancel_outlined, size: 16),
+              label: const Text('Prekliči rezervacijo'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kOrange,
+                side: const BorderSide(color: kOrange, width: 1.5),
+                shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          navBtn,
+        ]);
+      }
+
+      if (semVVrsti) {
+        // Zapusti čakalno vrsto
+        return Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _zapustiVrsto(context),
+              icon: const Icon(Icons.exit_to_app_rounded, size: 16),
+              label: const Text('Zapusti vrsto'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF5C6BC0),
+                side: const BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
+                shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          navBtn,
+        ]);
+      }
+
+      // Postavi se v čakalno vrsto
+      return Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _dodajVVrsto(context),
+            icon: const Icon(Icons.queue_rounded, size: 16),
+            label: const Text('V čakalno vrsto'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF5C6BC0),
+              side: const BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
+              shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        navBtn,
+      ]);
+    }
+
+    // Prevzeto — samo navigacija, rezervacija onemogočena
+    return Row(children: [
+      const Expanded(
+        child: OutlinedButton(
+          onPressed: null,
+          child: Text('Prevzeto'),
+        ),
+      ),
+      const SizedBox(width: 10),
+      navBtn,
+    ]);
+  }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 String _formatDate(DateTime dt) => '${dt.day}. ${dt.month}. ${dt.year}';
+
+Widget _buildBase64Image(String base64) {
+  try {
+    final bytes = base64Decode(base64);
+    return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+  } catch (_) {
+    return const SizedBox.shrink();
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final OglasStatus status;
+  const _StatusBadge({required this.status});
+  @override
+  Widget build(BuildContext context) {
+    final color = statusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: kRadiusFull,
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(statusLabel(status),
+          style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+    );
+  }
+}
 
 class _Badge extends StatelessWidget {
   final String label;
@@ -413,19 +534,34 @@ class _Badge extends StatelessWidget {
         decoration: BoxDecoration(color: color, borderRadius: kRadiusFull),
         child: Text(label,
             style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.w700)),
+                color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
       );
 }
 
-Widget _buildBase64Image(String base64) {
-  try {
-    final bytes = base64Decode(base64);
-    return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
-  } catch (_) {
-    return const SizedBox.shrink();
-  }
+class _InfoBox extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String text;
+  const _InfoBox({required this.icon, required this.color, required this.text});
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: kRadius8,
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+          ),
+        ]),
+      );
 }
 
 class _InfoChip extends StatelessWidget {
@@ -435,15 +571,12 @@ class _InfoChip extends StatelessWidget {
   const _InfoChip(this.icon, this.label, {this.color});
   @override
   Widget build(BuildContext context) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: color != null ? color!.withOpacity(0.08) : kSurface,
           borderRadius: kRadius8,
           border: Border.all(
-              color: color != null
-                  ? color!.withOpacity(0.25)
-                  : kBorder),
+              color: color != null ? color!.withOpacity(0.25) : kBorder),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 13, color: color ?? kTextMid),
