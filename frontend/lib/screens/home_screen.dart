@@ -532,7 +532,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildQuickActionsRow() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(children: [
+      child:IntrinsicHeight(
+       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+           children: [
         Expanded(child: _QuickAction(
           icon: Icons.bolt_rounded, label: 'Kmalu poteče',
           color: const Color(0xFFE53935), active: _activeFilter == 'expiring',
@@ -553,6 +556,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: const Color(0xFF5C6BC0), active: _activeFilter == 'reserved',
           onTap: () => _setFilter('reserved'))),
       ]),
+      ),
     );
   }
 
@@ -564,22 +568,6 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Row(children: [
             const Text('Toplotna karta', style: kHeading3),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const HeatmapFullPage())),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadiusFull,
-                  border: Border.all(color: kGreenMid.withOpacity(0.2))),
-                child: Row(children: [
-                  const Icon(Icons.open_in_full_rounded, size: 12, color: kGreenMid),
-                  const SizedBox(width: 4),
-                  Text('Odpri', style: kCaption.copyWith(
-                      color: kGreenMid, fontWeight: FontWeight.w700)),
-                ]),
-              ),
-            ),
           ]),
         ),
         HeatmapPreviewCard(onTap: () => Navigator.push(context,
@@ -618,27 +606,8 @@ class _HomeScreenState extends State<HomeScreen> {
             style: kCaption.copyWith(
                 color: kGreenMid, fontWeight: FontWeight.w600, fontSize: 14)),
         ]),
-        const Spacer(),
-        GestureDetector(
-          onTap: () => _setFilter('nearest'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _activeFilter == 'nearest' ? kGreenMid : Colors.white,
-              borderRadius: kRadius8,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07),
-                  blurRadius: 10, offset: const Offset(0, 2))],
-            ),
-            child: Row(children: [
-              Icon(Icons.sort_rounded, size: 14,
-                  color: _activeFilter == 'nearest' ? Colors.white : kTextMid),
-              const SizedBox(width: 4),
-              Text('Razdalja', style: kCaption.copyWith(
-                fontWeight: FontWeight.w600,
-                color: _activeFilter == 'nearest' ? Colors.white : kTextMid)),
-            ]),
-          ),
-        ),
+
+       
       ]),
     );
   }
@@ -786,29 +755,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildOrgQuickActions() {
-    return Padding(
+     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(children: [
-        Expanded(child: _OrgQuickAction(
-          icon: Icons.bolt_rounded, label: 'Poteče kmalu',
-          color: kOrange, active: _activeFilter == 'expiring',
+      child:IntrinsicHeight(
+       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+           children: [
+        Expanded(child: _QuickAction(
+          icon: Icons.bolt_rounded, label: 'Kmalu poteče',
+          color: const Color(0xFFE53935), active: _activeFilter == 'expiring',
           onTap: () => _setFilter('expiring'))),
         const SizedBox(width: 10),
-        Expanded(child: _OrgQuickAction(
+        Expanded(child: _QuickAction(
           icon: Icons.near_me_rounded, label: 'Najbližje',
           color: const Color(0xFF0288D1), active: _activeFilter == 'nearest',
           onTap: () => _setFilter('nearest'))),
         const SizedBox(width: 10),
-        Expanded(child: _OrgQuickAction(
+        Expanded(child: _QuickAction(
           icon: Icons.eco_rounded, label: 'Na voljo',
           color: kGreenMid, active: _activeFilter == 'available',
           onTap: () => _setFilter('available'))),
         const SizedBox(width: 10),
-        Expanded(child: _OrgQuickAction(
+        Expanded(child: _QuickAction(
           icon: Icons.queue_rounded, label: 'Čakalna vrsta',
           color: const Color(0xFF5C6BC0), active: _activeFilter == 'reserved',
           onTap: () => _setFilter('reserved'))),
       ]),
+      ),
     );
   }
 }
@@ -836,14 +809,14 @@ class _QuickAction extends StatelessWidget {
               blurRadius: 16, offset: const Offset(0, 4)),
           ],
         ),
-        child: Column(children: [
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.max, children: [
           Container(width: 36, height: 36,
             decoration: BoxDecoration(
               color: active ? Colors.white.withOpacity(0.25) : color.withOpacity(0.12),
               borderRadius: kRadius8),
             child: Icon(icon, color: active ? Colors.white : color, size: 18)),
           const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
             color: active ? Colors.white : color),
             textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
         ]),

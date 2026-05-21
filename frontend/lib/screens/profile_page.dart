@@ -316,7 +316,12 @@ class _ProfilePageState extends State<ProfilePage>
       backgroundColor: kSurface,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverToBoxAdapter(child: _buildProfileHeader()),
+          SliverToBoxAdapter(
+          child: SafeArea(
+            bottom: false,
+            child: _buildProfileHeader(),
+          ),
+        ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
