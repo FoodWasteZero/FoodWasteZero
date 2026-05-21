@@ -33,7 +33,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       gradient: [Color(0xFF0D47A1), Color(0xFF1565C0)],
       features: [
         _Feature(Icons.filter_list_rounded, 'Filtri', 'Filtrirajte po kategoriji (Kuhano, Peka, Sadje...), razdalji ali datumu poteka.'),
-        _Feature(Icons.bookmark_add_outlined, 'Rezervacija', 'Ko rezervirate oglas, je shranjen pod vašim profilom v zavihku "Rezervirano".'),
+        _Feature(Icons.bookmark_add_outlined, 'Rezervacija', 'Ko rezervirate oglas, ga najdete v profilu pod zavihkom Rezervirano.'),
         _Feature(Icons.queue_rounded, 'Čakalna vrsta', 'Če je oglas že rezerviran, se postavite v čakalno vrsto — obveščeni boste samodejno.'),
       ],
     ),
@@ -43,7 +43,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       iconBgColor: Color(0xFFF3E5F5),
       title: 'Delite odvečno hrano',
       description:
-          'Ste davatelj? Objavite oglas v 30 sekundah — dodajte sliko, opis, lokacijo in datum poteka. Vaše objave so vidne vsem v okolici.',
+          'Ste organizacija? Objavite oglas v 30 sekundah — dodajte sliko, opis, lokacijo in datum poteka. Uporabniki lahko vaše oglase rezervirajo.',
       gradient: [Color(0xFF4A148C), Color(0xFF6A1B9A)],
       features: [
         _Feature(Icons.add_photo_alternate_outlined, 'Dodajte sliko', 'Fotografija poveča zanimanje za vaš oglas.'),

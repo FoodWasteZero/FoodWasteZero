@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../common/theme.dart';
+import '../common/auth_helpers.dart';
 import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -114,6 +115,7 @@ class _AuthScreenState extends State<AuthScreen>
     }
     setState(() => _isLoading = true);
     try {
+      await signOutAnonymousIfNeeded();
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email, password: pass);
       // Ako je modal bottom sheet — zatvori ga
@@ -155,6 +157,7 @@ class _AuthScreenState extends State<AuthScreen>
 
     setState(() => _isLoading = true);
     try {
+      await signOutAnonymousIfNeeded();
       final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email, password: pass);
 
@@ -516,7 +519,7 @@ class _AuthScreenState extends State<AuthScreen>
               icon: Icons.store_rounded,
               title: 'Organizacija',
               isOrg: true,
-              subtitle: 'Restavracija ali podjetje z odvečno hrano',
+              subtitle: 'Objavljam odvečno hrano (brez rezervacij)',
               selected: _userType == 'davatelj',
               onTap: () => setState(() => _userType = 'davatelj'),
             )),

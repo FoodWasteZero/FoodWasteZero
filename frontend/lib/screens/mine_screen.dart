@@ -257,14 +257,23 @@ class _MojeScreenState extends State<MineScreen> {
         stream: FirebaseFirestore.instance
             .collection('oglasi')
             .where('uid', isEqualTo: user.uid)
-            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snap) {
-          if (!snap.hasData) {
+          if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
             return const Center(child: CircularProgressIndicator(color: kGreenMid));
           }
+          if (snap.hasError) {
+            return _buildStreamError(snap.error.toString());
+          }
 
-          final docs = snap.data!.docs;
+          final docs = List<QueryDocumentSnapshot>.from(snap.data?.docs ?? [])
+            ..sort((a, b) {
+              final ta = (a.data() as Map<String, dynamic>?)?['createdAt'];
+              final tb = (b.data() as Map<String, dynamic>?)?['createdAt'];
+              final ma = ta is Timestamp ? ta.millisecondsSinceEpoch : 0;
+              final mb = tb is Timestamp ? tb.millisecondsSinceEpoch : 0;
+              return mb.compareTo(ma);
+            });
           final moji = docs.map(_docToOglasMoje).toList();
 
           if (moji.isEmpty) {
@@ -316,6 +325,36 @@ class _MojeScreenState extends State<MineScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildStreamError(String message) {
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          pinned: true,
+          backgroundColor: const Color(0xFF2E7D32),
+          title: const Text('Moje objave',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+        ),
+        SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 48, color: kOrange),
+                  const SizedBox(height: 12),
+                  const Text('Napaka pri nalaganju', style: kHeading2),
+                  const SizedBox(height: 8),
+                  Text(message, style: kBody, textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

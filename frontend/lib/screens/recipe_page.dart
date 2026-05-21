@@ -70,18 +70,24 @@ class _RecipePageState extends State<RecipePage> {
     super.dispose();
   }
 
-  /// Extract unique ingredients from user's claimed/reserved listings
+  /// Sestavine iz oglasov, ki jih je uporabnik rezerviral ali prevzel (ne glede na objavitelja).
   Future<Set<String>> _getAvailableIngredients(String uid) async {
     final snap = await FirebaseFirestore.instance
         .collection('oglasi')
-        .where('status', whereIn: ['rezervirano', 'prevzeto'])
-        .where('uid', isEqualTo: uid)
-        .where('category', whereIn: ['Sadje & zelenjava', 'Sestavine'])
+        .where('reservedByUid', isEqualTo: uid)
         .get();
+
+    const ingredientCategories = {'Sadje & zelenjava', 'Sestavine'};
+    const activeStatuses = {'rezervirano', 'prevzeto'};
 
     final ingredients = <String>{};
     for (final doc in snap.docs) {
       final data = doc.data();
+      final status = data['status'] as String? ?? '';
+      if (!activeStatuses.contains(status)) continue;
+      final category = data['category'] as String? ?? '';
+      if (!ingredientCategories.contains(category)) continue;
+
       final title = (data['title'] as String?)?.split(RegExp(r'[,;|/\n]')) ?? [];
       for (final part in title) {
         final trimmed = part.trim();
@@ -132,10 +138,10 @@ class _RecipePageState extends State<RecipePage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text('Not signed in', style: kHeading2),
+                const Text('Niste prijavljeni', style: kHeading2),
                 const SizedBox(height: 8),
                 const Text(
-                  'Please sign in to view\nyour available ingredients.',
+                  'Prijavite se, da vidite sestavine\niz svojih rezervacij.',
                   style: kBody,
                   textAlign: TextAlign.center,
                 ),
@@ -150,7 +156,7 @@ class _RecipePageState extends State<RecipePage> {
       backgroundColor: kSurface,
       appBar: AppBar(
         title: Text(
-          _selectedIngredient == null ? 'Ingredients' : 'Recipes',
+          _selectedIngredient == null ? 'Recepti' : 'Recepti',
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: kFontLarge),
         ),
         backgroundColor: Colors.white,
@@ -201,12 +207,12 @@ class _RecipePageState extends State<RecipePage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text('No ingredients available', style: kHeading2),
+                const Text('Ni sestavin', style: kHeading2),
                 const SizedBox(height: 8),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 40),
                   child: Text(
-                    'Claim or reserve ingredient listings\nto see them here.',
+                    'Rezervirajte ali prevzemite oglase\nkategorij Sadje & zelenjava ali Sestavine.',
                     style: kBody,
                     textAlign: TextAlign.center,
                   ),
@@ -224,7 +230,7 @@ class _RecipePageState extends State<RecipePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Available Ingredients', style: kHeading3),
+                Text('Vaše sestavine', style: kHeading3),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 12,
@@ -296,10 +302,10 @@ class _RecipePageState extends State<RecipePage> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text('No recipes found', style: kHeading2),
+            const Text('Ni receptov', style: kHeading2),
             const SizedBox(height: 8),
             Text(
-              'No recipes available for $ingredient',
+              'Za $ingredient trenutno ni receptov.',
               style: kBody,
               textAlign: TextAlign.center,
             ),
@@ -314,7 +320,7 @@ class _RecipePageState extends State<RecipePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Recipes with $ingredient', style: kHeading3),
+            Text('Recepti z $ingredient', style: kHeading3),
             const SizedBox(height: 16),
             ...recipes.map((recipe) {
               final difficulty = recipe['difficulty'] as String;

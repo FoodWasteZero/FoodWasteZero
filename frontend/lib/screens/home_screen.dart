@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../common/theme.dart';
+import '../common/firestore_error.dart';
+import '../common/auth_helpers.dart';
 import '../models/models.dart';
 import '../cards/food_card.dart';
 import '../cards/food_detail_sheet.dart';
@@ -138,7 +140,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final doc = await FirebaseFirestore.instance
         .collection('users').doc(user.uid).get();
     if (doc.exists && mounted) {
-      setState(() => _isDavatelj = doc.data()?['userType'] == 'davatelj');
+      final isDav = doc.data()?['userType'] == 'davatelj';
+      setState(() {
+        _isDavatelj = isDav;
+        if (isDav && _navIndex == 1) _navIndex = 0;
+      });
     }
   }
 
@@ -254,6 +260,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  bool get _isGuest => isAppGuest(FirebaseAuth.instance.currentUser);
+
+  /// Zavihki, ki zahtevajo prijavo (indeksi v spodnji navigaciji).
+  List<int> _authRequiredNavIndices() {
+    if (_isDavatelj) return [1, 2];
+    return [1, 2, 3];
+  }
+
   void _goToProfile() => Navigator.push(
     context, MaterialPageRoute(builder: (_) => const ProfilePage()));
 
@@ -274,35 +288,53 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: kSurface,
       body: _buildBody(),
-      floatingActionButton: _navIndex == 0
-          ? (FirebaseAuth.instance.currentUser != null && _isDavatelj
-              ? _buildFAB()
-              : null)
+      floatingActionButton: _navIndex == 0 && _isDavatelj && FirebaseAuth.instance.currentUser != null
+          ? _buildFAB()
           : null,
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
+  List<Widget> get _pages => _isDavatelj
+      ? [_buildHomeWithStream(), const MineScreen(), const ProfilePage()]
+      : [_buildHomeWithStream(), const RecipePage(), const MineScreen(), const ProfilePage()];
+
   Widget _buildBody() {
-    switch (_navIndex) {
-      case 0: return _buildHomeWithStream();
-      case 1: return const RecipePage();
-      case 2: return const MineScreen();
-      case 3: return const ProfilePage();
-      default: return _buildHomeWithStream();
-    }
+    final pages = _pages;
+    final idx = _navIndex.clamp(0, pages.length - 1);
+    return pages[idx];
   }
 
   Widget _buildHomeWithStream() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('oglasi')
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
+      stream: FirebaseFirestore.instance.collection('oglasi').snapshots(),
       builder: (context, snap) {
-        final oglasi = snap.hasData
-            ? snap.data!.docs.map(_docToOglas).toList()
-            : kSampleOglasi;
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return const Center(child: CircularProgressIndicator(color: kGreenMid));
+        }
+        if (snap.hasError) {
+          final projectId = FirebaseFirestore.instance.app.options.projectId;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                'Napaka pri nalaganju oglasov.\n\n'
+                '${firestoreErrorMessage(snap.error)}\n\n'
+                'Projekt aplikacije: $projectId',
+                style: kBody,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        final rawDocs = snap.hasData ? snap.data!.docs.toList() : <QueryDocumentSnapshot>[];
+        rawDocs.sort((a, b) {
+          final da = a.data() as Map<String, dynamic>;
+          final db = b.data() as Map<String, dynamic>;
+          return createdAtMillis(db).compareTo(createdAtMillis(da));
+        });
+        final oglasi = rawDocs.map(_docToOglas).toList();
 
         final filtered = _applyFilters(oglasi);
         final availableCount = oglasi.where((o) => o.status == OglasStatus.naRazpolago).length;
@@ -326,6 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return CustomScrollView(slivers: [
       _buildSliverAppBar(),
+      if (_isGuest) SliverToBoxAdapter(child: _buildGuestBanner()),
       SliverToBoxAdapter(child: _buildSearchBar()),
       SliverToBoxAdapter(child: _buildQuickActionsRow()),
       SliverToBoxAdapter(child: _buildHeatmapSection()),
@@ -529,6 +562,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildGuestBanner() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: kGreenPale,
+          borderRadius: kRadius12,
+          border: Border.all(color: kGreenMid.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.visibility_outlined, color: kGreenMid, size: 22),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Brskate kot gost. Oglase lahko pregledujete — za rezervacijo se prijavite.',
+                style: TextStyle(fontSize: 13, color: kTextDark, height: 1.35),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: _showAuthPopup,
+              style: TextButton.styleFrom(
+                foregroundColor: kGreenMid,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              ),
+              child: const Text('Prijava',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuickActionsRow() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -678,20 +747,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<NavigationDestination> _navDestinations(bool isGuest) {
+    return [
+      const NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home_rounded, color: kGreenMid),
+        label: 'Domov',
+      ),
+      if (!_isDavatelj)
+        const NavigationDestination(
+          icon: Icon(Icons.restaurant_rounded),
+          selectedIcon: Icon(Icons.restaurant_rounded, color: kGreenMid),
+          label: 'Recepti',
+        ),
+      const NavigationDestination(
+        icon: Icon(Icons.inbox_outlined),
+        selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid),
+        label: 'Objave',
+      ),
+      NavigationDestination(
+        icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded),
+        selectedIcon: Icon(
+          isGuest ? Icons.login_rounded : Icons.person_rounded,
+          color: kGreenMid,
+        ),
+        label: isGuest ? 'Prijava' : 'Profil',
+      ),
+    ];
+  }
+
   Widget _buildBottomNav() {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnap) {
-        final isGuest = authSnap.data == null;
+        final isGuest = isAppGuest(authSnap.data);
         return Container(
           decoration: BoxDecoration(color: Colors.white, boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(0.1),
                 blurRadius: 30, offset: const Offset(0, -6)),
           ]),
           child: NavigationBar(
-            selectedIndex: _navIndex,
+            selectedIndex: _navIndex.clamp(0, _navDestinations(isGuest).length - 1),
             onDestinationSelected: (i) {
-              if (isGuest && (i == 2 || i == 3)) {
+              if (isGuest && _authRequiredNavIndices().contains(i)) {
                 _showAuthPopup();
                 return;
               }
@@ -700,26 +798,7 @@ class _HomeScreenState extends State<HomeScreen> {
             backgroundColor: Colors.transparent, elevation: 0,
             indicatorColor: kGreenPale,
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: [
-              const NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded, color: kGreenMid),
-                  label: 'Domov'),
-              const NavigationDestination(
-                  icon: Icon(Icons.restaurant_rounded),
-                  selectedIcon: Icon(Icons.restaurant_rounded, color: kGreenMid),
-                  label: 'AI Chef'),
-              const NavigationDestination(
-                  icon: Icon(Icons.inbox_outlined),
-                  selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid),
-                  label: 'Objave'),
-              NavigationDestination(
-                icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded),
-                selectedIcon: Icon(isGuest ? Icons.login_rounded : Icons.person_rounded,
-                    color: kGreenMid),
-                label: isGuest ? 'Prijava' : 'Profil',
-              ),
-            ],
+            destinations: _navDestinations(isGuest),
           ),
         );
       },

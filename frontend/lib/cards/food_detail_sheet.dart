@@ -5,6 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../common/theme.dart';
 import '../models/models.dart';
+import '../screens/auth_screen.dart';
+import '../common/firestore_error.dart';
+import '../common/auth_helpers.dart';
 
 class FoodDetailSheet extends StatefulWidget {
   final FoodOglas oglas;
@@ -26,86 +29,95 @@ class FoodDetailSheet extends StatefulWidget {
 
 class _FoodDetailSheetState extends State<FoodDetailSheet> {
   bool _loading = false;
-  bool _isSaved = false;
-  bool _savingToggle = false;
+  bool _isDavatelj = false;
+  bool _userTypeLoaded = false;
 
   FoodOglas get oglas => widget.oglas;
+
+  static const _vzorecIds = {'1', '2', '3', '4', '5'};
+  bool get _jeVzorecOglasa => _vzorecIds.contains(oglas.id);
 
   @override
   void initState() {
     super.initState();
-    _checkIfSaved();
+    _loadUserType();
   }
 
-  Future<void> _checkIfSaved() async {
+  void _showAuthPopup() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const AuthScreen(isModal: true),
+    );
+  }
+
+  Future<void> _loadUserType() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      if (mounted) setState(() => _userTypeLoaded = true);
+      return;
+    }
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
-      if (!mounted) return;
-      final saved = List<String>.from(doc.data()?['savedOglasi'] ?? []);
-      setState(() => _isSaved = saved.contains(oglas.id));
-    } catch (_) {}
-  }
-
-  Future<void> _toggleSave() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prijavite se za shranjevanje.')),
-      );
-      return;
-    }
-    setState(() => _savingToggle = true);
-    try {
-      final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
-      if (_isSaved) {
-        await ref.update({'savedOglasi': FieldValue.arrayRemove([oglas.id])});
-      } else {
-        await ref.update({'savedOglasi': FieldValue.arrayUnion([oglas.id])});
-      }
       if (mounted) {
         setState(() {
-          _isSaved = !_isSaved;
-          _savingToggle = false;
+          _isDavatelj = doc.data()?['userType'] == 'davatelj';
+          _userTypeLoaded = true;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isSaved ? 'Oglas shranjen ✓' : 'Oglas odstranjen iz shranjenih'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _savingToggle = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Napaka: $e'), backgroundColor: Colors.red),
-        );
-      }
+    } catch (_) {
+      if (mounted) setState(() => _userTypeLoaded = true);
     }
   }
 
   // ── Rezerviraj ─────────────────────────────────────────────────────────────
   Future<void> _rezerviraj() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
+    if (isAppGuest(user)) {
+      _showAuthPopup();
+      return;
+    }
+    if (_jeVzorecOglasa) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prijavite se za rezervacijo.')),
+        const SnackBar(
+          content: Text('Počakajte, da se oglasi naložijo, nato poskusite znova.'),
+        ),
+      );
+      return;
+    }
+    if (_userTypeLoaded && _isDavatelj) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Organizacije lahko samo objavljajo oglase, ne rezervirajo.'),
+        ),
       );
       return;
     }
     setState(() => _loading = true);
+    if (user?.uid == null) {
+      setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Greška: Niste prijavljeni. Molimo osvežite stranicu.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
     try {
       await FirebaseFirestore.instance
           .collection('oglasi')
           .doc(oglas.id)
           .update({
         'status': 'rezervirano',
-        'reservedByUid': user.uid,
+        'reservedByUid': user!.uid,
       });
       if (mounted) {
         Navigator.pop(context);
@@ -118,8 +130,9 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Napaka: $e'),
+            content: Text(firestoreErrorMessage(e)),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -177,19 +190,37 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
   // ── Dodaj v čakalno vrsto ─────────────────────────────────────────────────
   Future<void> _dodajVVrsto() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
+    if (isAppGuest(user)) {
+      _showAuthPopup();
+      return;
+    }
+    if (_userTypeLoaded && _isDavatelj) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prijavite se za čakalno vrsto.')),
+        const SnackBar(
+          content: Text('Organizacije ne morejo vstopati v čakalno vrsto.'),
+        ),
       );
       return;
     }
     setState(() => _loading = true);
+    if (user?.uid == null) {
+      setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Greška: Niste prijavljeni. Molimo osvežite stranicu.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
     try {
       await FirebaseFirestore.instance
           .collection('oglasi')
           .doc(oglas.id)
           .update({
-        'waitlist': FieldValue.arrayUnion([user.uid]),
+        'waitlist': FieldValue.arrayUnion([user!.uid]),
       });
       if (mounted) {
         final pos = oglas.waitlist.length + 1;
@@ -333,30 +364,6 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                           top: 12, right: 16,
                           child: _StatusBadge(status: oglas.status),
                         ),
-                        Positioned(
-                          bottom: 12, right: 16,
-                          child: GestureDetector(
-                            onTap: _savingToggle ? null : _toggleSave,
-                            child: Container(
-                              width: 40, height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: kRadiusFull,
-                                boxShadow: kCardShadow,
-                              ),
-                              child: _savingToggle
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(10),
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: kGreenMid),
-                                    )
-                                  : Icon(
-                                      _isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
-                                      color: _isSaved ? kGreenMid : kTextMid,
-                                      size: 22,
-                                    ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -408,6 +415,26 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                         ),
 
                         const SizedBox(height: 14),
+
+                        if (_isDavatelj && !_userTypeLoaded)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 10),
+                            child: LinearProgressIndicator(color: kGreenMid),
+                          ),
+
+                        if (isAppGuest(user))
+                          _InfoBox(
+                            icon: Icons.login_rounded,
+                            color: kGreenMid,
+                            text: 'Za rezervacijo ali čakalno vrsto se prijavite v račun.',
+                          ),
+
+                        if (_isDavatelj && _userTypeLoaded && oglas.uid != user?.uid)
+                          _InfoBox(
+                            icon: Icons.store_rounded,
+                            color: kTextMid,
+                            text: 'Kot organizacija lahko objavljate oglase. Rezervacije so namenjene uporabnikom.',
+                          ),
 
                         if (jeMojaRezervacija)
                           _InfoBox(
@@ -518,8 +545,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     );
 
     if (oglas.status == OglasStatus.naRazpolago) {
-      // Vlasnik ne može rezervirati vlastiti oglas
-      if (jeVlasnik) {
+      if (jeVlasnik || (_userTypeLoaded && _isDavatelj) || _jeVzorecOglasa) {
         return Row(children: [navBtn]);
       }
       return Row(children: [
