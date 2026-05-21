@@ -117,7 +117,15 @@ class _AuthScreenState extends State<AuthScreen>
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email, password: pass);
       // Ako je modal bottom sheet — zatvori ga
-      if (mounted && widget.isModal) Navigator.of(context).pop();
+      if (mounted && widget.isModal) {
+        Navigator.of(context).pop();
+      } else if (mounted) {
+        // Non-modal: navigiraj na HomeScreen da se refreshuje
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (_) => false,
+        );
+      }
     } on FirebaseAuthException catch (e) {
       _showError(_authError(e.code));
     } finally {
@@ -162,8 +170,25 @@ class _AuthScreenState extends State<AuthScreen>
         });
 
       await cred.user!.updateDisplayName(name);
-      // Ako je modal bottom sheet — zatvori ga
-      if (mounted && widget.isModal) Navigator.of(context).pop();
+      // Odjavi ga takoj — mora se prijaviti ročno
+      await FirebaseAuth.instance.signOut();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Registracija uspešna! Prijavite se. ✓'),
+          backgroundColor: kGreenMid,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: kRadius12),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      // Počisti polja
+      _regNameCtrl.clear();
+      _regEmailCtrl.clear();
+      _regPassCtrl.clear();
+      _regPass2Ctrl.clear();
+      // Prebaci na login tab
+      _tabController.animateTo(0);
     } on FirebaseAuthException catch (e) {
       _showError(_authError(e.code));
     } finally {

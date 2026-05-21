@@ -66,6 +66,7 @@ FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
 
   return FoodOglas(
     id: doc.id,
+    uid: d['uid'] as String?,
     title: d['title'] as String? ?? '',
     description: d['description'] as String? ?? '',
     location: d['location'] as String? ?? '',

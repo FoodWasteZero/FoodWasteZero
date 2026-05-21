@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../common/theme.dart';
 import '../models/models.dart';
 
-class FoodDetailSheet extends StatelessWidget {
+class FoodDetailSheet extends StatefulWidget {
   final FoodOglas oglas;
 
   const FoodDetailSheet({super.key, required this.oglas});
@@ -20,8 +20,77 @@ class FoodDetailSheet extends StatelessWidget {
     );
   }
 
-  // ── Rezerviraj (samo ako je naRazpolago) ─────────────────────────────────
-  Future<void> _rezerviraj(BuildContext context) async {
+  @override
+  State<FoodDetailSheet> createState() => _FoodDetailSheetState();
+}
+
+class _FoodDetailSheetState extends State<FoodDetailSheet> {
+  bool _loading = false;
+  bool _isSaved = false;
+  bool _savingToggle = false;
+
+  FoodOglas get oglas => widget.oglas;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfSaved();
+  }
+
+  Future<void> _checkIfSaved() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (!mounted) return;
+      final saved = List<String>.from(doc.data()?['savedOglasi'] ?? []);
+      setState(() => _isSaved = saved.contains(oglas.id));
+    } catch (_) {}
+  }
+
+  Future<void> _toggleSave() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Prijavite se za shranjevanje.')),
+      );
+      return;
+    }
+    setState(() => _savingToggle = true);
+    try {
+      final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      if (_isSaved) {
+        await ref.update({'savedOglasi': FieldValue.arrayRemove([oglas.id])});
+      } else {
+        await ref.update({'savedOglasi': FieldValue.arrayUnion([oglas.id])});
+      }
+      if (mounted) {
+        setState(() {
+          _isSaved = !_isSaved;
+          _savingToggle = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isSaved ? 'Oglas shranjen ✓' : 'Oglas odstranjen iz shranjenih'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _savingToggle = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Napaka: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ── Rezerviraj ─────────────────────────────────────────────────────────────
+  Future<void> _rezerviraj() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -29,7 +98,7 @@ class FoodDetailSheet extends StatelessWidget {
       );
       return;
     }
-    Navigator.pop(context);
+    setState(() => _loading = true);
     try {
       await FirebaseFirestore.instance
           .collection('oglasi')
@@ -38,28 +107,31 @@ class FoodDetailSheet extends StatelessWidget {
         'status': 'rezervirano',
         'reservedByUid': user.uid,
       });
-      if (context.mounted) {
+      if (mounted) {
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Oglas rezerviran! ✓')),
         );
       }
-    } catch (_) {
-      if (context.mounted) {
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Napaka. Poskusite znova.'),
-              backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Napaka: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
   }
 
-  // ── Prekliči svojo rezervacijo ────────────────────────────────────────────
-  Future<void> _preklici(BuildContext context) async {
-    Navigator.pop(context);
+  // ── Prekliči rezervacijo ──────────────────────────────────────────────────
+  Future<void> _preklici() async {
+    setState(() => _loading = true);
     try {
       final ref = FirebaseFirestore.instance.collection('oglasi').doc(oglas.id);
 
-      // Če je čakalna vrsta — prvi v vrsti avtomatsko dobi rezervacijo
       if (oglas.waitlist.isNotEmpty) {
         final naslednji = oglas.waitlist.first;
         final novaVrsta = oglas.waitlist.skip(1).toList();
@@ -68,7 +140,8 @@ class FoodDetailSheet extends StatelessWidget {
           'reservedByUid': naslednji,
           'waitlist': novaVrsta,
         });
-        if (context.mounted) {
+        if (mounted) {
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Rezervacija preklicana. Naslednji v vrsti je obveščen.'),
@@ -81,7 +154,8 @@ class FoodDetailSheet extends StatelessWidget {
           'status': 'naRazpolago',
           'reservedByUid': FieldValue.delete(),
         });
-        if (context.mounted) {
+        if (mounted) {
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Rezervacija preklicana.'),
@@ -90,18 +164,18 @@ class FoodDetailSheet extends StatelessWidget {
           );
         }
       }
-    } catch (_) {
-      if (context.mounted) {
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Napaka. Poskusite znova.'),
-              backgroundColor: Colors.red),
+          SnackBar(content: Text('Napaka: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  // ── Postavi se v čakalno vrsto ────────────────────────────────────────────
-  Future<void> _dodajVVrsto(BuildContext context) async {
+  // ── Dodaj v čakalno vrsto ─────────────────────────────────────────────────
+  Future<void> _dodajVVrsto() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -109,7 +183,7 @@ class FoodDetailSheet extends StatelessWidget {
       );
       return;
     }
-    Navigator.pop(context);
+    setState(() => _loading = true);
     try {
       await FirebaseFirestore.instance
           .collection('oglasi')
@@ -117,27 +191,28 @@ class FoodDetailSheet extends StatelessWidget {
           .update({
         'waitlist': FieldValue.arrayUnion([user.uid]),
       });
-      if (context.mounted) {
+      if (mounted) {
         final pos = oglas.waitlist.length + 1;
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Postavljeni ste v čakalno vrsto (${pos}. mesto).')),
+          SnackBar(content: Text('Postavljeni ste v čakalno vrsto ($pos. mesto).')),
         );
       }
-    } catch (_) {
-      if (context.mounted) {
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Napaka. Poskusite znova.'),
-              backgroundColor: Colors.red),
+          SnackBar(content: Text('Napaka: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
   // ── Zapusti čakalno vrsto ─────────────────────────────────────────────────
-  Future<void> _zapustiVrsto(BuildContext context) async {
+  Future<void> _zapustiVrsto() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    Navigator.pop(context);
+    setState(() => _loading = true);
     try {
       await FirebaseFirestore.instance
           .collection('oglasi')
@@ -145,7 +220,8 @@ class FoodDetailSheet extends StatelessWidget {
           .update({
         'waitlist': FieldValue.arrayRemove([user.uid]),
       });
-      if (context.mounted) {
+      if (mounted) {
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Zapustili ste čakalno vrsto.'),
@@ -153,11 +229,15 @@ class FoodDetailSheet extends StatelessWidget {
           ),
         );
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   // ── Google Maps ───────────────────────────────────────────────────────────
-  Future<void> _openGoogleMaps(BuildContext context) async {
+  Future<void> _openGoogleMaps() async {
     final latLng = oglas.latLng;
     Uri uri;
     if (latLng != null) {
@@ -174,7 +254,7 @@ class FoodDetailSheet extends StatelessWidget {
         '&travelmode=driving',
       );
     } else {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Lokacija ni na voljo.')),
         );
@@ -200,13 +280,6 @@ class FoodDetailSheet extends StatelessWidget {
     final mojaPozijaVVrsti = semVVrsti
         ? oglas.waitlist.indexOf(user!.uid) + 1
         : 0;
-
-    // Statusi gumbov:
-    // naRazpolago → "Rezerviraj"
-    // rezervirano + sem jaz rezerviral → "Prekliči rezervacijo"
-    // rezervirano + sem v vrsti → "Zapusti čakalno vrsto"
-    // rezervirano + nisem v vrsti → "Postavi se v čakalno vrsto"
-    // prevzeto → gumb onemogočen
 
     return Container(
       decoration: const BoxDecoration(
@@ -260,6 +333,30 @@ class FoodDetailSheet extends StatelessWidget {
                           top: 12, right: 16,
                           child: _StatusBadge(status: oglas.status),
                         ),
+                        Positioned(
+                          bottom: 12, right: 16,
+                          child: GestureDetector(
+                            onTap: _savingToggle ? null : _toggleSave,
+                            child: Container(
+                              width: 40, height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: kRadiusFull,
+                                boxShadow: kCardShadow,
+                              ),
+                              child: _savingToggle
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(10),
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: kGreenMid),
+                                    )
+                                  : Icon(
+                                      _isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                                      color: _isSaved ? kGreenMid : kTextMid,
+                                      size: 22,
+                                    ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -269,7 +366,6 @@ class FoodDetailSheet extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Kategorija
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -295,7 +391,6 @@ class FoodDetailSheet extends StatelessWidget {
                           const SizedBox(height: 16),
                         ],
 
-                        // Info chips
                         Wrap(
                           spacing: 8, runSpacing: 8,
                           children: [
@@ -314,7 +409,6 @@ class FoodDetailSheet extends StatelessWidget {
 
                         const SizedBox(height: 14),
 
-                        // Moja rezervacija info
                         if (jeMojaRezervacija)
                           _InfoBox(
                             icon: Icons.info_outline_rounded,
@@ -322,7 +416,6 @@ class FoodDetailSheet extends StatelessWidget {
                             text: 'Ta oglas ste rezervirali vi. Kliknite "Prekliči" za odstranitev rezervacije.',
                           ),
 
-                        // V čakalni vrsti info
                         if (semVVrsti && !jeMojaRezervacija)
                           _InfoBox(
                             icon: Icons.queue_rounded,
@@ -330,7 +423,6 @@ class FoodDetailSheet extends StatelessWidget {
                             text: 'Ste na $mojaPozijaVVrsti. mestu v čakalni vrsti. Obveščeni boste, ko bo oglas na voljo.',
                           ),
 
-                        // Čakalna vrsta (koliko čaka)
                         if (oglas.status == OglasStatus.rezervirano &&
                             oglas.waitlist.isNotEmpty)
                           _InfoBox(
@@ -357,7 +449,14 @@ class FoodDetailSheet extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomInset),
             child: SafeArea(
               top: false,
-              child: _buildActionButtons(context, jeMojaRezervacija, semVVrsti),
+              child: _loading
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: CircularProgressIndicator(color: kGreenMid, strokeWidth: 2.5),
+                      ),
+                    )
+                  : _buildActionButtons(jeMojaRezervacija, semVVrsti),
             ),
           ),
         ],
@@ -365,21 +464,45 @@ class FoodDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons(
-    BuildContext context,
-    bool jeMojaRezervacija,
-    bool semVVrsti,
-  ) {
-    final hasLocation = oglas.latLng != null || oglas.location.isNotEmpty;
+  // ── Označi kot prevzeto (samo davatelj/lastnik oglasa) ────────────────────
+  Future<void> _oznaci(FoodOglas o) async {
+    setState(() => _loading = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('oglasi')
+          .doc(o.id)
+          .update({'status': 'prevzeto'});
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Oglas označen kot prevzeto ✓'),
+            backgroundColor: kGreenMid,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Napaka: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
-    // Navigacija gumb — vedno desno
+  Widget _buildActionButtons(bool jeMojaRezervacija, bool semVVrsti) {
+    final hasLocation = oglas.latLng != null || oglas.location.isNotEmpty;
+    final user = FirebaseAuth.instance.currentUser;
+    final jeVlasnik = user != null && oglas.uid != null && oglas.uid == user.uid;
+
     final navBtn = Expanded(
       flex: 2,
       child: ElevatedButton.icon(
         onPressed: hasLocation
             ? () {
                 Navigator.pop(context);
-                _openGoogleMaps(context);
+                _openGoogleMaps();
               }
             : null,
         icon: const Icon(Icons.directions_rounded, size: 18, color: Colors.white),
@@ -395,11 +518,14 @@ class FoodDetailSheet extends StatelessWidget {
     );
 
     if (oglas.status == OglasStatus.naRazpolago) {
-      // Rezerviraj
+      // Vlasnik ne može rezervirati vlastiti oglas
+      if (jeVlasnik) {
+        return Row(children: [navBtn]);
+      }
       return Row(children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => _rezerviraj(context),
+            onPressed: _rezerviraj,
             icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
             label: const Text('Rezerviraj'),
             style: OutlinedButton.styleFrom(
@@ -416,12 +542,32 @@ class FoodDetailSheet extends StatelessWidget {
     }
 
     if (oglas.status == OglasStatus.rezervirano) {
-      if (jeMojaRezervacija) {
-        // Prekliči svojo rezervacijo
+      // Vlasnik oglasa vidi "Označi kot prevzeto"
+      if (jeVlasnik) {
         return Row(children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => _preklici(context),
+              onPressed: () => _oznaci(oglas),
+              icon: const Icon(Icons.check_circle_rounded, size: 16),
+              label: const Text('Označi kot prevzeto'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kGreenMid,
+                side: const BorderSide(color: kGreenMid, width: 1.5),
+                shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          navBtn,
+        ]);
+      }
+
+      if (jeMojaRezervacija) {
+        return Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _preklici,
               icon: const Icon(Icons.cancel_outlined, size: 16),
               label: const Text('Prekliči rezervacijo'),
               style: OutlinedButton.styleFrom(
@@ -438,11 +584,10 @@ class FoodDetailSheet extends StatelessWidget {
       }
 
       if (semVVrsti) {
-        // Zapusti čakalno vrsto
         return Row(children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => _zapustiVrsto(context),
+              onPressed: _zapustiVrsto,
               icon: const Icon(Icons.exit_to_app_rounded, size: 16),
               label: const Text('Zapusti vrsto'),
               style: OutlinedButton.styleFrom(
@@ -458,11 +603,10 @@ class FoodDetailSheet extends StatelessWidget {
         ]);
       }
 
-      // Postavi se v čakalno vrsto
       return Row(children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => _dodajVVrsto(context),
+            onPressed: _dodajVVrsto,
             icon: const Icon(Icons.queue_rounded, size: 16),
             label: const Text('V čakalno vrsto'),
             style: OutlinedButton.styleFrom(
@@ -478,12 +622,18 @@ class FoodDetailSheet extends StatelessWidget {
       ]);
     }
 
-    // Prevzeto — samo navigacija, rezervacija onemogočena
+    // Prevzeto
     return Row(children: [
-      const Expanded(
+      Expanded(
         child: OutlinedButton(
           onPressed: null,
-          child: Text('Prevzeto'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: kTextLight,
+            side: const BorderSide(color: kBorder),
+            shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+            padding: const EdgeInsets.symmetric(vertical: 13),
+          ),
+          child: const Text('Prevzeto'),
         ),
       ),
       const SizedBox(width: 10),

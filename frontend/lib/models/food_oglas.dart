@@ -10,6 +10,7 @@ class LatLng {
 
 class FoodOglas {
   final String id;
+  final String? uid;          // vlasnik oglasa (davatelj)
   final String title;
   final String description;
   final String location;
@@ -30,6 +31,7 @@ class FoodOglas {
 
   const FoodOglas({
     required this.id,
+    this.uid,
     required this.title,
     this.description = '',
     required this.location,

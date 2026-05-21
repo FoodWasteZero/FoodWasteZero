@@ -11,6 +11,7 @@ import 'profile_page.dart';
 import 'mine_screen.dart';
 import 'auth_screen.dart';
 import 'recipe_page.dart';
+import '../widgets/app_drawer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Firestore doc → FoodOglas
@@ -59,7 +60,6 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     if (hoursLeft <= 24 && hoursLeft >= 0) expiringSoon = true;
   }
 
-  // NOVO: čitaj waitlist
   final waitlistRaw = d['waitlist'];
   final waitlist = (waitlistRaw is List)
       ? waitlistRaw.map((e) => e.toString()).toList()
@@ -67,6 +67,7 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
 
   return FoodOglas(
     id: doc.id,
+    uid: d['uid'] as String?,
     title: d['title'] as String? ?? '',
     description: d['description'] as String? ?? '',
     location: d['location'] as String? ?? '',
@@ -83,7 +84,7 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     imageBase64: d['imageBase64'] as String?,
     reservedByUid: d['reservedByUid'] as String?,
     expiryDate: expiryDate,
-    waitlist: waitlist, // NOVO
+    waitlist: waitlist,
   );
 }
 
@@ -111,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _navIndex = 0;
   String _searchQuery = '';
   String? _activeFilter;
-  String _mesto = 'Maribor'; // NOVO: tappable lokacija
+  String _mesto = 'Maribor';
   final TextEditingController _searchCtrl = TextEditingController();
   StreamSubscription<User?>? _authSub;
 
@@ -148,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // NOVO: Dialog za promjenu mesta/lokacije
   void _showMestoDialog() {
     final ctrl = TextEditingController(text: _mesto);
     showDialog(
@@ -172,18 +172,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: kRadius12,
                 borderSide: BorderSide.none,
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
           ),
           const SizedBox(height: 12),
-          // Hitre možnosti
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final m in ['Maribor', 'Ljubljana', 'Celje', 'Kranj', 'Koper'])
               GestureDetector(
-                onTap: () {
-                  ctrl.text = m;
-                },
+                onTap: () { ctrl.text = m; },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -192,8 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     border: Border.all(color: kGreenMid.withOpacity(0.3)),
                   ),
                   child: Text(m,
-                      style: const TextStyle(
-                          fontSize: 14, color: kGreenMid, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(fontSize: 14, color: kGreenMid, fontWeight: FontWeight.w600)),
                 ),
               ),
           ]),
@@ -216,7 +211,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Filtriranje ─────────────────────────────────────────────────────────────
   List<FoodOglas> _applyFilters(List<FoodOglas> all) {
     var list = List<FoodOglas>.from(all);
     if (_selectedTab != 0) {
@@ -275,7 +269,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -353,7 +346,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-  // ── Organizacija homepage ──────────────────────────────────────────────────
   Widget _buildOrgHomeContent(
     List<FoodOglas> filtered, int available, int expiring, int reserved) {
     return CustomScrollView(slivers: [
@@ -377,7 +369,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-  // ── Org AppBar ─────────────────────────────────────────────────────────────
   Widget _buildOrgSliverAppBar() {
     return SliverAppBar(
       expandedHeight: 110, pinned: true, elevation: 2,
@@ -434,18 +425,18 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _NotifButton(onTap: () => ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Ni novih obvestil'))))),
         Padding(padding: const EdgeInsets.only(right: 12),
-          child: _AvatarButton(onTap: _goToProfile, dark: true)),
+          child: _HamburgerButton(onTap: () => showAppDrawer(context), dark: true)),
       ],
     );
   }
 
-  // ── AppBar — s tappable lokacijo ───────────────────────────────────────────
   Widget _buildSliverAppBar() {
     return SliverAppBar(
       expandedHeight: 110, pinned: true, elevation: 2,
       backgroundColor: const Color(0xFF2E7D32),
       shadowColor: Colors.black.withOpacity(0.2),
       surfaceTintColor: Colors.transparent, forceElevated: true,
+      foregroundColor: Colors.white,
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.pin,
         background: Container(
@@ -473,7 +464,6 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
               color: Colors.white, letterSpacing: -0.2)),
         const SizedBox(width: 8),
-        // NOVO: tappable lokacija
         GestureDetector(
           onTap: _showMestoDialog,
           child: Container(
@@ -490,8 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(
                     fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
               const SizedBox(width: 2),
-              const Icon(Icons.keyboard_arrow_down_rounded,
-                  size: 13, color: Colors.white70),
+              const Icon(Icons.keyboard_arrow_down_rounded, size: 13, color: Colors.white70),
             ]),
           ),
         ),
@@ -502,12 +491,11 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _NotifButton(onTap: () => ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Ni novih obvestil'))))),
         Padding(padding: const EdgeInsets.only(right: 12),
-          child: _AvatarButton(onTap: _goToProfile)),
+          child: _HamburgerButton(onTap: () => showAppDrawer(context))),
       ],
     );
   }
 
-  // ── Search — BEZ filter gumba ──────────────────────────────────────────────
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -525,7 +513,6 @@ class _HomeScreenState extends State<HomeScreen> {
             hintText: 'Išči hrano v bližini...',
             hintStyle: kCaption.copyWith(fontSize: 14),
             prefixIcon: const Icon(Icons.search_rounded, color: kGreenMid, size: 22),
-            // NOVO: samo clear gumb, brez filter ikone
             suffixIcon: _searchQuery.isNotEmpty
                 ? GestureDetector(
                     onTap: () {
@@ -542,8 +529,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-  // ── Quick actions — BEZ Shranjeno ──────────────────────────────────────────
   Widget _buildQuickActionsRow() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -571,7 +556,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Heatmap ────────────────────────────────────────────────────────────────
   Widget _buildHeatmapSection() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
@@ -604,7 +588,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Listings header ────────────────────────────────────────────────────────
   Widget _buildListingsHeader(int count) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
@@ -670,7 +653,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ── Tab row ────────────────────────────────────────────────────────────────
   Widget _buildTabRow() {
     return Padding(
       padding: const EdgeInsets.only(top: 14),
@@ -710,7 +692,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── FAB ────────────────────────────────────────────────────────────────────
   Widget _buildFAB() {
     return Container(
       decoration: BoxDecoration(borderRadius: kRadius16, boxShadow: [
@@ -728,51 +709,54 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Bottom nav ─────────────────────────────────────────────────────────────
   Widget _buildBottomNav() {
-    final isGuest = FirebaseAuth.instance.currentUser == null;
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [
-        BoxShadow(color: Colors.black.withOpacity(0.1),
-            blurRadius: 30, offset: const Offset(0, -6)),
-      ]),
-      child: NavigationBar(
-        selectedIndex: _navIndex,
-        onDestinationSelected: (i) {
-          if (isGuest && (i == 2 || i == 3)) {
-            _showAuthPopup();
-            return;
-          }
-          setState(() => _navIndex = i);
-        },
-        backgroundColor: Colors.transparent, elevation: 0,
-        indicatorColor: kGreenPale,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: [
-          const NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded, color: kGreenMid),
-              label: 'Domov'),
-          const NavigationDestination(
-              icon: Icon(Icons.restaurant_rounded),
-              selectedIcon: Icon(Icons.restaurant_rounded, color: kGreenMid),
-              label: 'AI Chef'),
-          const NavigationDestination(
-              icon: Icon(Icons.inbox_outlined),
-              selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid),
-              label: 'Moje objave'),
-          NavigationDestination(
-            icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded),
-            selectedIcon: Icon(isGuest ? Icons.login_rounded : Icons.person_rounded,
-                color: kGreenMid),
-            label: isGuest ? 'Prijava' : 'Profil',
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, authSnap) {
+        final isGuest = authSnap.data == null;
+        return Container(
+          decoration: BoxDecoration(color: Colors.white, boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.1),
+                blurRadius: 30, offset: const Offset(0, -6)),
+          ]),
+          child: NavigationBar(
+            selectedIndex: _navIndex,
+            onDestinationSelected: (i) {
+              if (isGuest && (i == 2 || i == 3)) {
+                _showAuthPopup();
+                return;
+              }
+              setState(() => _navIndex = i);
+            },
+            backgroundColor: Colors.transparent, elevation: 0,
+            indicatorColor: kGreenPale,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: [
+              const NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded, color: kGreenMid),
+                  label: 'Domov'),
+              const NavigationDestination(
+                  icon: Icon(Icons.restaurant_rounded),
+                  selectedIcon: Icon(Icons.restaurant_rounded, color: kGreenMid),
+                  label: 'AI Chef'),
+              const NavigationDestination(
+                  icon: Icon(Icons.inbox_outlined),
+                  selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid),
+                  label: 'Objave'),
+              NavigationDestination(
+                icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded),
+                selectedIcon: Icon(isGuest ? Icons.login_rounded : Icons.person_rounded,
+                    color: kGreenMid),
+                label: isGuest ? 'Prijava' : 'Profil',
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // ── Org stats ──────────────────────────────────────────────────────────────
   Widget _buildOrgStatsRow(int available, int expiring, int reserved) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -806,10 +790,6 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(children: [
         Expanded(child: _OrgQuickAction(
-          icon: Icons.add_circle_outline_rounded, label: 'Nov oglas',
-          color: kGreenMid, onTap: _showAddOglas)),
-        const SizedBox(width: 10),
-        Expanded(child: _OrgQuickAction(
           icon: Icons.bolt_rounded, label: 'Poteče kmalu',
           color: kOrange, active: _activeFilter == 'expiring',
           onTap: () => _setFilter('expiring'))),
@@ -823,6 +803,11 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.eco_rounded, label: 'Na voljo',
           color: kGreenMid, active: _activeFilter == 'available',
           onTap: () => _setFilter('available'))),
+        const SizedBox(width: 10),
+        Expanded(child: _OrgQuickAction(
+          icon: Icons.queue_rounded, label: 'Čakalna vrsta',
+          color: const Color(0xFF5C6BC0), active: _activeFilter == 'reserved',
+          onTap: () => _setFilter('reserved'))),
       ]),
     );
   }
@@ -896,6 +881,34 @@ class _AvatarButton extends StatelessWidget {
         backgroundColor: dark ? kGreenPale : Colors.white,
         child: Text(initials,
           style: const TextStyle(fontWeight: FontWeight.w900, color: kGreenMid, fontSize: 16))));
+  }
+}
+
+class _HamburgerButton extends StatelessWidget {
+  final VoidCallback? onTap;
+  final bool dark;
+  const _HamburgerButton({this.onTap, this.dark = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38, height: 38,
+        decoration: BoxDecoration(
+          color: dark ? kGreenPale : Colors.white.withOpacity(0.2),
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          border: Border.all(
+            color: dark ? kGreenMid.withOpacity(0.2) : Colors.white.withOpacity(0.3),
+          ),
+        ),
+        child: Icon(
+          Icons.menu_rounded,
+          color: dark ? kGreenMid : Colors.white,
+          size: 22,
+        ),
+      ),
+    );
   }
 }
 
@@ -1025,7 +1038,7 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Heatmap (ostaja isto)
+// Heatmap
 // ══════════════════════════════════════════════════════════════════════════════
 class HeatmapPreviewCard extends StatelessWidget {
   final VoidCallback? onTap;
