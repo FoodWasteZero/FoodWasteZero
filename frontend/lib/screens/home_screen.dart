@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import '../common/theme.dart';
 import '../common/firestore_error.dart';
 import '../common/auth_helpers.dart';
@@ -119,6 +122,17 @@ class _HomeScreenState extends State<HomeScreen>
   final TextEditingController _searchCtrl = TextEditingController();
   StreamSubscription<User?>? _authSub;
 
+  // Za scroll-to-oglas iz heatmape
+  final ScrollController _listScrollCtrl = ScrollController();
+  // Mapa id → pozicija u filtered listi (osvježi se pri svakom buildu)
+  final Map<String, int> _oglasIndexMap = {};
+
+  // Prava lokacija korisnika
+  double? _userLat;
+  double? _userLng;
+  bool _locationLoading = false;
+  String? _locationError;
+
   // Animacija za inverzijo barv (uporabnik=0.0 → organizacija=1.0)
   late AnimationController _themeAnim;
   late Animation<double> _themeProgress;
@@ -145,6 +159,125 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
+  // ── Prava GPS lokacija korisnika ──────────────────────────────────────────
+  Future<void> _fetchLocation() async {
+    if (_locationLoading) return;
+    setState(() { _locationLoading = true; _locationError = null; });
+
+    try {
+      // 1. Provjeri je li servis uključen
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) setState(() {
+          _locationLoading = false;
+          _locationError = 'Lokacijska storitev je izklopljena.';
+        });
+        return;
+      }
+
+      // 2. Provjeri/zatraži dozvolu
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) setState(() {
+            _locationLoading = false;
+            _locationError = 'Dostop do lokacije zavrnjen.';
+          });
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) setState(() {
+          _locationLoading = false;
+          _locationError = 'Lokacija trajno blokirana. Omogočite jo v nastavitvah.';
+        });
+        await Geolocator.openAppSettings();
+        return;
+      }
+
+      // 3. Dohvati lokaciju
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 8),
+      );
+
+      if (mounted) {
+        setState(() {
+          _userLat = pos.latitude;
+          _userLng = pos.longitude;
+          _locationLoading = false;
+          _locationError = null;
+          _activeFilter = 'nearest';
+        });
+
+        // 4. Reverse geocoding — prikaži pravo ime mesta u app baru
+        _reverseGeocode(pos.latitude, pos.longitude);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(children: const [
+              Icon(Icons.my_location_rounded, color: Colors.white, size: 16),
+              SizedBox(width: 8),
+              Text('Lokacija pridobljena — razvrščam po razdalji'),
+            ]),
+            backgroundColor: kGreenMid,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: kRadius12),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() {
+        _locationLoading = false;
+        _locationError = 'Napaka pri pridobivanju lokacije.';
+      });
+    }
+  }
+
+  // ── Reverse geocoding: koordinate → ime ulice/sela ────────────────────────
+  Future<void> _reverseGeocode(double lat, double lng) async {
+    try {
+      final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+        'lat': lat.toString(),
+        'lon': lng.toString(),
+        'format': 'json',
+        'zoom': '16', // nivo ulice
+        'addressdetails': '1',
+      });
+      final resp = await http.get(uri, headers: {
+        'User-Agent': 'PraktikumApp/1.0 (flutter)',
+        'Accept-Language': 'sl,en',
+      }).timeout(const Duration(seconds: 5));
+
+      if (resp.statusCode != 200) return;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final address = data['address'] as Map<String, dynamic>?;
+      if (address == null || !mounted) return;
+
+      // Pokušaj dobiti: ulica + kućni broj, pa naselje/četvrt, pa grad
+      final road = address['road'] as String?;
+      final houseNumber = address['house_number'] as String?;
+      final suburb = address['suburb'] as String?;
+      final neighbourhood = address['neighbourhood'] as String?;
+      final village = address['village'] as String?;
+      final town = address['town'] as String?;
+      final city = address['city'] as String?;
+
+      String label;
+      if (road != null) {
+        label = houseNumber != null ? '$road $houseNumber' : road;
+      } else {
+        label = suburb ?? neighbourhood ?? village ?? town ?? city ?? _mesto;
+      }
+
+      if (mounted) setState(() => _mesto = label);
+    } catch (_) {
+      // Ako geocoding ne uspije, ostavi staro ime mjesta
+    }
+  }
+
   Future<void> _loadUserType() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -169,6 +302,7 @@ class _HomeScreenState extends State<HomeScreen>
     _authSub?.cancel();
     _searchCtrl.dispose();
     _themeAnim.dispose();
+    _listScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -236,6 +370,18 @@ class _HomeScreenState extends State<HomeScreen>
 
   List<FoodOglas> _applyFilters(List<FoodOglas> all) {
     var list = List<FoodOglas>.from(all);
+
+    // Vedno preračunaj razdaljo od prave GPS lokacije, ko jo imamo
+    if (_userLat != null && _userLng != null) {
+      list = list.map((o) {
+        if (o.latLng == null) return o;
+        final dLat = (o.latLng!.lat - _userLat!) * 111.0;
+        final dLng = (o.latLng!.lng - _userLng!) *
+            111.0 * cos(_userLat! * pi / 180);
+        return o.copyWithDistance(sqrt(dLat * dLat + dLng * dLng));
+      }).toList();
+    }
+
     if (_selectedTab != 0) {
       list = list.where((o) => o.category == _tabs[_selectedTab]).toList();
     }
@@ -264,7 +410,12 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _setFilter(String? f) {
-    setState(() => _activeFilter = (_activeFilter == f) ? null : f);
+    final newFilter = (_activeFilter == f) ? null : f;
+    setState(() => _activeFilter = newFilter);
+    // Kad aktiviramo "nearest" filter, takoj zahtevamo pravo lokacijo
+    if (newFilter == 'nearest') {
+      _fetchLocation();
+    }
   }
 
   void _showAuthPopup() {
@@ -389,15 +540,21 @@ class _HomeScreenState extends State<HomeScreen>
     int expiringCount,
     int reservedCount,
   ) {
+    // Build lookup map so heatmap can scroll to correct item
+    _oglasIndexMap.clear();
+    for (int i = 0; i < filtered.length; i++) {
+      _oglasIndexMap[filtered[i].id] = i;
+    }
+
     if (_isDavatelj) {
       return _buildOrgHomeContent(filtered, availableCount, expiringCount, reservedCount);
     }
-    return CustomScrollView(slivers: [
+    return CustomScrollView(controller: _listScrollCtrl, slivers: [
       _buildSliverAppBar(),
       if (_isGuest) SliverToBoxAdapter(child: _buildGuestBanner()),
       SliverToBoxAdapter(child: _buildSearchBar()),
       SliverToBoxAdapter(child: _buildQuickActionsRow()),
-      SliverToBoxAdapter(child: _buildHeatmapSection()),
+      SliverToBoxAdapter(child: _buildHeatmapSection(filtered)),
       SliverToBoxAdapter(child: _buildListingsHeader(filtered.length)),
       SliverToBoxAdapter(child: _buildTabRow()),
       SliverPadding(
@@ -579,7 +736,18 @@ class _HomeScreenState extends State<HomeScreen>
               border: Border.all(color: Colors.white.withOpacity(0.3)),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.location_on, size: 11, color: Colors.white70),
+              if (_locationLoading)
+                const SizedBox(
+                  width: 10, height: 10,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5, color: Colors.white70),
+                )
+              else
+                Icon(
+                  _userLat != null ? Icons.my_location_rounded : Icons.location_on,
+                  size: 11,
+                  color: _userLat != null ? Colors.white : Colors.white70,
+                ),
               const SizedBox(width: 3),
               Text(_mesto,
                 style: const TextStyle(
@@ -700,8 +868,11 @@ class _HomeScreenState extends State<HomeScreen>
           onTap: () => _setFilter('expiring'))),
         const SizedBox(width: 10),
         Expanded(child: _QuickAction(
-          icon: Icons.near_me_rounded, label: 'Najbližje',
-          color: const Color(0xFF0288D1), active: _activeFilter == 'nearest',
+          icon: _locationLoading ? Icons.hourglass_top_rounded : Icons.near_me_rounded,
+          label: _locationLoading ? 'Pridobivam...' : 'Najbližje',
+          color: const Color(0xFF0288D1),
+          active: _activeFilter == 'nearest',
+          loading: _locationLoading,
           onTap: () => _setFilter('nearest'))),
         const SizedBox(width: 10),
         Expanded(child: _QuickAction(
@@ -718,7 +889,24 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildHeatmapSection() {
+  // Called from HeatmapFullPage when user taps "Podrobnosti" on a pin
+  void _scrollToOglas(String oglasId) {
+    // Close heatmap page first, then scroll
+    Navigator.of(context).pop();
+    final idx = _oglasIndexMap[oglasId];
+    if (idx == null || !_listScrollCtrl.hasClients) return;
+    // Approximate: appBar ~220, each card ~110px, sections above list ~300
+    const sectionOffset = 380.0;
+    const cardHeight = 115.0;
+    final targetOffset = sectionOffset + idx * cardHeight;
+    _listScrollCtrl.animateTo(
+      targetOffset.clamp(0.0, _listScrollCtrl.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Widget _buildHeatmapSection(List<FoodOglas> filtered) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -729,7 +917,9 @@ class _HomeScreenState extends State<HomeScreen>
           ]),
         ),
         HeatmapPreviewCard(onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const HeatmapFullPage()))),
+          MaterialPageRoute(builder: (_) => HeatmapFullPage(
+            onScrollToOglas: _scrollToOglas,
+          )))),
       ]),
     );
   }
@@ -990,14 +1180,15 @@ class _HomeScreenState extends State<HomeScreen>
 
 class _QuickAction extends StatelessWidget {
   final IconData icon; final String label; final Color color;
-  final VoidCallback onTap; final bool active;
+  final VoidCallback onTap; final bool active; final bool loading;
   const _QuickAction({required this.icon, required this.label,
-    required this.color, required this.onTap, this.active = false});
+    required this.color, required this.onTap, this.active = false,
+    this.loading = false});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: loading ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -1014,7 +1205,14 @@ class _QuickAction extends StatelessWidget {
             decoration: BoxDecoration(
               color: active ? Colors.white.withOpacity(0.25) : color.withOpacity(0.12),
               borderRadius: kRadius8),
-            child: Icon(icon, color: active ? Colors.white : color, size: 18)),
+            child: loading
+              ? Padding(
+                  padding: const EdgeInsets.all(9),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: active ? Colors.white : color,
+                  ))
+              : Icon(icon, color: active ? Colors.white : color, size: 18)),
           const SizedBox(height: 6),
           Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
             color: active ? Colors.white : color),
@@ -1211,226 +1409,898 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Heatmap
 // ══════════════════════════════════════════════════════════════════════════════
+// HEATMAP — bere prave lat/lng koordinate iz Firestorea
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Referenčna točka za Maribor (center mesta)
+const _kRefLat = 46.5547;
+const _kRefLng = 15.6450;
+// Območje prikaza ±km
+const _kViewKm = 5.0;
+
+// Pretvori geo koordinate v relativne [0,1] pozicije na canvasu
+// HotspotData: (relX, relY, intensity, title, id, description, status)
+typedef HotspotData = (double, double, double, String, String, String, String);
+
+(double rx, double ry) _geoToRelative(double lat, double lng) {
+  final rx = ((lng - _kRefLng) / (_kViewKm / 55.0) + 1.0) / 2.0;
+  final ry = (1.0 - (lat - _kRefLat) / (_kViewKm / 111.0) + 1.0) / 2.0;
+  return (rx.clamp(0.05, 0.95), ry.clamp(0.05, 0.95));
+}
+
+// Fallback točke (prikazane dokler se Firestore ne naloži)
+const _kFallbackHs = [
+  (0.35, 0.45, 3.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.55, 0.35, 2.5, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.65, 0.55, 4.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.45, 0.65, 2.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.75, 0.40, 3.5, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.25, 0.55, 2.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
+];
+
+// ── Preview kartica (na home screenu) ─────────────────────────────────────────
 class HeatmapPreviewCard extends StatelessWidget {
   final VoidCallback? onTap;
   const HeatmapPreviewCard({super.key, this.onTap});
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(onTap: onTap, child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      height: 170,
-      decoration: BoxDecoration(borderRadius: kRadius16, boxShadow: [
-        BoxShadow(color: const Color(0xFF1B5E20).withOpacity(0.3),
-            blurRadius: 28, offset: const Offset(0, 8)),
-      ]),
-      child: ClipRRect(borderRadius: kRadius16, child: Stack(fit: StackFit.expand, children: [
-        const _MockMapBackground(),
-        const _HeatmapDots(),
-        Container(decoration: BoxDecoration(gradient: LinearGradient(
-          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black.withOpacity(0.65)],
-          stops: const [0.3, 1.0]))),
-        Positioned(left: 16, bottom: 16, right: 60, child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: kGreenAccent, borderRadius: kRadiusFull),
-              child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 14,
-                fontWeight: FontWeight.w800, letterSpacing: 1.2))),
-            const SizedBox(width: 8),
-            const Flexible(child: Text('Toplotna karta hrane',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
-              overflow: TextOverflow.ellipsis)),
-          ]),
-          const SizedBox(height: 4),
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('oglasi').snapshots(),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        height: 170,
+        decoration: BoxDecoration(borderRadius: kRadius16, boxShadow: [
+          BoxShadow(color: const Color(0xFF1B5E20).withOpacity(0.3),
+              blurRadius: 28, offset: const Offset(0, 8)),
+        ]),
+        child: ClipRRect(
+          borderRadius: kRadius16,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('oglasi')
+                .where('status', isEqualTo: 'naRazpolago')
+                .snapshots(),
             builder: (_, snap) {
-              final count = snap.data?.docs.length ?? kSampleOglasi.length;
-              return Text('$count aktivnih oglasov',
-                style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 14));
+              final hotspots = _extractHotspots(snap.data?.docs);
+              final count = snap.data?.docs.length ?? 0;
+              return Stack(fit: StackFit.expand, children: [
+                const _MapBackground(),
+                _LiveHeatmapCanvas(hotspots: hotspots, preview: true),
+                // Gradient overlay
+                Container(decoration: BoxDecoration(gradient: LinearGradient(
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.65)],
+                  stops: const [0.3, 1.0]))),
+                // Labels
+                Positioned(left: 16, bottom: 16, right: 60, child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min, children: [
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: kGreenAccent, borderRadius: kRadiusFull),
+                      child: const Text('LIVE', style: TextStyle(color: Colors.white,
+                        fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2))),
+                    const SizedBox(width: 8),
+                    const Flexible(child: Text('Toplotna karta hrane',
+                      style: TextStyle(color: Colors.white,
+                        fontSize: 14, fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('$count aktivnih oglasov',
+                    style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13)),
+                ])),
+                Positioned(right: 14, bottom: 14, child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: kRadiusFull,
+                    border: Border.all(color: Colors.white.withOpacity(0.5))),
+                  child: const Icon(Icons.open_in_full_rounded, color: Colors.white, size: 16))),
+              ]);
             },
           ),
-        ])),
-        Positioned(right: 14, bottom: 14, child: Container(
-          width: 36, height: 36,
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2),
-            borderRadius: kRadiusFull, border: Border.all(color: Colors.white.withOpacity(0.5))),
-          child: const Icon(Icons.open_in_full_rounded, color: Colors.white, size: 16))),
-      ])),
-    ));
-  }
-}
-
-class _MockMapBackground extends StatelessWidget {
-  const _MockMapBackground();
-  @override
-  Widget build(BuildContext context) =>
-    CustomPaint(painter: _MapGridPainter(), child: Container(color: const Color(0xFF1A3A2A)));
-}
-
-class _MapGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = const Color(0xFF2A4A3A)..strokeWidth = 1;
-    for (double y = 0; y < size.height; y += 22) canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
-    for (double x = 0; x < size.width; x += 30) canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
-    final rp = Paint()..color = const Color(0xFF3A5A4A)..strokeWidth = 3;
-    canvas.drawLine(Offset(0, size.height * 0.45), Offset(size.width, size.height * 0.45), rp);
-    canvas.drawLine(Offset(size.width * 0.35, 0), Offset(size.width * 0.35, size.height), rp);
-  }
-  @override bool shouldRepaint(_) => false;
-}
-
-class _HeatmapDots extends StatefulWidget {
-  const _HeatmapDots();
-  @override State<_HeatmapDots> createState() => _HeatmapDotsState();
-}
-
-class _HeatmapDotsState extends State<_HeatmapDots> with SingleTickerProviderStateMixin {
-  late AnimationController _c; late Animation<double> _p;
-  static const _hs = [(0.2,0.35,3.0),(0.45,0.25,2.0),(0.6,0.55,4.0),(0.75,0.3,2.5),(0.3,0.65,1.5),(0.85,0.7,3.0),(0.15,0.7,2.0),(0.55,0.75,1.5)];
-  @override void initState() { super.initState(); _c = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true); _p = Tween<double>(begin: 0.7, end: 1.0).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)); }
-  @override void dispose() { _c.dispose(); super.dispose(); }
-  @override Widget build(BuildContext context) => AnimatedBuilder(animation: _p, builder: (_, __) => CustomPaint(painter: _HeatmapPainter(_hs, _p.value), child: Container(color: Colors.transparent)));
-}
-
-class _HeatmapPainter extends CustomPainter {
-  final List<(double,double,double)> hs; final double p;
-  _HeatmapPainter(this.hs, this.p);
-  @override void paint(Canvas canvas, Size size) {
-    for (final (rx,ry,intensity) in hs) {
-      final cx = rx*size.width, cy = ry*size.height, br = intensity*14.0*p;
-      for (int i = 3; i >= 0; i--) {
-        final r = br*(1+i*0.5), op = 0.06*(4-i)*p;
-        canvas.drawCircle(Offset(cx,cy), r, Paint()..shader = RadialGradient(
-          colors:[const Color(0xFF4CAF50).withOpacity(op+0.05),Colors.transparent])
-          .createShader(Rect.fromCircle(center: Offset(cx,cy), radius: r)));
-      }
-      canvas.drawCircle(Offset(cx,cy), 3.5, Paint()..color = kGreenAccent.withOpacity(0.9*p));
-    }
-  }
-  @override bool shouldRepaint(_HeatmapPainter o) => o.p != p;
-}
-
-class HeatmapFullPage extends StatefulWidget {
-  const HeatmapFullPage({super.key});
-  @override State<HeatmapFullPage> createState() => _HeatmapFullPageState();
-}
-
-class _HeatmapFullPageState extends State<HeatmapFullPage> with SingleTickerProviderStateMixin {
-  late AnimationController _c; late Animation<double> _p;
-  static const _hs = [(0.2,0.35,3.5),(0.45,0.25,2.5),(0.6,0.55,5.0),(0.75,0.3,3.0),(0.3,0.65,2.0),(0.85,0.7,3.5),(0.15,0.7,2.5),(0.55,0.75,2.0),(0.4,0.45,4.0),(0.7,0.15,2.0),(0.25,0.15,1.5),(0.9,0.4,2.5),(0.1,0.5,3.0),(0.65,0.85,2.0)];
-  @override void initState() { super.initState(); _c = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true); _p = Tween<double>(begin: 0.75, end: 1.0).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)); }
-  @override void dispose() { _c.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A3A2A),
-      body: Stack(children: [
-        Positioned.fill(child: AnimatedBuilder(animation: _p,
-          builder: (_, __) => CustomPaint(painter: _FullMapPainter(_hs, _p.value)))),
-        SafeArea(child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Row(children: [
-            GestureDetector(onTap: () => Navigator.pop(context), child: Container(
-              width: 42, height: 42,
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.15),
-                borderRadius: kRadius12, border: Border.all(color: Colors.white.withOpacity(0.25))),
-              child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20))),
-            const SizedBox(width: 12),
-            const Text('Toplotna karta', style: TextStyle(
-                color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-            const Spacer(),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('oglasi').snapshots(),
-              builder: (_, snap) {
-                final count = snap.data?.docs.length ?? kSampleOglasi.length;
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: kGreenAccent.withOpacity(0.9), borderRadius: kRadiusFull),
-                  child: Row(children: [
-                    const Icon(Icons.circle, color: Colors.white, size: 8), const SizedBox(width: 4),
-                    Text('$count aktivnih', style: const TextStyle(
-                        color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                  ]));
-              },
-            ),
-          ]),
-        )),
-        Positioned(left: 0, right: 0, bottom: 0, child: Container(
-          decoration: const BoxDecoration(color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: kBorder, borderRadius: kRadiusFull)),
-            const SizedBox(height: 18),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Razporeditev hrane', style: kHeading3),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadiusFull),
-                child: const Text('Maribor', style: TextStyle(
-                    color: kGreenMid, fontSize: 14, fontWeight: FontWeight.w700))),
-            ]),
-            const SizedBox(height: 14),
-            Row(children: [
-              _LegendDot(color: kGreenAccent, label: 'Visoka gostota'),
-              const SizedBox(width: 16),
-              _LegendDot(color: kGreenLight.withOpacity(0.6), label: 'Srednja gostota'),
-              const SizedBox(width: 16),
-              _LegendDot(color: kGreenLight.withOpacity(0.25), label: 'Nizka gostota'),
-            ]),
-            const SizedBox(height: 14),
-            SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.my_location_rounded, size: 16),
-              label: const Text('Pokaži bližnje oglase'),
-              style: OutlinedButton.styleFrom(foregroundColor: kGreenMid,
-                side: const BorderSide(color: kGreenMid, width: 1.5),
-                shape: const RoundedRectangleBorder(borderRadius: kRadius12),
-                padding: const EdgeInsets.symmetric(vertical: 13)),
-            )),
-          ]),
-        )),
-      ]),
+        ),
+      ),
     );
   }
 }
 
-class _LegendDot extends StatelessWidget {
-  final Color color; final String label;
-  const _LegendDot({required this.color, required this.label});
-  @override Widget build(BuildContext context) => Row(children: [
-    Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-    const SizedBox(width: 5), Text(label, style: kCaption),
-  ]);
+// ── Polna stran heatmape ───────────────────────────────────────────────────────
+class HeatmapFullPage extends StatefulWidget {
+  final void Function(String oglasId)? onScrollToOglas;
+  const HeatmapFullPage({super.key, this.onScrollToOglas});
+  @override State<HeatmapFullPage> createState() => _HeatmapFullPageState();
 }
 
-class _FullMapPainter extends CustomPainter {
-  final List<(double,double,double)> hs; final double p;
-  _FullMapPainter(this.hs, this.p);
-  @override void paint(Canvas canvas, Size size) {
-    final gp = Paint()..color = const Color(0xFF2A4A3A)..strokeWidth = 1;
-    for (double y = 0; y < size.height; y += 40) canvas.drawLine(Offset(0,y), Offset(size.width,y), gp);
-    for (double x = 0; x < size.width; x += 40) canvas.drawLine(Offset(x,0), Offset(x,size.height), gp);
-    final rp = Paint()..color = const Color(0xFF3A5A4A)..strokeWidth = 5;
-    canvas.drawLine(Offset(0, size.height*0.45), Offset(size.width, size.height*0.45), rp);
-    canvas.drawLine(Offset(size.width*0.35, 0), Offset(size.width*0.35, size.height), rp);
-    canvas.drawLine(Offset(size.width*0.65, 0), Offset(size.width*0.65, size.height), rp);
-    for (final (rx,ry,intensity) in hs) {
-      final cx=rx*size.width, cy=ry*size.height, br=intensity*22.0*p;
-      for (int i=4; i>=0; i--) {
-        final r=br*(1+i*0.45), op=0.05*(5-i)*p;
-        canvas.drawCircle(Offset(cx,cy), r, Paint()..shader = RadialGradient(
-          colors:[const Color(0xFF4CAF50).withOpacity(op+0.04),Colors.transparent])
-          .createShader(Rect.fromCircle(center: Offset(cx,cy), radius: r)));
+class _HeatmapFullPageState extends State<HeatmapFullPage> {
+  String _filter = 'Vsi';
+  bool _showLabels = false;
+  bool _panelExpanded = false;
+  HotspotData? _selectedHotspot;
+
+  static const _filters = ['Vsi', 'Prosti', 'Rezervirani'];
+  static const _filterValues = ['Vsi', 'naRazpolago', 'rezervirano'];
+
+  // Fiksna višina bottom panela — ne narašča
+  static const _panelCollapsed = 200.0;
+  static const _panelExpanded2 = 320.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final screenH = mq.size.height;
+    final safeTop = mq.padding.top;
+    // Koliko prostora ostane za mapu (oduzimamo top bar ~110 + bottom panel)
+    final panelH = _panelExpanded ? _panelExpanded2 : _panelCollapsed;
+    final topBarH = safeTop + 110.0;
+    final mapH = screenH - topBarH - panelH;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F2318),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('oglasi').snapshots(),
+        builder: (_, snap) {
+          final allDocs = snap.data?.docs ?? [];
+          final filtered = _filter == 'Vsi'
+              ? allDocs
+              : allDocs
+                  .where((d) =>
+                      (d.data() as Map)['status'] ==
+                      _filterValues[_filters.indexOf(_filter)])
+                  .toList();
+
+          final hotspots = _extractHotspots(filtered);
+          final activeCount = allDocs
+              .where((d) => (d.data() as Map)['status'] == 'naRazpolago')
+              .length;
+          final reservedCount = allDocs
+              .where((d) => (d.data() as Map)['status'] == 'rezervirano')
+              .length;
+          final prevzetoCount =
+              allDocs.length - activeCount - reservedCount;
+
+          return Column(
+            children: [
+              // ── TOP BAR (fiksna višina) ──────────────────────────────────
+              Container(
+                color: const Color(0xFF0F2318),
+                padding: EdgeInsets.only(top: safeTop),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Naslov row
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: Row(children: [
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 42, height: 42,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: kRadius12,
+                              border: Border.all(
+                                  color: Colors.white.withOpacity(0.2))),
+                            child: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 20)),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('Toplotna karta',
+                          style: TextStyle(color: Colors.white,
+                            fontSize: 18, fontWeight: FontWeight.w800)),
+                        const Spacer(),
+                        // LIVE badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: kGreenAccent.withOpacity(0.9),
+                            borderRadius: kRadiusFull),
+                          child: Row(children: [
+                            Container(width: 7, height: 7,
+                              decoration: const BoxDecoration(
+                                color: Colors.white, shape: BoxShape.circle)),
+                            const SizedBox(width: 5),
+                            Text('${allDocs.length} LIVE',
+                              style: const TextStyle(color: Colors.white,
+                                fontSize: 12, fontWeight: FontWeight.w800)),
+                          ])),
+                      ]),
+                    ),
+                    const SizedBox(height: 10),
+                    // Filter chips
+                    SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: [
+                          ..._filters.map((f) => GestureDetector(
+                            onTap: () => setState(() => _filter = f),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: _filter == f
+                                    ? kGreenAccent
+                                    : Colors.white.withOpacity(0.12),
+                                borderRadius: kRadiusFull,
+                                border: Border.all(
+                                  color: _filter == f
+                                      ? kGreenAccent
+                                      : Colors.white.withOpacity(0.2))),
+                              child: Text(f,
+                                style: TextStyle(
+                                  color: _filter == f
+                                      ? Colors.white
+                                      : Colors.white70,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600))))),
+                          // Toggle nazivi
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _showLabels = !_showLabels),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: _showLabels
+                                    ? Colors.white.withOpacity(0.22)
+                                    : Colors.white.withOpacity(0.08),
+                                borderRadius: kRadiusFull,
+                                border: Border.all(
+                                    color: Colors.white.withOpacity(0.2))),
+                              child: Row(children: [
+                                Icon(Icons.label_outline_rounded,
+                                  color: _showLabels
+                                      ? Colors.white
+                                      : Colors.white54,
+                                  size: 14),
+                                const SizedBox(width: 4),
+                                Text('Nazivi',
+                                  style: TextStyle(
+                                    color: _showLabels
+                                        ? Colors.white
+                                        : Colors.white54,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
+                              ]))),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+
+              // ── MAPA (flex — zapolni preostali prostor) ──────────────────
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const _MapBackground(dark: true),
+                    _LiveHeatmapCanvas(
+                      hotspots: hotspots,
+                      preview: false,
+                      showLabels: _showLabels,
+                      selectedId: _selectedHotspot?.$5,
+                      onHotspotTap: (hs) => setState(() =>
+                          _selectedHotspot = _selectedHotspot?.$5 == hs.$5 ? null : hs),
+                    ),
+                    // Tap outside → dismiss popup
+                    if (_selectedHotspot != null)
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () => setState(() => _selectedHotspot = null),
+                        ),
+                      ),
+                    // Mini popup
+                    if (_selectedHotspot != null)
+                      _HotspotPopup(
+                        hotspot: _selectedHotspot!,
+                        onClose: () => setState(() => _selectedHotspot = null),
+                        onDetails: widget.onScrollToOglas != null
+                            ? () => widget.onScrollToOglas!(_selectedHotspot!.$5)
+                            : null,
+                      ),
+                  ],
+                ),
+              ),
+
+              // ── BOTTOM PANEL (fiksna višina, ne overlaya) ────────────────
+              GestureDetector(
+                onTap: () =>
+                    setState(() => _panelExpanded = !_panelExpanded),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeInOut,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(24))),
+                  padding: EdgeInsets.fromLTRB(
+                      20, 14, 20, mq.padding.bottom + 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Handle + toggle indikator
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(width: 36, height: 4,
+                            decoration: BoxDecoration(
+                                color: kBorder, borderRadius: kRadiusFull)),
+                          const SizedBox(width: 8),
+                          Icon(
+                            _panelExpanded
+                                ? Icons.keyboard_arrow_down_rounded
+                                : Icons.keyboard_arrow_up_rounded,
+                            color: kTextLight, size: 18),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // ── Stat kartice (vedno vidne) ──────────────────────
+                      Row(children: [
+                        _HeatStat(value: '${allDocs.length}',
+                            label: 'Skupaj', color: kTextDark),
+                        const SizedBox(width: 8),
+                        _HeatStat(value: '$activeCount',
+                            label: 'Prosti', color: kGreenMid),
+                        const SizedBox(width: 8),
+                        _HeatStat(value: '$reservedCount',
+                            label: 'Rezervirani', color: kOrange),
+                        const SizedBox(width: 8),
+                        _HeatStat(value: '$prevzetoCount',
+                            label: 'Prevzeto',
+                            color: const Color(0xFF1565C0)),
+                      ]),
+
+                      // ── Razširjeni del ───────────────────────────────────
+                      if (_panelExpanded) ...[
+                        const SizedBox(height: 14),
+                        const Divider(color: kBorder, height: 1),
+                        const SizedBox(height: 14),
+                        Row(children: [
+                          _LegendDot(color: kGreenAccent,
+                              label: 'Visoka gostota'),
+                          const SizedBox(width: 14),
+                          _LegendDot(
+                              color: kGreenLight.withOpacity(0.6),
+                              label: 'Srednja'),
+                          const SizedBox(width: 14),
+                          _LegendDot(
+                              color: kGreenLight.withOpacity(0.25),
+                              label: 'Nizka'),
+                        ]),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(
+                                Icons.my_location_rounded, size: 16),
+                            label: const Text('Pokaži bližnje oglase'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: kGreenMid,
+                              side: const BorderSide(
+                                  color: kGreenMid, width: 1.5),
+                              shape: const RoundedRectangleBorder(
+                                  borderRadius: kRadius12),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 13)),
+                          )),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LiveHeatmapCanvas extends StatefulWidget {
+  final List<HotspotData> hotspots;
+  final bool preview;
+  final bool showLabels;
+  final String? selectedId;
+  final void Function(HotspotData)? onHotspotTap;
+
+  const _LiveHeatmapCanvas({
+    required this.hotspots,
+    required this.preview,
+    this.showLabels = false,
+    this.selectedId,
+    this.onHotspotTap,
+  });
+
+  @override
+  State<_LiveHeatmapCanvas> createState() => _LiveHeatmapCanvasState();
+}
+
+class _LiveHeatmapCanvasState extends State<_LiveHeatmapCanvas>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _c;
+  late Animation<double> _p;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+        vsync: this, duration: const Duration(seconds: 2))
+      ..repeat(reverse: true);
+    _p = Tween<double>(begin: 0.75, end: 1.0)
+        .animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _p,
+      builder: (_, __) {
+        final pts = widget.hotspots.isEmpty
+            ? _kFallbackHs.toList()
+            : widget.hotspots;
+
+        return LayoutBuilder(builder: (ctx, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          return Stack(
+            children: [
+              // Heatmap blobs (painter — bez točaka)
+              CustomPaint(
+                painter: _LiveHeatmapPainter(
+                  hotspots: pts,
+                  pulse: _p.value,
+                  preview: widget.preview,
+                  showLabels: widget.showLabels,
+                  selectedId: widget.selectedId,
+                ),
+                child: Container(color: Colors.transparent),
+              ),
+              // Tappable dot overlays (samo na full page)
+              if (!widget.preview)
+                for (final hs in pts)
+                  if (hs.$5.isNotEmpty) // samo pravi Firestore artikli (imaju id)
+                    _buildTapDot(hs, w, h),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  Widget _buildTapDot(HotspotData hs, double w, double h) {
+    final cx = hs.$1 * w;
+    final cy = hs.$2 * h;
+    final isSelected = widget.selectedId == hs.$5;
+    const hitSize = 36.0;
+    return Positioned(
+      left: cx - hitSize / 2,
+      top: cy - hitSize / 2,
+      width: hitSize,
+      height: hitSize,
+      child: GestureDetector(
+        onTap: () => widget.onHotspotTap?.call(hs),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.transparent,
+            border: isSelected
+                ? Border.all(color: Colors.white, width: 2)
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _LiveHeatmapPainter extends CustomPainter {
+  final List<HotspotData> hotspots;
+  final double pulse;
+  final bool preview;
+  final bool showLabels;
+  final String? selectedId;
+
+  _LiveHeatmapPainter({
+    required this.hotspots,
+    required this.pulse,
+    required this.preview,
+    required this.showLabels,
+    this.selectedId,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pts = hotspots.isEmpty
+        ? _kFallbackHs
+        : hotspots;
+
+    for (final hs in pts) {
+      final rx = hs.$1; final ry = hs.$2;
+      final intensity = hs.$3; final title = hs.$4;
+      final id = hs.$5;
+      final cx = rx * size.width;
+      final cy = ry * size.height;
+      final baseR = (preview ? 16.0 : 28.0) * intensity.clamp(0.5, 5.0) / 3.0;
+
+      // Heatmap blob — 4 sloji radijalnog gradienta
+      for (int i = 3; i >= 0; i--) {
+        final r = baseR * (1.0 + i * 0.6) * pulse;
+        final opacity = 0.07 * (4 - i) * pulse;
+        final paint = Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFF4CAF50).withOpacity(opacity + 0.04),
+              const Color(0xFF81C784).withOpacity(opacity * 0.4),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r));
+        canvas.drawCircle(Offset(cx, cy), r, paint);
       }
-      canvas.drawCircle(Offset(cx,cy), 4.5, Paint()..color = kGreenAccent.withOpacity(0.95*p));
+
+      final isSelected = id.isNotEmpty && id == selectedId;
+
+      // Selected ring
+      if (isSelected) {
+        canvas.drawCircle(
+            Offset(cx, cy), 12 * pulse,
+            Paint()
+              ..color = Colors.white.withOpacity(0.35 * pulse)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2);
+      }
+
+      // Centralna točka
+      final dotR = preview ? 4.0 : 5.5;
+      canvas.drawCircle(
+          Offset(cx, cy), dotR + 2,
+          Paint()..color = Colors.black.withOpacity(0.3)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawCircle(
+          Offset(cx, cy), dotR,
+          Paint()..color = (isSelected ? Colors.white : kGreenAccent).withOpacity(0.9 * pulse));
+      canvas.drawCircle(
+          Offset(cx, cy), dotR * 0.4,
+          Paint()..color = Colors.white.withOpacity(0.8));
+
+      // Naziv oglasa (samo na full page)
+      if (!preview && showLabels && title.isNotEmpty) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: title.length > 14 ? '${title.substring(0, 12)}…' : title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: 80);
+        tp.paint(canvas, Offset(cx - tp.width / 2, cy + dotR + 4));
+      }
     }
   }
-  @override bool shouldRepaint(_FullMapPainter o) => o.p != p;
+
+  @override
+  bool shouldRepaint(_LiveHeatmapPainter o) =>
+      o.pulse != pulse || o.hotspots != hotspots || 
+      o.showLabels != showLabels || o.selectedId != selectedId;
+}
+
+// ── Helper: iz Firestore docs izvuci hotspots ──────────────────────────────────
+List<HotspotData> _extractHotspots(
+    List<QueryDocumentSnapshot>? docs) {
+  if (docs == null || docs.isEmpty) return [];
+  final result = <HotspotData>[];
+  for (final doc in docs) {
+    final d = doc.data() as Map<String, dynamic>;
+    final lat = (d['lat'] as num?)?.toDouble();
+    final lng = (d['lng'] as num?)?.toDouble();
+    final title = d['title'] as String? ?? '';
+    final description = d['description'] as String? ?? '';
+    final status = d['status'] as String? ?? 'naRazpolago';
+    if (lat == null || lng == null) continue;
+    final (rx, ry) = _geoToRelative(lat, lng);
+    // Intenzitet ovisi o statusu: prosti = 3, rezervirani = 2, prevzeti = 1
+    final intensity = status == 'naRazpolago'
+        ? 3.0
+        : status == 'rezervirano'
+            ? 2.0
+            : 1.0;
+    result.add((rx, ry, intensity, title, doc.id, description, status));
+  }
+  return result;
+}
+
+// ── Pozadinska mapa (grid + ceste) ────────────────────────────────────────────
+class _MapBackground extends StatelessWidget {
+  final bool dark;
+  const _MapBackground({this.dark = false});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+        painter: _MapGridPainter(dark: dark),
+        child: Container(
+            color: dark ? const Color(0xFF0F2318) : const Color(0xFF1A3A2A)),
+      );
+}
+
+class _MapGridPainter extends CustomPainter {
+  final bool dark;
+  const _MapGridPainter({this.dark = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridColor =
+        dark ? const Color(0xFF1A3A28) : const Color(0xFF2A4A3A);
+    final roadColor =
+        dark ? const Color(0xFF2A5038) : const Color(0xFF3A5A4A);
+
+    final gp = Paint()..color = gridColor..strokeWidth = 0.8;
+    final step = dark ? 35.0 : 22.0;
+    for (double y = 0; y < size.height; y += step)
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gp);
+    for (double x = 0; x < size.width; x += step)
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gp);
+
+    // Glavne ceste Maribora (stilizovano)
+    final rp = Paint()
+      ..color = roadColor
+      ..strokeWidth = dark ? 5.0 : 3.0
+      ..strokeCap = StrokeCap.round;
+
+    // Horizontalne ceste
+    canvas.drawLine(
+        Offset(0, size.height * 0.45), Offset(size.width, size.height * 0.45), rp);
+    canvas.drawLine(
+        Offset(0, size.height * 0.65), Offset(size.width, size.height * 0.65), rp);
+    canvas.drawLine(
+        Offset(0, size.height * 0.28), Offset(size.width * 0.7, size.height * 0.28), rp);
+
+    // Vertikalne ceste
+    canvas.drawLine(
+        Offset(size.width * 0.35, 0), Offset(size.width * 0.35, size.height), rp);
+    canvas.drawLine(
+        Offset(size.width * 0.62, 0), Offset(size.width * 0.62, size.height), rp);
+    canvas.drawLine(
+        Offset(size.width * 0.80, size.height * 0.2),
+        Offset(size.width * 0.80, size.height * 0.8), rp);
+
+    // Reka Drava (ukrivljena linija)
+    final riverP = Paint()
+      ..color = const Color(0xFF1565C0).withOpacity(0.4)
+      ..strokeWidth = dark ? 8.0 : 5.0
+      ..strokeCap = StrokeCap.round;
+    final path = Path()
+      ..moveTo(0, size.height * 0.55)
+      ..cubicTo(size.width * 0.25, size.height * 0.52, size.width * 0.5,
+          size.height * 0.58, size.width * 0.75, size.height * 0.54)
+      ..cubicTo(size.width * 0.88, size.height * 0.52, size.width,
+          size.height * 0.56, size.width, size.height * 0.56);
+    canvas.drawPath(path, riverP);
+
+    // Moj pin (center, lokacija korisnika)
+    final myX = size.width * 0.35;
+    final myY = size.height * 0.45;
+    canvas.drawCircle(
+        Offset(myX, myY), 10,
+        Paint()..color = const Color(0xFF2196F3).withOpacity(0.2));
+    canvas.drawCircle(
+        Offset(myX, myY), 6,
+        Paint()..color = Colors.white);
+    canvas.drawCircle(
+        Offset(myX, myY), 4.5,
+        Paint()..color = const Color(0xFF2196F3));
+  }
+
+  @override
+  bool shouldRepaint(_) => false;
+}
+
+// ── Mini popup za klik na heatmap točku ──────────────────────────────────────
+class _HotspotPopup extends StatelessWidget {
+  final HotspotData hotspot;
+  final VoidCallback onClose;
+  final VoidCallback? onDetails;
+
+  const _HotspotPopup({
+    required this.hotspot,
+    required this.onClose,
+    this.onDetails,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = hotspot.$4;
+    final description = hotspot.$6;
+    final status = hotspot.$7;
+    final id = hotspot.$5;
+
+    Color statusColor;
+    String statusLabel;
+    IconData statusIcon;
+    switch (status) {
+      case 'rezervirano':
+        statusColor = kOrange;
+        statusLabel = 'Rezervirano';
+        statusIcon = Icons.schedule_rounded;
+        break;
+      case 'prevzeto':
+        statusColor = const Color(0xFF78909C);
+        statusLabel = 'Prevzeto';
+        statusIcon = Icons.check_circle_outline_rounded;
+        break;
+      default:
+        statusColor = kGreenAccent;
+        statusLabel = 'Na razpolago';
+        statusIcon = Icons.check_rounded;
+    }
+
+    return Positioned(
+      left: 16, right: 16, bottom: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A3A28),
+            borderRadius: kRadius16,
+            border: Border.all(color: Colors.white.withOpacity(0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.45),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.18),
+                    borderRadius: kRadiusFull,
+                    border: Border.all(color: statusColor.withOpacity(0.4)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(statusIcon, color: statusColor, size: 11),
+                    const SizedBox(width: 4),
+                    Text(statusLabel, style: TextStyle(
+                      color: statusColor, fontSize: 11, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: onClose,
+                  child: Container(
+                    width: 26, height: 26,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close_rounded, color: Colors.white54, size: 14),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              // Title
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.65),
+                    fontSize: 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              // Only show button if we have a real id and callback
+              if (id.isNotEmpty && onDetails != null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: onDetails,
+                    icon: const Icon(Icons.arrow_downward_rounded, size: 15),
+                    label: const Text('Prikaži oglas na seznamu'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: kGreenAccent,
+                      backgroundColor: kGreenAccent.withOpacity(0.12),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: const RoundedRectangleBorder(borderRadius: kRadius8),
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────────
+class _HeatStat extends StatelessWidget {
+  final String value, label;
+  final Color color;
+  const _HeatStat({required this.value, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: kRadius8,
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(children: [
+        Text(value, style: TextStyle(
+          fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(
+          fontSize: 11, color: kTextMid, fontWeight: FontWeight.w500),
+          textAlign: TextAlign.center),
+      ]),
+    ),
+  );
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Container(width: 10, height: 10,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    const SizedBox(width: 5),
+    Text(label, style: kCaption),
+  ]);
 }

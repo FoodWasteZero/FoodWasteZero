@@ -7,10 +7,50 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import '../common/theme.dart';
 import '../models/models.dart';
 import '../cards/food_card.dart';
 import '../cards/food_detail_sheet.dart';
+
+// ── Nominatim geocoding helper ────────────────────────────────────────────────
+// Vrača (lat, lng) za dani naslov/ulicu, ili null ako ne najde.
+// Dodaje ", Slovenija" ako korisnik nije unio državu — poboljšava preciznost.
+Future<({double lat, double lng})?> _geocodeAddress(String address) async {
+  if (address.trim().isEmpty) return null;
+
+  // Ako adresa ne sadrži "slovenija" ili "maribor" etc., dodaj kontekst
+  final query = address.toLowerCase().contains('slovenij') ||
+          address.toLowerCase().contains('maribor') ||
+          address.toLowerCase().contains('ljubljana')
+      ? address.trim()
+      : '${address.trim()}, Slovenija';
+
+  final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+    'q': query,
+    'format': 'json',
+    'limit': '1',
+    'countrycodes': 'si',
+  });
+
+  try {
+    final resp = await http.get(uri, headers: {
+      'User-Agent': 'PraktikumApp/1.0 (flutter)',
+      'Accept-Language': 'sl,en',
+    }).timeout(const Duration(seconds: 6));
+
+    if (resp.statusCode != 200) return null;
+    final data = jsonDecode(resp.body) as List<dynamic>;
+    if (data.isEmpty) return null;
+
+    final lat = double.tryParse(data[0]['lat'] as String? ?? '');
+    final lng = double.tryParse(data[0]['lon'] as String? ?? '');
+    if (lat == null || lng == null) return null;
+    return (lat: lat, lng: lng);
+  } catch (_) {
+    return null;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Firestore doc → FoodOglas
@@ -535,6 +575,15 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
   String? _existingBase64;
   DateTime? _expiryDate;
 
+  // Geocoded koordinate za heatmapu
+  double? _geocodedLat;
+  double? _geocodedLng;
+  bool _geocoding = false;
+  bool _geocodeOk = false;   // true = uspješno; false = nije još ili failed
+
+  // Debounce timer za geocoding dok korisnik tipka
+  Timer? _geocodeTimer;
+
   @override
   void initState() {
     super.initState();
@@ -545,10 +594,47 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     _existingBase64 = widget.initialImageBase64;
     _expiryDate = widget.initialExpiryDate;
     if (widget.isEditing) _step = 1;
+
+    // Geocodira adresu 800ms nakon što korisnik prestane tipkati
+    _locationCtrl.addListener(() {
+      _geocodeTimer?.cancel();
+      final text = _locationCtrl.text.trim();
+      if (text.isEmpty) {
+        setState(() { _geocodedLat = null; _geocodedLng = null; _geocodeOk = false; });
+        return;
+      }
+      setState(() { _geocodeOk = false; });
+      _geocodeTimer = Timer(const Duration(milliseconds: 800), () async {
+        if (!mounted) return;
+        setState(() => _geocoding = true);
+        final result = await _geocodeAddress(text);
+        if (!mounted) return;
+        setState(() {
+          _geocoding = false;
+          if (result != null) {
+            _geocodedLat = result.lat;
+            _geocodedLng = result.lng;
+            _geocodeOk = true;
+          } else {
+            _geocodedLat = null;
+            _geocodedLng = null;
+            _geocodeOk = false;
+          }
+        });
+      });
+    });
+
+    // Ako editiramo i već imamo adresu, geocodiraj odmah
+    if (widget.isEditing && (widget.initialLocation?.isNotEmpty ?? false)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _locationCtrl.notifyListeners();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _geocodeTimer?.cancel();
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _locationCtrl.dispose();
@@ -612,6 +698,15 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     try {
       final imageBase64 = await _encodeImageToBase64();
 
+      // Geocodiranje adrese (ako još nije urađeno ili se promijenila)
+      double? lat = _geocodedLat;
+      double? lng = _geocodedLng;
+      if (lat == null || lng == null) {
+        final result = await _geocodeAddress(_locationCtrl.text.trim());
+        lat = result?.lat;
+        lng = result?.lng;
+      }
+
       if (widget.isEditing) {
         await FirebaseFirestore.instance
             .collection('oglasi')
@@ -626,6 +721,8 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           'expiryDate': _expiryDate != null
               ? Timestamp.fromDate(_expiryDate!)
               : FieldValue.delete(),
+          if (lat != null) 'lat': lat,
+          if (lng != null) 'lng': lng,
         });
       } else {
         final docRef = FirebaseFirestore.instance.collection('oglasi').doc();
@@ -634,15 +731,17 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           'description': _descCtrl.text.trim(),
           'category': _selectedCategory ?? 'Ostalo',
           'location': _locationCtrl.text.trim(),
-          'isFree': true, // default
+          'isFree': true,
           'status': 'naRazpolago',
           'uid': user?.uid,
           'username': user?.displayName != null ? '@${user!.displayName}' : null,
           'createdAt': FieldValue.serverTimestamp(),
           'expiringSoon': false,
-          'waitlist': [], // NOVO: inicijalna prazna lista
+          'waitlist': [],
           if (imageBase64 != null) 'imageBase64': imageBase64,
           if (_expiryDate != null) 'expiryDate': Timestamp.fromDate(_expiryDate!),
+          if (lat != null) 'lat': lat,
+          if (lng != null) 'lng': lng,
         });
       }
 
@@ -889,8 +988,32 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 6, left: 2),
-                child: Text('Vnesite ulico in kraj prevzema.',
-                    style: kCaption.copyWith(color: kTextLight, fontSize: 13)),
+                child: Row(children: [
+                  if (_geocoding) ...[
+                    SizedBox(
+                      width: 12, height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: kTextLight,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text('Iščem lokacijo na karti…',
+                        style: kCaption.copyWith(color: kTextLight, fontSize: 13)),
+                  ] else if (_geocodeOk) ...[
+                    Icon(Icons.location_on_rounded, color: kGreenMid, size: 13),
+                    const SizedBox(width: 4),
+                    Text('Lokacija najdena — bo vidna na heatmapi',
+                        style: kCaption.copyWith(color: kGreenMid, fontSize: 13)),
+                  ] else if (_locationCtrl.text.isNotEmpty) ...[
+                    Icon(Icons.location_off_outlined, color: kOrange, size: 13),
+                    const SizedBox(width: 4),
+                    Expanded(child: Text('Lokacija ni bila najdena — oglas bo shranjen brez koordinat',
+                        style: kCaption.copyWith(color: kOrange, fontSize: 13))),
+                  ] else
+                    Text('Vnesite ulico in kraj prevzema.',
+                        style: kCaption.copyWith(color: kTextLight, fontSize: 13)),
+                ]),
               ),
               const SizedBox(height: 24),
 

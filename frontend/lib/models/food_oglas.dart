@@ -50,6 +50,16 @@ class FoodOglas {
     this.expiryDate,
     this.waitlist = const [],
   });
+
+  // Kopira oglas z novo razdaljo (za GPS sortiranje)
+  FoodOglas copyWithDistance(double km) => FoodOglas(
+    id: id, uid: uid, title: title, description: description,
+    location: location, time: time, status: status, username: username,
+    imageColor: imageColor, category: category, isFree: isFree,
+    isExpiringSoon: isExpiringSoon, distanceKm: km, icon: icon,
+    latLng: latLng, imageBase64: imageBase64, reservedByUid: reservedByUid,
+    expiryDate: expiryDate, waitlist: waitlist,
+  );
 }
 
 final List<FoodOglas> kSampleOglasi = [

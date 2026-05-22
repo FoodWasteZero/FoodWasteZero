@@ -1,6 +1,6 @@
 name: praktikum2
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -18,14 +18,15 @@ dependencies:
   firebase_auth: ^5.0.0
   cloud_firestore: ^5.0.0
 
-  # Slike — firebase_storage UKLONJEN, image_picker ostaje
+  # Slike
   image_picker: ^1.1.2
 
   # AI & API
   google_generative_ai: ^0.4.0
 
-  # Zemljevid
+  # Zemljevid & lokacija
   url_launcher: ^6.3.0
+  geolocator: ^13.0.0 # ← NOVO: GPS lokacija
   http: ^1.6.0
   flutter_dotenv: ^6.0.1
 
