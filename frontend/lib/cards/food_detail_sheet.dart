@@ -634,7 +634,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
           child: OutlinedButton.icon(
             onPressed: _dodajVVrsto,
             icon: const Icon(Icons.queue_rounded, size: 16),
-            label: const Text('V čakalno vrsto'),
+            label: const Text('Čakalna vrsta'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF5C6BC0),
               side: const BorderSide(color: Color(0xFF5C6BC0), width: 1.5),

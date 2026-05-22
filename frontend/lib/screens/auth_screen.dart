@@ -32,6 +32,9 @@ class _AuthScreenState extends State<AuthScreen>
   // Login inline error
   String? _loginError;
 
+  // Register inline error
+  String? _regError;
+
   final _regNameCtrl  = TextEditingController();
   final _regEmailCtrl = TextEditingController();
   final _regPassCtrl  = TextEditingController();
@@ -45,8 +48,10 @@ class _AuthScreenState extends State<AuthScreen>
 
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      // Clear login error when switching tabs
-      if (_loginError != null) setState(() => _loginError = null);
+      // Clear errors when switching tabs
+      if (_loginError != null || _regError != null) {
+        setState(() { _loginError = null; _regError = null; });
+      }
     });
 
     _animCtrl = AnimationController(
@@ -134,19 +139,19 @@ class _AuthScreenState extends State<AuthScreen>
     final pass2 = _regPass2Ctrl.text.trim();
 
     if (name.isEmpty || email.isEmpty || pass.isEmpty) {
-      _showError('Izpolnite vsa polja.');
+      setState(() => _regError = 'Izpolnite vsa polja.');
       return;
     }
     if (pass != pass2) {
-      _showError('Gesli se ne ujemata.');
+      setState(() => _regError = 'Gesli se ne ujemata.');
       return;
     }
     if (pass.length < 6) {
-      _showError('Geslo mora imeti vsaj 6 znakov.');
+      setState(() => _regError = 'Geslo mora imeti vsaj 6 znakov.');
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() { _isLoading = true; _regError = null; });
     try {
       await signOutAnonymousIfNeeded();
       final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -184,7 +189,7 @@ class _AuthScreenState extends State<AuthScreen>
       setState(() => _userType = 'uporabnik');
       _tabController.animateTo(0);
     } on FirebaseAuthException catch (e) {
-      _showError(_authError(e.code));
+      if (mounted) setState(() => _regError = _authError(e.code));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -471,6 +476,8 @@ class _AuthScreenState extends State<AuthScreen>
             icon: Icons.lock_outline_rounded,
             controller: _regPassCtrl,
             obscure: !_regPassVisible,
+            hasError: _regError != null,
+            onChanged: (_) { if (_regError != null) setState(() => _regError = null); },
             suffix: IconButton(
               icon: Icon(
                 _regPassVisible
@@ -487,9 +494,34 @@ class _AuthScreenState extends State<AuthScreen>
             icon: Icons.lock_outline_rounded,
             controller: _regPass2Ctrl,
             obscure: true,
+            hasError: _regError != null,
+            onChanged: (_) { if (_regError != null) setState(() => _regError = null); },
           ),
 
-          const SizedBox(height: 20),
+          // Inline error message
+          if (_regError != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: kRadius8,
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(children: [
+                Icon(Icons.error_outline_rounded, color: Colors.red.shade600, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _regError!,
+                    style: TextStyle(color: Colors.red.shade700,
+                        fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ]),
+            ),
+          ],
           const Text('Sem...', style: kHeading3),
           const SizedBox(height: 10),
           Row(children: [

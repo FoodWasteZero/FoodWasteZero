@@ -464,22 +464,6 @@ class _HomeScreenState extends State<HomeScreen>
             padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
             child: Column(mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: kRadiusFull,
-                    border: Border.all(color: Colors.white.withOpacity(0.35)),
-                  ),
-                  child: const Row(children: [
-                    Icon(Icons.store_rounded, size: 13, color: Colors.white),
-                    SizedBox(width: 5),
-                    Text('Organizacija', style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
-                  ]),
-                ),
-              ]),
               const SizedBox(height: 6),
               const Text('Dobrodošli nazaj',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
@@ -500,6 +484,23 @@ class _HomeScreenState extends State<HomeScreen>
         const Text('FoodWasteZero',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
             color: titleColor, letterSpacing: -0.2)),
+        const SizedBox(width: 8),
+        Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal:6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: kRadiusFull,
+                    border: Border.all(color: Colors.white.withOpacity(0.35)),
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.store_rounded, size: 13, color: Colors.white),
+                    SizedBox(width: 5),
+                    Text('Organizacija', style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+                  ]),
+                ),
+              ]),
       ]),
       centerTitle: false,
       actions: [
