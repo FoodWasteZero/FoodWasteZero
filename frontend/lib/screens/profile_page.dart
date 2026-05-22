@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -26,16 +25,6 @@ class _ProfilePageState extends State<ProfilePage>
   bool _loadingUser = true;
 
   StreamSubscription<User?>? _authSub;
-
-  void _ensureTabController() {
-    if (_isDavatelj) return;
-    const len = 2;
-    if (_tabCtrl.length != len) {
-      final prevIndex = _tabCtrl.index.clamp(0, len - 1);
-      _tabCtrl.dispose();
-      _tabCtrl = TabController(length: len, vsync: this, initialIndex: prevIndex);
-    }
-  }
 
   @override
   void initState() {
@@ -76,13 +65,11 @@ class _ProfilePageState extends State<ProfilePage>
           .doc(user.uid)
           .get();
       if (doc.exists && mounted) {
-        final newType = doc.data()?['userType'] ?? 'uporabnik';
         setState(() {
           _displayName = doc.data()?['ime'] ?? _displayName;
-          _userType = newType;
+          _userType = doc.data()?['userType'] ?? 'uporabnik';
           _loadingUser = false;
         });
-        _ensureTabController();
       } else {
         if (mounted) setState(() => _loadingUser = false);
       }
@@ -187,15 +174,12 @@ class _ProfilePageState extends State<ProfilePage>
                       final newEmail = emailCtrl.text.trim();
                       final newPw = pwCtrl.text.trim();
                       final newPw2 = pw2Ctrl.text.trim();
-
                       if (newPw.isNotEmpty && newPw != newPw2) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Gesli se ne ujemata'),
-                            backgroundColor: Colors.red),
-                        );
+                            backgroundColor: Colors.red));
                         return;
                       }
-
                       setModal(() => saving = true);
                       try {
                         final user = FirebaseAuth.instance.currentUser!;
@@ -271,11 +255,11 @@ class _ProfilePageState extends State<ProfilePage>
     if (_loadingUser) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (_isGuest) {
-      return _buildGuestView();
-    }
-    return _buildLoggedInView();
+    if (_isGuest) return _buildGuestView();
+    return _isDavatelj ? _buildDavateljView() : _buildUporabnikView();
   }
+
+  // ─── GUEST ────────────────────────────────────────────────────────────────
 
   Widget _buildGuestView() {
     return Scaffold(
@@ -323,28 +307,10 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildLoggedInView() {
+  // ─── UPORABNIK ────────────────────────────────────────────────────────────
+
+  Widget _buildUporabnikView() {
     final user = FirebaseAuth.instance.currentUser!;
-
-    if (_isDavatelj) {
-      return Scaffold(
-        backgroundColor: kSurface,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildProfileHeader(),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Text('Moje objave', style: kHeading2),
-              ),
-              Expanded(child: _buildDavateljObjaveTab(user.uid)),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: kSurface,
       body: SafeArea(
@@ -352,11 +318,45 @@ class _ProfilePageState extends State<ProfilePage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildProfileHeader(),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Text('Moje rezervacije', style: kHeading2),
+            const SizedBox(height: 4),
+            // Tab bar
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: kRadius12,
+                boxShadow: kCardShadow,
+              ),
+              child: TabBar(
+                controller: _tabCtrl,
+                indicator: BoxDecoration(
+                  color: kGreenMid,
+                  borderRadius: kRadius12,
+                  boxShadow: kElevatedShadow,
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: kTextMid,
+                labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                dividerColor: Colors.transparent,
+                tabs: [
+                  Tab(
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
+                      Icon(Icons.bookmark_rounded, size: 15),
+                      SizedBox(width: 5),
+                      Text('Rezervirano'),
+                    ]),
+                  ),
+                  Tab(
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
+                      Icon(Icons.check_circle_rounded, size: 15),
+                      SizedBox(width: 5),
+                      Text('Prevzeto'),
+                    ]),
+                  ),
+                ],
+              ),
             ),
-            _buildTabBar(),
+            const SizedBox(height: 4),
             Expanded(
               child: TabBarView(
                 controller: _tabCtrl,
@@ -372,169 +372,25 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildProfileHeader() {
-    final name = _displayName.isEmpty ? 'Uporabnik' : _displayName;
-    final badge = _isDavatelj ? 'Organizacija' : 'Uporabnik';
-    final badgeIcon = _isDavatelj
-        ? Icons.volunteer_activism_rounded
-        : Icons.search_rounded;
+  // ─── DAVATELJ (ORGANIZACIJA) ──────────────────────────────────────────────
 
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [kGreenMid, kGreen],
+  Widget _buildDavateljView() {
+    final user = FirebaseAuth.instance.currentUser!;
+    return Scaffold(
+      backgroundColor: kSurface,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildProfileHeader(),
+            Expanded(child: _buildDavateljContent(user.uid)),
+          ],
         ),
-        borderRadius: kRadius16,
-        boxShadow: kElevatedShadow,
-      ),
-      child: Row(
-        children: [
-          Stack(
-            children: [
-              Container(
-                width: 64, height: 64,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: kRadiusFull,
-                  border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
-                ),
-                child: const Icon(Icons.person, color: Colors.white, size: 34),
-              ),
-              Positioned(
-                bottom: 0, right: 0,
-                child: Container(
-                  width: 18, height: 18,
-                  decoration: BoxDecoration(
-                    color: kGreenAccent,
-                    borderRadius: kRadiusFull,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: _loadingUser
-                ? const SizedBox(
-                    height: 20, width: 20,
-                    child: CircularProgressIndicator(color: Colors.white60, strokeWidth: 2))
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 3),
-                      Text(_email,
-                          style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: kRadiusFull,
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(badgeIcon, color: Colors.amber, size: 14),
-                          const SizedBox(width: 4),
-                          Text(badge,
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                        ]),
-                      ),
-                    ],
-                  ),
-          ),
-          Column(
-            children: [
-              GestureDetector(
-                onTap: _showEditProfile,
-                child: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: kRadius12,
-                    border: Border.all(color: Colors.white.withOpacity(0.4)),
-                  ),
-                  child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
-                ),
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _logout,
-                child: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: kRadius12,
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
-                  ),
-                  child: const Icon(Icons.logout_rounded, color: Colors.white, size: 18),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      decoration: BoxDecoration(
-        color: Colors.white, borderRadius: kRadius12, boxShadow: kCardShadow),
-      child: TabBar(
-        controller: _tabCtrl,
-        indicator: BoxDecoration(
-            color: kGreenMid, borderRadius: kRadius12, boxShadow: kElevatedShadow),
-        labelColor: Colors.white,
-        unselectedLabelColor: kTextMid,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-        dividerColor: Colors.transparent,
-        tabs: [
-          _tabChip(Icons.bookmark_outline_rounded, 'Rezervirano'),
-          _tabChip(Icons.check_circle_outline_rounded, 'Prevzeto'),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabChip(IconData icon, String label) {
-    return Tab(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14),
-          const SizedBox(width: 4),
-          Text(label),
-        ],
-      ),
-    );
-  }
-
-  // ── Davatelj tabovi ──────────────────────────────────────────────────────────
-
-  List<QueryDocumentSnapshot> _sortByCreatedAt(List<QueryDocumentSnapshot> docs) {
-    final sorted = List<QueryDocumentSnapshot>.from(docs);
-    sorted.sort((a, b) {
-      final ta = (a.data() as Map<String, dynamic>?)?['createdAt'];
-      final tb = (b.data() as Map<String, dynamic>?)?['createdAt'];
-      final ma = ta is Timestamp ? ta.millisecondsSinceEpoch : 0;
-      final mb = tb is Timestamp ? tb.millisecondsSinceEpoch : 0;
-      return mb.compareTo(ma);
-    });
-    return sorted;
-  }
-
-  /// Objave organizacije (objavljeno s strani tega računa, ne rezervacije drugih).
-  Widget _buildDavateljObjaveTab(String uid) {
+  Widget _buildDavateljContent(String uid) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('oglasi')
@@ -545,37 +401,85 @@ class _ProfilePageState extends State<ProfilePage>
           return const Center(child: CircularProgressIndicator(color: kGreenMid));
         }
         if (snap.hasError) {
-          return _buildEmptyState('Napaka pri nalaganju objav', Icons.error_outline_rounded);
+          return _buildEmptyState('Napaka pri nalaganju', Icons.error_outline_rounded,
+              subtitle: 'Preverite internetno povezavo.');
         }
-        final aktivni = <DocumentSnapshot>[];
-        final arhiv = <DocumentSnapshot>[];
-        for (final doc in _sortByCreatedAt(snap.data?.docs ?? [])) {
-          final status = (doc.data() as Map<String, dynamic>)['status'] as String? ?? '';
-          if (status == 'prevzeto') {
-            arhiv.add(doc);
-          } else if (status == 'naRazpolago' || status == 'rezervirano') {
-            aktivni.add(doc);
-          }
-        }
-        if (aktivni.isEmpty && arhiv.isEmpty) {
-          return _buildEmptyState('Ni objavljenih oglasov', Icons.storefront_rounded);
-        }
+
+        final allDocs = snap.data?.docs ?? [];
+
+        // Sortiraj po createdAt
+        allDocs.sort((a, b) {
+          final ta = (a.data() as Map)['createdAt'] as Timestamp?;
+          final tb = (b.data() as Map)['createdAt'] as Timestamp?;
+          final ma = ta?.millisecondsSinceEpoch ?? 0;
+          final mb = tb?.millisecondsSinceEpoch ?? 0;
+          return mb.compareTo(ma);
+        });
+
+        final aktivni = allDocs.where((d) {
+          final s = (d.data() as Map)['status'] as String? ?? '';
+          return s == 'naRazpolago' || s == 'rezervirano';
+        }).toList();
+
+        final arhiv = allDocs.where((d) {
+          final s = (d.data() as Map)['status'] as String? ?? '';
+          return s == 'prevzeto';
+        }).toList();
+
+        final totalObjav = allDocs.length;
+        final steviloPrevzetih = arhiv.length;
+        final steviloRezerviranih = aktivni
+            .where((d) => (d.data() as Map)['status'] == 'rezervirano')
+            .length;
+
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
           children: [
-            if (aktivni.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Text('Aktivne objave', style: kHeading3),
+            // Statistike
+            _DavateljStatsRow(
+              totalObjav: totalObjav,
+              prevzetih: steviloPrevzetih,
+              rezerviranih: steviloRezerviranih,
+            ),
+            const SizedBox(height: 20),
+
+            // Aktivne objave
+            Row(children: [
+              Container(
+                width: 4, height: 18,
+                decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull),
               ),
-              ...aktivni.map((doc) => _OglasListCard(doc: doc, showMarkPrevzeto: true)),
-            ],
+              const SizedBox(width: 8),
+              Text('Aktivne objave (${aktivni.length})',
+                style: kHeading3.copyWith(fontSize: 15)),
+            ]),
+            const SizedBox(height: 10),
+            if (aktivni.isEmpty)
+              _buildInlineEmpty('Ni aktivnih objav',
+                  'Kliknite + za dodajanje novega oglasa.'),
+            ...aktivni.map((doc) => _DavateljOglasCard(
+              doc: doc,
+              showMarkPrevzeto: true,
+              onTap: () => FoodDetailSheet.show(context, _docToOglasProfile(doc)),
+            )),
+
             if (arhiv.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.only(top: 8, bottom: 8),
-                child: Text('Arhiv (prevzeto)', style: kHeading3),
-              ),
-              ...arhiv.map((doc) => _OglasListCard(doc: doc, showMarkPrevzeto: false)),
+              const SizedBox(height: 16),
+              Row(children: [
+                Container(
+                  width: 4, height: 18,
+                  decoration: BoxDecoration(color: kTextLight, borderRadius: kRadiusFull),
+                ),
+                const SizedBox(width: 8),
+                Text('Arhiv — prevzeto (${arhiv.length})',
+                  style: kHeading3.copyWith(fontSize: 15, color: kTextMid)),
+              ]),
+              const SizedBox(height: 10),
+              ...arhiv.map((doc) => _DavateljOglasCard(
+                doc: doc,
+                showMarkPrevzeto: false,
+                onTap: () => FoodDetailSheet.show(context, _docToOglasProfile(doc)),
+              )),
             ],
           ],
         );
@@ -583,41 +487,7 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  // ── Uporabnik tabovi ─────────────────────────────────────────────────────────
-
-  // FIX: filtrira samo po reservedByUid, status filtriramo v kodi (izognemo composite index)
-  Widget _buildPrevzetoTab(String uid) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('oglasi')
-          .where('reservedByUid', isEqualTo: uid)
-          .snapshots(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Center(child: CircularProgressIndicator(color: kGreenMid));
-        }
-        if (snap.hasError) {
-          return _buildEmptyState('Napaka pri nalaganju', Icons.error_outline_rounded);
-        }
-        final docs = (snap.data?.docs ?? []).where((doc) {
-          final d = doc.data() as Map<String, dynamic>;
-          return (d['status'] as String?) == 'prevzeto';
-        }).toList();
-
-        if (docs.isEmpty) {
-          return _buildEmptyState('Še nimate prevzetih obrokov', Icons.check_circle_outline_rounded);
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
-          itemCount: docs.length,
-          itemBuilder: (_, i) => _OglasListCard(
-            doc: docs[i],
-            onTap: () => FoodDetailSheet.show(context, _docToOglasProfile(docs[i])),
-          ),
-        );
-      },
-    );
-  }
+  // ─── UPORABNIK TABOVI ─────────────────────────────────────────────────────
 
   Widget _buildRezervacijeTab(String uid) {
     return StreamBuilder<QuerySnapshot>(
@@ -633,17 +503,19 @@ class _ProfilePageState extends State<ProfilePage>
           return _buildEmptyState('Napaka pri nalaganju', Icons.error_outline_rounded);
         }
         final docs = (snap.data?.docs ?? []).where((doc) {
-          final d = doc.data() as Map<String, dynamic>;
-          return (d['status'] as String?) == 'rezervirano';
+          return (doc.data() as Map)['status'] == 'rezervirano';
         }).toList();
-
         if (docs.isEmpty) {
-          return _buildEmptyState('Še nimate rezerviranih oglasov', Icons.bookmark_outline_rounded);
+          return _buildEmptyState(
+            'Ni aktivnih rezervacij',
+            Icons.bookmark_outline_rounded,
+            subtitle: 'Ko si rezervirate oglas na domači strani, se bo prikazal tukaj.',
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
           itemCount: docs.length,
-          itemBuilder: (_, i) => _OglasListCard(
+          itemBuilder: (_, i) => _UporabnikOglasCard(
             doc: docs[i],
             onTap: () => FoodDetailSheet.show(context, _docToOglasProfile(docs[i])),
           ),
@@ -652,20 +524,642 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildEmptyState(String label, IconData icon) {
+  Widget _buildPrevzetoTab(String uid) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('oglasi')
+          .where('reservedByUid', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return const Center(child: CircularProgressIndicator(color: kGreenMid));
+        }
+        if (snap.hasError) {
+          return _buildEmptyState('Napaka pri nalaganju', Icons.error_outline_rounded);
+        }
+        final docs = (snap.data?.docs ?? []).where((doc) {
+          return (doc.data() as Map)['status'] == 'prevzeto';
+        }).toList();
+        if (docs.isEmpty) {
+          return _buildEmptyState(
+            'Ni prevzetih obrokov',
+            Icons.check_circle_outline_rounded,
+            subtitle: 'Tukaj se bodo prikazali oglasi, ki ste jih že prevzeli.',
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
+          itemCount: docs.length,
+          itemBuilder: (_, i) => _UporabnikOglasCard(
+            doc: docs[i],
+            isPrevzeto: true,
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── SHARED WIDGETS ───────────────────────────────────────────────────────
+
+  Widget _buildProfileHeader() {
+    final name = _displayName.isEmpty ? 'Uporabnik' : _displayName;
+    final isDav = _isDavatelj;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDav
+              ? [const Color(0xFF1B5E20), const Color(0xFF2E7D32)]
+              : [const Color(0xFF1565C0), const Color(0xFF1976D2)],
+        ),
+        borderRadius: kRadius16,
+        boxShadow: kElevatedShadow,
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          Stack(
+            children: [
+              Container(
+                width: 60, height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: kRadiusFull,
+                  border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                ),
+                child: Icon(
+                  isDav ? Icons.store_rounded : Icons.person_rounded,
+                  color: Colors.white, size: 30,
+                ),
+              ),
+              Positioned(
+                bottom: 0, right: 0,
+                child: Container(
+                  width: 16, height: 16,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C853),
+                    borderRadius: kRadiusFull,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 14),
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                  style: const TextStyle(
+                    color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(_email,
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: kRadiusFull,
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(
+                      isDav ? Icons.volunteer_activism_rounded : Icons.search_rounded,
+                      color: Colors.amber, size: 13),
+                    const SizedBox(width: 4),
+                    Text(
+                      isDav ? 'Organizacija' : 'Uporabnik',
+                      style: const TextStyle(
+                        color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ],
+            ),
+          ),
+          // Akcije
+          Column(
+            children: [
+              _HeaderBtn(
+                icon: Icons.edit_rounded,
+                onTap: _showEditProfile,
+              ),
+              const SizedBox(height: 8),
+              _HeaderBtn(
+                icon: Icons.logout_rounded,
+                onTap: _logout,
+                dimmed: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String label, IconData icon, {String? subtitle}) {
     return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, size: 48, color: kBorder),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: kTextLight, fontSize: 14)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 80, height: 80,
+            decoration: BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
+            child: Icon(icon, size: 40, color: kGreenMid),
+          ),
+          const SizedBox(height: 16),
+          Text(label, style: kHeading3, textAlign: TextAlign.center),
+          if (subtitle != null) ...[
+            const SizedBox(height: 8),
+            Text(subtitle,
+              style: const TextStyle(color: kTextLight, fontSize: 13, height: 1.5),
+              textAlign: TextAlign.center),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildInlineEmpty(String label, String subtitle) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: kRadius12,
+        border: Border.all(color: kBorder),
+      ),
+      child: Row(children: [
+        Icon(Icons.inbox_rounded, size: 28, color: kBorder),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: kBodyBold.copyWith(color: kTextMid)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextLight)),
+        ])),
       ]),
     );
   }
 }
 
-// ── Oglas card za profil ──────────────────────────────────────────────────────
+// ─── DAVATELJ STATS ROW ────────────────────────────────────────────────────
 
-// Helper: Firestore doc → FoodOglas (kopija iz home_screen)
+class _DavateljStatsRow extends StatelessWidget {
+  final int totalObjav;
+  final int prevzetih;
+  final int rezerviranih;
+
+  const _DavateljStatsRow({
+    required this.totalObjav,
+    required this.prevzetih,
+    required this.rezerviranih,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Expanded(child: _StatBox(
+        value: '$totalObjav',
+        label: 'Skupaj objav',
+        icon: Icons.storefront_rounded,
+        color: kGreenMid,
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: _StatBox(
+        value: '$rezerviranih',
+        label: 'Rezervirano',
+        icon: Icons.bookmark_rounded,
+        color: const Color(0xFFFF6F00),
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: _StatBox(
+        value: '$prevzetih',
+        label: 'Prevzeto',
+        icon: Icons.check_circle_rounded,
+        color: const Color(0xFF1565C0),
+      )),
+    ]);
+  }
+}
+
+class _StatBox extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _StatBox({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: kRadius12,
+        boxShadow: kCardShadow,
+        border: Border.all(color: color.withOpacity(0.15)),
+      ),
+      child: Column(children: [
+        Container(
+          width: 38, height: 38,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: kRadius8,
+          ),
+          child: Icon(icon, size: 19, color: color),
+        ),
+        const SizedBox(height: 8),
+        Text(value,
+          style: TextStyle(
+            fontSize: 22, fontWeight: FontWeight.w900, color: color)),
+        const SizedBox(height: 2),
+        Text(label,
+          style: const TextStyle(fontSize: 11, color: kTextMid, fontWeight: FontWeight.w500),
+          textAlign: TextAlign.center),
+      ]),
+    );
+  }
+}
+
+// ─── DAVATELJ OGLAS CARD ───────────────────────────────────────────────────
+
+class _DavateljOglasCard extends StatelessWidget {
+  final DocumentSnapshot doc;
+  final bool showMarkPrevzeto;
+  final VoidCallback? onTap;
+
+  const _DavateljOglasCard({
+    required this.doc,
+    required this.showMarkPrevzeto,
+    this.onTap,
+  });
+
+  Future<void> _markPrevzeto(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: kRadius12),
+        title: const Text('Označi kot prevzeto',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kTextDark)),
+        content: const Text('Ali je bila hrana uspešno prevzeta pri donatorju?',
+          style: TextStyle(color: kTextMid, fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Prekliči', style: TextStyle(color: kTextLight)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kGreenMid, elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: kRadius8)),
+            child: const Text('Potrdi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await FirebaseFirestore.instance
+          .collection('oglasi')
+          .doc(doc.id)
+          .update({'status': 'prevzeto'});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = doc.data() as Map<String, dynamic>;
+    final title = d['title'] as String? ?? '—';
+    final category = d['category'] as String? ?? '';
+    final location = d['location'] as String? ?? '';
+    final statusStr = d['status'] as String? ?? 'naRazpolago';
+    final reservedByUid = d['reservedByUid'] as String?;
+    final waitlistRaw = d['waitlist'];
+    final waitlistLen = (waitlistRaw is List) ? waitlistRaw.length : 0;
+
+    OglasStatus status;
+    switch (statusStr) {
+      case 'rezervirano': status = OglasStatus.rezervirano; break;
+      case 'prevzeto': status = OglasStatus.prevzeto; break;
+      default: status = OglasStatus.naRazpolago;
+    }
+    final statusClr = statusColor(status);
+
+    final IconData icon;
+    final Color bgColor;
+    switch (category) {
+      case 'Kuhano': icon = Icons.soup_kitchen_rounded; bgColor = const Color(0xFFFFE0B2); break;
+      case 'Peka': icon = Icons.bakery_dining_rounded; bgColor = const Color(0xFFEFEBE9); break;
+      case 'Sadje & zelenjava': icon = Icons.apple_rounded; bgColor = const Color(0xFFE8F5E9); break;
+      case 'Ostalo': icon = Icons.more_horiz_rounded; bgColor = const Color(0xFFE8EAF6); break;
+      default: icon = Icons.grass_rounded; bgColor = const Color(0xFFF1F8E9);
+    }
+
+    final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
+    final timeStr = _timeAgo(createdAt);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: kRadius12,
+          boxShadow: kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(children: [
+                // Ikona
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(color: bgColor, borderRadius: kRadius12),
+                  child: Icon(icon, color: kGreenMid, size: 24),
+                ),
+                const SizedBox(width: 12),
+                // Info
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title,
+                    style: kBodyBold,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    Icon(Icons.location_on_outlined, size: 12, color: kTextLight),
+                    const SizedBox(width: 3),
+                    Expanded(child: Text(location,
+                      style: kCaption, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  ]),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    Icon(Icons.access_time_outlined, size: 12, color: kTextLight),
+                    const SizedBox(width: 3),
+                    Text(timeStr, style: kCaption),
+                  ]),
+                ])),
+                const SizedBox(width: 8),
+                // Status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: statusClr.withOpacity(0.1),
+                    borderRadius: kRadiusFull,
+                    border: Border.all(color: statusClr.withOpacity(0.3)),
+                  ),
+                  child: Text(statusLabel(status),
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusClr)),
+                ),
+              ]),
+            ),
+
+            // Info vrstica: rezerviran s strani + čakalna vrsta
+            if (status == OglasStatus.rezervirano || waitlistLen > 0) ...[
+              Divider(height: 1, color: kBorder.withOpacity(0.6)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Row(children: [
+                  if (reservedByUid != null && status == OglasStatus.rezervirano) ...[
+                    const Icon(Icons.person_outline_rounded, size: 13, color: kTextMid),
+                    const SizedBox(width: 4),
+                    const Text('Rezervirano',
+                      style: TextStyle(fontSize: 12, color: kTextMid, fontWeight: FontWeight.w500)),
+                    const SizedBox(width: 12),
+                  ],
+                  if (waitlistLen > 0) ...[
+                    const Icon(Icons.queue_rounded, size: 13, color: Color(0xFF5C6BC0)),
+                    const SizedBox(width: 4),
+                    Text('$waitlistLen v čakalni vrsti',
+                      style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF5C6BC0), fontWeight: FontWeight.w600)),
+                  ],
+                  const Spacer(),
+                  // Gumb Označi prevzeto
+                  if (showMarkPrevzeto && status == OglasStatus.rezervirano)
+                    GestureDetector(
+                      onTap: () => _markPrevzeto(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: kGreenMid,
+                          borderRadius: kRadius8,
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                          Icon(Icons.check_rounded, size: 13, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text('Prevzeto',
+                            style: TextStyle(
+                              fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                    ),
+                ]),
+              ),
+            ],
+
+            // Gumb Označi prevzeto za naRazpolago brez čakalne vrste (samo davatelj)
+            if (showMarkPrevzeto && status == OglasStatus.naRazpolago) ...[
+              Divider(height: 1, color: kBorder.withOpacity(0.6)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+                child: GestureDetector(
+                  onTap: () => _markPrevzeto(context),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: kGreenPale,
+                      borderRadius: kRadius8,
+                      border: Border.all(color: kGreenMid.withOpacity(0.3)),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
+                      Icon(Icons.check_circle_outline_rounded, size: 15, color: kGreenMid),
+                      SizedBox(width: 6),
+                      Text('Označi kot prevzeto',
+                        style: TextStyle(
+                          fontSize: 13, color: kGreenMid, fontWeight: FontWeight.w700)),
+                    ]),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── UPORABNIK OGLAS CARD ──────────────────────────────────────────────────
+
+class _UporabnikOglasCard extends StatelessWidget {
+  final DocumentSnapshot doc;
+  final VoidCallback? onTap;
+  final bool isPrevzeto;
+
+  const _UporabnikOglasCard({
+    required this.doc,
+    this.onTap,
+    this.isPrevzeto = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final d = doc.data() as Map<String, dynamic>;
+    final title = d['title'] as String? ?? '—';
+    final category = d['category'] as String? ?? '';
+    final location = d['location'] as String? ?? '';
+    final username = d['username'] as String?;
+    final statusStr = d['status'] as String? ?? 'naRazpolago';
+
+    OglasStatus status;
+    switch (statusStr) {
+      case 'rezervirano': status = OglasStatus.rezervirano; break;
+      case 'prevzeto': status = OglasStatus.prevzeto; break;
+      default: status = OglasStatus.naRazpolago;
+    }
+    final statusClr = statusColor(status);
+
+    final IconData icon;
+    final Color bgColor;
+    switch (category) {
+      case 'Kuhano': icon = Icons.soup_kitchen_rounded; bgColor = const Color(0xFFFFE0B2); break;
+      case 'Peka': icon = Icons.bakery_dining_rounded; bgColor = const Color(0xFFEFEBE9); break;
+      case 'Sadje & zelenjava': icon = Icons.apple_rounded; bgColor = const Color(0xFFE8F5E9); break;
+      case 'Ostalo': icon = Icons.more_horiz_rounded; bgColor = const Color(0xFFE8EAF6); break;
+      default: icon = Icons.grass_rounded; bgColor = const Color(0xFFF1F8E9);
+    }
+
+    final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
+    final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: kRadius12,
+          boxShadow: kCardShadow,
+          border: isPrevzeto
+              ? null
+              : Border.all(color: statusClr.withOpacity(0.2), width: 1.5),
+        ),
+        child: Row(children: [
+          // Ikona kategorije
+          Container(
+            width: 52, height: 52,
+            decoration: BoxDecoration(color: bgColor, borderRadius: kRadius12),
+            child: Icon(icon, color: kGreenMid, size: 26),
+          ),
+          const SizedBox(width: 12),
+          // Podaci
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title,
+                style: kBodyBold.copyWith(fontSize: 14),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (username != null) ...[
+                const SizedBox(height: 2),
+                Text('od $username',
+                  style: const TextStyle(fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
+              ],
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(Icons.location_on_outlined, size: 12, color: kTextLight),
+                const SizedBox(width: 3),
+                Expanded(child: Text(location,
+                  style: kCaption, maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ]),
+              if (!isPrevzeto && expiryDate != null) ...[
+                const SizedBox(height: 3),
+                Row(children: [
+                  Icon(Icons.event_outlined, size: 12, color: kTextLight),
+                  const SizedBox(width: 3),
+                  Text('Rok: ${_formatDate(expiryDate)}',
+                    style: const TextStyle(fontSize: 12, color: kTextLight)),
+                ]),
+              ],
+              const SizedBox(height: 4),
+              Text(_timeAgo(createdAt),
+                style: const TextStyle(fontSize: 11, color: kTextLight)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          // Desna strana
+          Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: statusClr.withOpacity(0.1),
+                borderRadius: kRadiusFull,
+                border: Border.all(color: statusClr.withOpacity(0.3)),
+              ),
+              child: Text(statusLabel(status),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusClr)),
+            ),
+            if (!isPrevzeto) ...[
+              const SizedBox(height: 8),
+              Icon(Icons.chevron_right_rounded, size: 20, color: kTextLight),
+            ],
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── SHARED HELPERS ────────────────────────────────────────────────────────
+
+class _HeaderBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool dimmed;
+
+  const _HeaderBtn({required this.icon, required this.onTap, this.dimmed = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38, height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(dimmed ? 0.12 : 0.2),
+          borderRadius: kRadius12,
+          border: Border.all(color: Colors.white.withOpacity(dimmed ? 0.2 : 0.35)),
+        ),
+        child: Icon(icon, color: Colors.white, size: 17),
+      ),
+    );
+  }
+}
+
+String _timeAgo(DateTime? dt) {
+  if (dt == null) return 'Pravkar';
+  final diff = DateTime.now().difference(dt);
+  if (diff.inMinutes < 1) return 'Pravkar';
+  if (diff.inMinutes < 60) return 'Pred ${diff.inMinutes} min';
+  if (diff.inHours < 24) return 'Pred ${diff.inHours} ur';
+  return 'Pred ${diff.inDays} dni';
+}
+
+String _formatDate(DateTime dt) => '${dt.day}. ${dt.month}. ${dt.year}';
+
 FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
   final d = doc.data() as Map<String, dynamic>;
   final statusStr = d['status'] as String? ?? 'naRazpolago';
@@ -688,13 +1182,6 @@ FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
   final lng = (d['lng'] as num?)?.toDouble();
   final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
   final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
-  String timeAgo(DateTime? dt) {
-    if (dt == null) return 'Pravkar';
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return 'Pred ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Pred ${diff.inHours} ur';
-    return 'Pred ${diff.inDays} dni';
-  }
   final waitlistRaw = d['waitlist'];
   final waitlist = (waitlistRaw is List) ? waitlistRaw.map((e) => e.toString()).toList() : <String>[];
   return FoodOglas(
@@ -703,7 +1190,7 @@ FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
     title: d['title'] as String? ?? '',
     description: d['description'] as String? ?? '',
     location: d['location'] as String? ?? '',
-    time: timeAgo(createdAt),
+    time: _timeAgo(createdAt),
     status: status,
     username: d['username'] as String?,
     imageColor: color,
@@ -718,152 +1205,6 @@ FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
     expiryDate: expiryDate,
     waitlist: waitlist,
   );
-}
-
-class _OglasListCard extends StatelessWidget {
-  final DocumentSnapshot doc;
-  final bool showMarkPrevzeto;
-  final VoidCallback? onTap;
-  const _OglasListCard({
-    required this.doc,
-    this.showMarkPrevzeto = false,
-    this.onTap,
-  });
-
-  Future<void> _markPrevzeto(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: kRadius12),
-        title: const Text('Označi kot prevzeto', style: kHeading2),
-        content: const Text('Ali je bila hrana uspešno prevzeta?', style: kBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Prekliči', style: TextStyle(color: kTextLight, fontWeight: FontWeight.w600)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kGreenMid, elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: kRadius8),
-            ),
-            child: const Text('Potrdi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await FirebaseFirestore.instance
-          .collection('oglasi')
-          .doc(doc.id)
-          .update({'status': 'prevzeto'});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final d = doc.data() as Map<String, dynamic>;
-    final title = d['title'] as String? ?? '—';
-    final category = d['category'] as String? ?? '';
-    final location = d['location'] as String? ?? '';
-    final statusStr = d['status'] as String? ?? 'naRazpolago';
-
-    OglasStatus status;
-    switch (statusStr) {
-      case 'rezervirano': status = OglasStatus.rezervirano; break;
-      case 'prevzeto': status = OglasStatus.prevzeto; break;
-      default: status = OglasStatus.naRazpolago;
-    }
-
-    final color = statusColor(status);
-
-    final IconData icon;
-    final Color bgColor;
-    switch (category) {
-      case 'Kuhano': icon = Icons.soup_kitchen_rounded; bgColor = const Color(0xFFFFE0B2); break;
-      case 'Peka': icon = Icons.bakery_dining_rounded; bgColor = const Color(0xFFEFEBE9); break;
-      case 'Sadje & zelenjava': icon = Icons.apple_rounded; bgColor = const Color(0xFFE8F5E9); break;
-      case 'Ostalo': icon = Icons.more_horiz_rounded; bgColor = const Color(0xFFE8EAF6); break;
-      default: icon = Icons.grass_rounded; bgColor = const Color(0xFFF1F8E9);
-    }
-
-    final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
-    String timeStr = 'Pravkar';
-    if (createdAt != null) {
-      final diff = DateTime.now().difference(createdAt);
-      if (diff.inMinutes < 60) timeStr = 'Pred ${diff.inMinutes} min';
-      else if (diff.inHours < 24) timeStr = 'Pred ${diff.inHours} ur';
-      else timeStr = 'Pred ${diff.inDays} dni';
-    }
-
-    final card = Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: kRadius12,
-        boxShadow: kCardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(color: bgColor, borderRadius: kRadius12),
-              child: Icon(icon, color: kGreenMid, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: kBodyBold, maxLines: 1, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 2),
-              Row(children: [
-                Icon(Icons.location_on_outlined, size: 11, color: kTextLight),
-                const SizedBox(width: 3),
-                Expanded(child: Text(location, style: kCaption,
-                    maxLines: 1, overflow: TextOverflow.ellipsis)),
-              ]),
-              const SizedBox(height: 2),
-              Text(timeStr, style: kCaption.copyWith(fontSize: 14)),
-            ])),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: kRadiusFull,
-                border: Border.all(color: color.withOpacity(0.3)),
-              ),
-              child: Text(statusLabel(status),
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-            ),
-          ]),
-          if (showMarkPrevzeto && status == OglasStatus.rezervirano) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _markPrevzeto(context),
-                icon: const Icon(Icons.check_circle_outline_rounded, size: 15),
-                label: const Text('Označi kot prevzeto'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: kGreenMid,
-                  side: const BorderSide(color: kGreenMid, width: 1.5),
-                  shape: const RoundedRectangleBorder(borderRadius: kRadius8),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    if (onTap == null) return card;
-    return GestureDetector(onTap: onTap, child: card);
-  }
 }
 
 class _EditField extends StatelessWidget {

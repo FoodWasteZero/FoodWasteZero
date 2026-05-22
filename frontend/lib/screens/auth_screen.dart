@@ -17,22 +17,21 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen>
     with TickerProviderStateMixin {
 
-  // ── Animacija ────────────────────────────────────────────────────────────────
   late final AnimationController _animCtrl;
   late final Animation<double> _blurAnim;
   late final Animation<double> _slideAnim;
   late final Animation<double> _fadeAnim;
 
-  // ── Tab ──────────────────────────────────────────────────────────────────────
   late TabController _tabController;
   bool _isLoading = false;
 
-  // ── Login ────────────────────────────────────────────────────────────────────
   final _loginEmailCtrl = TextEditingController();
   final _loginPassCtrl  = TextEditingController();
   bool _loginPassVisible = false;
 
-  // ── Register ─────────────────────────────────────────────────────────────────
+  // Login inline error
+  String? _loginError;
+
   final _regNameCtrl  = TextEditingController();
   final _regEmailCtrl = TextEditingController();
   final _regPassCtrl  = TextEditingController();
@@ -45,6 +44,10 @@ class _AuthScreenState extends State<AuthScreen>
     super.initState();
 
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      // Clear login error when switching tabs
+      if (_loginError != null) setState(() => _loginError = null);
+    });
 
     _animCtrl = AnimationController(
       vsync: this,
@@ -52,27 +55,17 @@ class _AuthScreenState extends State<AuthScreen>
     );
 
     _blurAnim = Tween<double>(begin: 0, end: 16).animate(
-      CurvedAnimation(
-        parent: _animCtrl,
-        curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
-      ),
-    );
+      CurvedAnimation(parent: _animCtrl,
+          curve: const Interval(0.0, 0.65, curve: Curves.easeOut)));
 
     _slideAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _animCtrl,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
-      ),
-    );
+      CurvedAnimation(parent: _animCtrl,
+          curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic)));
 
     _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animCtrl,
-        curve: const Interval(0.2, 0.75, curve: Curves.easeOut),
-      ),
-    );
+      CurvedAnimation(parent: _animCtrl,
+          curve: const Interval(0.2, 0.75, curve: Curves.easeOut)));
 
-    // Čekaj 900ms da se HomeScreen vidi, pa pokreni animaciju
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 900), () {
         if (mounted) _animCtrl.forward();
@@ -93,7 +86,7 @@ class _AuthScreenState extends State<AuthScreen>
     super.dispose();
   }
 
-  // ── Error ─────────────────────────────────────────────────────────────────────
+  // ── Snackbar error (register) ─────────────────────────────────────────────
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -105,37 +98,35 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── Login ─────────────────────────────────────────────────────────────────────
+  // ── Login ──────────────────────────────────────────────────────────────────
   Future<void> _login() async {
     final email = _loginEmailCtrl.text.trim();
     final pass  = _loginPassCtrl.text.trim();
     if (email.isEmpty || pass.isEmpty) {
-      _showError('Vnesite e-mail in geslo.');
+      setState(() => _loginError = 'Vnesite e-mail in geslo.');
       return;
     }
-    setState(() => _isLoading = true);
+    setState(() { _isLoading = true; _loginError = null; });
     try {
       await signOutAnonymousIfNeeded();
       await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email, password: pass);
-      // Ako je modal bottom sheet — zatvori ga
+          email: email, password: pass);
       if (mounted && widget.isModal) {
         Navigator.of(context).pop();
       } else if (mounted) {
-        // Non-modal: navigiraj na HomeScreen da se refreshuje
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
           (_) => false,
         );
       }
     } on FirebaseAuthException catch (e) {
-      _showError(_authError(e.code));
+      if (mounted) setState(() => _loginError = _authError(e.code));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ── Register ──────────────────────────────────────────────────────────────────
+  // ── Register ───────────────────────────────────────────────────────────────
   Future<void> _register() async {
     final name  = _regNameCtrl.text.trim();
     final email = _regEmailCtrl.text.trim();
@@ -159,22 +150,22 @@ class _AuthScreenState extends State<AuthScreen>
     try {
       await signOutAnonymousIfNeeded();
       final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email, password: pass);
+          email: email, password: pass);
 
       await FirebaseFirestore.instance
-        .collection('users')
-        .doc(cred.user!.uid)
-        .set({
-          'uid':       cred.user!.uid,
-          'ime':       name,
-          'email':     email,
-          'userType':  _userType,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+          .collection('users')
+          .doc(cred.user!.uid)
+          .set({
+            'uid':       cred.user!.uid,
+            'ime':       name,
+            'email':     email,
+            'userType':  _userType,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
 
       await cred.user!.updateDisplayName(name);
-      // Odjavi ga takoj — mora se prijaviti ročno
       await FirebaseAuth.instance.signOut();
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -185,12 +176,12 @@ class _AuthScreenState extends State<AuthScreen>
           duration: const Duration(seconds: 3),
         ),
       );
-      // Počisti polja
       _regNameCtrl.clear();
       _regEmailCtrl.clear();
       _regPassCtrl.clear();
       _regPass2Ctrl.clear();
-      // Prebaci na login tab
+      // Reset userType back to default
+      setState(() => _userType = 'uporabnik');
       _tabController.animateTo(0);
     } on FirebaseAuthException catch (e) {
       _showError(_authError(e.code));
@@ -201,55 +192,40 @@ class _AuthScreenState extends State<AuthScreen>
 
   String _authError(String code) {
     switch (code) {
-      case 'user-not-found':      return 'Uporabnik ne obstaja.';
-      case 'wrong-password':      return 'Napačno geslo.';
-      case 'invalid-email':       return 'Neveljaven e-mail.';
-      case 'email-already-in-use':return 'E-mail je že v uporabi.';
-      case 'weak-password':       return 'Geslo je prešibko.';
-      case 'invalid-credential':  return 'Napačen e-mail ali geslo.';
-      default:                    return 'Napaka: $code';
+      case 'user-not-found':       return 'Uporabnik ne obstaja.';
+      case 'wrong-password':       return 'Napačno geslo.';
+      case 'invalid-email':        return 'Neveljaven e-mail.';
+      case 'email-already-in-use': return 'E-mail je že v uporabi.';
+      case 'weak-password':        return 'Geslo je prešibko.';
+      case 'invalid-credential':   return 'Napačen e-mail ali geslo.';
+      default:                     return 'Napaka: $code';
     }
   }
 
-  // ── BUILD ─────────────────────────────────────────────────────────────────────
+  // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Kad je modal (bottom sheet) — samo kartica, bez background HomeScreen
-    if (widget.isModal) {
-      return _buildCard(context);
-    }
+    if (widget.isModal) return _buildCard(context);
 
     final screenH = MediaQuery.of(context).size.height;
 
     return Stack(
       children: [
-        // 1. HomeScreen u pozadini (bez interakcije)
-        const IgnorePointer(
-          child: Material(
-            child: HomeScreen(),
-          ),
-        ),
+        const IgnorePointer(child: Material(child: HomeScreen())),
 
-        // 2. Blur overlay
         AnimatedBuilder(
           animation: _blurAnim,
           builder: (_, __) {
             if (_blurAnim.value < 0.01) return const SizedBox.shrink();
             return BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: _blurAnim.value,
-                sigmaY: _blurAnim.value,
-              ),
+              filter: ImageFilter.blur(sigmaX: _blurAnim.value, sigmaY: _blurAnim.value),
               child: Container(
-                color: Colors.black.withOpacity(
-                  0.22 * (_blurAnim.value / 16),
-                ),
+                color: Colors.black.withOpacity(0.22 * (_blurAnim.value / 16)),
               ),
             );
           },
         ),
 
-        // 3. Auth kartica klizi odozdo
         AnimatedBuilder(
           animation: _animCtrl,
           builder: (context, _) {
@@ -259,10 +235,7 @@ class _AuthScreenState extends State<AuthScreen>
                 offset: Offset(0, screenH * 0.6 * _slideAnim.value),
                 child: Opacity(
                   opacity: _fadeAnim.value,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: _buildCard(context),
-                  ),
+                  child: Material(color: Colors.transparent, child: _buildCard(context)),
                 ),
               ),
             );
@@ -272,12 +245,9 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── Kartica (nije fullscreen) ─────────────────────────────────────────────────
   Widget _buildCard(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.82,
-      ),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -289,7 +259,6 @@ class _AuthScreenState extends State<AuthScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
           const SizedBox(height: 14),
           Center(
             child: Container(
@@ -302,7 +271,7 @@ class _AuthScreenState extends State<AuthScreen>
           ),
           const SizedBox(height: 16),
 
-          // Logo + naziv
+          // Logo
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(children: [
@@ -311,8 +280,7 @@ class _AuthScreenState extends State<AuthScreen>
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF1B5E20), Color(0xFF43A047)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
@@ -327,10 +295,10 @@ class _AuthScreenState extends State<AuthScreen>
               const SizedBox(width: 12),
               const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('FoodWasteZero',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A2E1A), letterSpacing: -0.3)),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
+                        color: Color(0xFF1A2E1A), letterSpacing: -0.3)),
                 Text('Reši hrano. Pomagaj skupnosti.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF78909C))),
+                    style: TextStyle(fontSize: 13, color: Color(0xFF78909C))),
               ]),
             ]),
           ),
@@ -351,31 +319,22 @@ class _AuthScreenState extends State<AuthScreen>
                 color: kGreenMid,
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
-                  BoxShadow(
-                    color: kGreenMid.withOpacity(0.4),
-                    blurRadius: 10, offset: const Offset(0, 3),
-                  ),
+                  BoxShadow(color: kGreenMid.withOpacity(0.4),
+                      blurRadius: 10, offset: const Offset(0, 3)),
                 ],
               ),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
               labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-              tabs: const [
-                Tab(text: 'Prijava'),
-                Tab(text: 'Registracija'),
-              ],
+              tabs: const [Tab(text: 'Prijava'), Tab(text: 'Registracija')],
             ),
           ),
           const SizedBox(height: 4),
 
-          // Tab content
           Flexible(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _buildLoginTab(),
-                _buildRegisterTab(),
-              ],
+              children: [_buildLoginTab(), _buildRegisterTab()],
             ),
           ),
         ],
@@ -383,13 +342,11 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── Login tab ─────────────────────────────────────────────────────────────────
+  // ── Login tab ──────────────────────────────────────────────────────────────
   Widget _buildLoginTab() {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24, 16, 24,
-        MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
+      padding: EdgeInsets.fromLTRB(24, 16, 24,
+          MediaQuery.of(context).viewInsets.bottom + 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -403,6 +360,8 @@ class _AuthScreenState extends State<AuthScreen>
             icon: Icons.email_outlined,
             controller: _loginEmailCtrl,
             keyboardType: TextInputType.emailAddress,
+            hasError: _loginError != null,
+            onChanged: (_) { if (_loginError != null) setState(() => _loginError = null); },
           ),
           const SizedBox(height: 12),
           _InputField(
@@ -410,16 +369,44 @@ class _AuthScreenState extends State<AuthScreen>
             icon: Icons.lock_outline_rounded,
             controller: _loginPassCtrl,
             obscure: !_loginPassVisible,
+            hasError: _loginError != null,
+            onChanged: (_) { if (_loginError != null) setState(() => _loginError = null); },
             suffix: IconButton(
               icon: Icon(
                 _loginPassVisible
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 size: 20, color: kTextLight,
               ),
               onPressed: () => setState(() => _loginPassVisible = !_loginPassVisible),
             ),
           ),
+
+          // Inline error message
+          if (_loginError != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: kRadius8,
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(children: [
+                Icon(Icons.error_outline_rounded, color: Colors.red.shade600, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _loginError!,
+                    style: TextStyle(color: Colors.red.shade700,
+                        fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ]),
+            ),
+          ],
+
           const SizedBox(height: 22),
 
           SizedBox(
@@ -433,10 +420,11 @@ class _AuthScreenState extends State<AuthScreen>
                 elevation: 0,
               ),
               child: _isLoading
-                ? const SizedBox(width: 20, height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Prijava',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                  ? const SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Prijava',
+                      style: TextStyle(color: Colors.white,
+                          fontWeight: FontWeight.w700, fontSize: 15)),
             ),
           ),
           const SizedBox(height: 12),
@@ -444,7 +432,7 @@ class _AuthScreenState extends State<AuthScreen>
             child: TextButton(
               onPressed: () => _tabController.animateTo(1),
               child: const Text('Nimate računa? Registrirajte se',
-                style: TextStyle(color: kGreenMid, fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: kGreenMid, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -452,13 +440,11 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ── Register tab ──────────────────────────────────────────────────────────────
+  // ── Register tab ───────────────────────────────────────────────────────────
   Widget _buildRegisterTab() {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24, 16, 24,
-        MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
+      padding: EdgeInsets.fromLTRB(24, 16, 24,
+          MediaQuery.of(context).viewInsets.bottom + 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -488,8 +474,8 @@ class _AuthScreenState extends State<AuthScreen>
             suffix: IconButton(
               icon: Icon(
                 _regPassVisible
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 size: 20, color: kTextLight,
               ),
               onPressed: () => setState(() => _regPassVisible = !_regPassVisible),
@@ -512,15 +498,16 @@ class _AuthScreenState extends State<AuthScreen>
               title: 'Uporabnik',
               subtitle: 'Pregledavam in rezerviram oglase',
               selected: _userType == 'uporabnik',
+              isOrg: false,
               onTap: () => setState(() => _userType = 'uporabnik'),
             )),
             const SizedBox(width: 12),
             Expanded(child: _UserTypeCard(
               icon: Icons.store_rounded,
               title: 'Organizacija',
-              isOrg: true,
-              subtitle: 'Objavljam odvečno hrano (brez rezervacij)',
+              subtitle: 'Objavljam odvečno hrano',
               selected: _userType == 'davatelj',
+              isOrg: true,
               onTap: () => setState(() => _userType = 'davatelj'),
             )),
           ]),
@@ -532,16 +519,17 @@ class _AuthScreenState extends State<AuthScreen>
             child: ElevatedButton(
               onPressed: _isLoading ? null : _register,
               style: ElevatedButton.styleFrom(
-                backgroundColor: kGreenMid,
+                backgroundColor: _userType == 'davatelj' ? kGreenDark : kGreenMid,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: const RoundedRectangleBorder(borderRadius: kRadius12),
                 elevation: 0,
               ),
               child: _isLoading
-                ? const SizedBox(width: 20, height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Registracija',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                  ? const SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Registracija',
+                      style: TextStyle(color: Colors.white,
+                          fontWeight: FontWeight.w700, fontSize: 15)),
             ),
           ),
           const SizedBox(height: 12),
@@ -549,7 +537,7 @@ class _AuthScreenState extends State<AuthScreen>
             child: TextButton(
               onPressed: () => _tabController.animateTo(0),
               child: const Text('Že imate račun? Prijavite se',
-                style: TextStyle(color: kGreenMid, fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: kGreenMid, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -564,16 +552,20 @@ class _InputField extends StatelessWidget {
   final IconData icon;
   final TextEditingController controller;
   final bool obscure;
+  final bool hasError;
   final TextInputType? keyboardType;
   final Widget? suffix;
+  final ValueChanged<String>? onChanged;
 
   const _InputField({
     required this.label,
     required this.icon,
     required this.controller,
     this.obscure = false,
+    this.hasError = false,
     this.keyboardType,
     this.suffix,
+    this.onChanged,
   });
 
   @override
@@ -584,30 +576,35 @@ class _InputField extends StatelessWidget {
         borderRadius: kRadius12,
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.05),
-            blurRadius: 10, offset: const Offset(0, 3)),
+              blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: TextField(
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
+        onChanged: onChanged,
         style: const TextStyle(fontSize: 14, color: kTextDark),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: kTextLight, fontSize: 14),
-          prefixIcon: Icon(icon, size: 20, color: kTextLight),
+          prefixIcon: Icon(icon, size: 20,
+              color: hasError ? Colors.red.shade400 : kTextLight),
           suffixIcon: suffix,
           border: OutlineInputBorder(
             borderRadius: kRadius12,
-            borderSide: const BorderSide(color: kBorder),
+            borderSide: BorderSide(color: hasError ? Colors.red.shade300 : kBorder),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: kRadius12,
-            borderSide: const BorderSide(color: kBorder),
+            borderSide: BorderSide(
+                color: hasError ? Colors.red.shade300 : kBorder,
+                width: hasError ? 1.5 : 1),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: kRadius12,
-            borderSide: const BorderSide(color: kGreenMid, width: 1.5),
+            borderSide: BorderSide(
+                color: hasError ? Colors.red.shade400 : kGreenMid, width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
@@ -622,7 +619,7 @@ class _UserTypeCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool selected;
-  final bool isOrg;   // Organizacija — reversed stil
+  final bool isOrg;
   final VoidCallback onTap;
 
   const _UserTypeCard({
@@ -630,26 +627,33 @@ class _UserTypeCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.selected,
+    required this.isOrg,
     required this.onTap,
-    this.isOrg = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Reversed boje za Organizaciju: kad selected → tamno zelena pozadina, bijeli tekst
-    final bg = selected
-        ? (isOrg ? kGreenMid : kGreenPale)
-        : Colors.white;
-    final borderColor = selected ? kGreenMid : kBorder;
-    final titleColor = selected
-        ? (isOrg ? Colors.white : kGreenMid)
-        : kTextDark;
-    final iconBg = selected
-        ? (isOrg ? Colors.white.withOpacity(0.2) : kGreenMid)
-        : kSurface;
-    final iconColor = selected
-        ? (isOrg ? Colors.white : Colors.white)
-        : kTextMid;
+    // Uporabnik: selected = light green pale bg, green text
+    // Organizacija: selected = dark green bg, white text
+    final Color bg;
+    final Color borderColor;
+    final Color titleColor;
+    final Color iconBg;
+    final Color iconColor;
+
+    if (isOrg) {
+      bg          = selected ? kGreenDark : Colors.white;
+      borderColor = selected ? kGreenDark : kBorder;
+      titleColor  = selected ? Colors.white : kTextDark;
+      iconBg      = selected ? Colors.white.withOpacity(0.18) : kSurface;
+      iconColor   = selected ? Colors.white : kTextMid;
+    } else {
+      bg          = selected ? kGreenPale : Colors.white;
+      borderColor = selected ? kGreenMid : kBorder;
+      titleColor  = selected ? kGreenMid : kTextDark;
+      iconBg      = selected ? kGreenMid : kSurface;
+      iconColor   = selected ? Colors.white : kTextMid;
+    }
 
     return GestureDetector(
       onTap: onTap,
@@ -660,13 +664,12 @@ class _UserTypeCard extends StatelessWidget {
           color: bg,
           borderRadius: kRadius12,
           border: Border.all(color: borderColor, width: selected ? 2 : 1),
-          boxShadow: selected ? [
-            BoxShadow(color: kGreenMid.withOpacity(0.22),
-              blurRadius: 14, offset: const Offset(0, 5)),
-          ] : [
-            BoxShadow(color: Colors.black.withOpacity(0.05),
-              blurRadius: 8, offset: const Offset(0, 2)),
-          ],
+          boxShadow: selected
+              ? [BoxShadow(
+                  color: (isOrg ? kGreenDark : kGreenMid).withOpacity(0.22),
+                  blurRadius: 14, offset: const Offset(0, 5))]
+              : [BoxShadow(color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: Column(
           children: [
@@ -677,13 +680,13 @@ class _UserTypeCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(title,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: titleColor),
-              textAlign: TextAlign.center),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: titleColor),
+                textAlign: TextAlign.center),
             const SizedBox(height: 4),
             Text(subtitle,
-              style: TextStyle(fontSize: 13,
-                color: selected && isOrg ? Colors.white70 : kTextLight),
-              textAlign: TextAlign.center, maxLines: 2),
+                style: TextStyle(fontSize: 11,
+                    color: selected && isOrg ? Colors.white70 : kTextLight),
+                textAlign: TextAlign.center, maxLines: 2),
             const SizedBox(height: 8),
             if (selected)
               Container(
@@ -691,7 +694,8 @@ class _UserTypeCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isOrg ? Colors.white : kGreenMid,
                   shape: BoxShape.circle),
-                child: Icon(Icons.check, color: isOrg ? kGreenMid : Colors.white, size: 13),
+                child: Icon(Icons.check,
+                    color: isOrg ? kGreenDark : Colors.white, size: 13),
               )
             else
               Container(

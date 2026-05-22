@@ -108,7 +108,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   bool _isDavatelj = false;
   int _selectedTab = 0;
   int _navIndex = 0;
@@ -118,15 +119,25 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   StreamSubscription<User?>? _authSub;
 
+  // Animacija za inverzijo barv (uporabnik=0.0 → organizacija=1.0)
+  late AnimationController _themeAnim;
+  late Animation<double> _themeProgress;
+
   static const _tabs = ['Vse', 'Kuhano', 'Sestavine', 'Peka', 'Sadje & zelenjava'];
 
   @override
   void initState() {
     super.initState();
+    _themeAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _themeProgress = CurvedAnimation(parent: _themeAnim, curve: Curves.easeInOut);
     _loadUserType();
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
       if (user == null) {
+        _themeAnim.reverse();
         setState(() { _isDavatelj = false; _navIndex = 0; });
       } else {
         _loadUserType();
@@ -145,6 +156,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _isDavatelj = isDav;
         if (isDav && _navIndex == 1) _navIndex = 0;
       });
+      if (isDav) {
+        _themeAnim.forward();
+      } else {
+        _themeAnim.reverse();
+      }
     }
   }
 
@@ -152,6 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _authSub?.cancel();
     _searchCtrl.dispose();
+    _themeAnim.dispose();
     super.dispose();
   }
 
@@ -285,13 +302,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kSurface,
-      body: _buildBody(),
-      floatingActionButton: _navIndex == 0 && _isDavatelj && FirebaseAuth.instance.currentUser != null
-          ? _buildFAB()
-          : null,
-      bottomNavigationBar: _buildBottomNav(),
+    return AnimatedBuilder(
+      animation: _themeProgress,
+      builder: (context, _) {
+        // t=0 → uporabnik (zeleni app bar, beli nav)
+        // t=1 → organizacija (beli app bar, zeleni nav)
+        final t = _themeProgress.value;
+        final navBg = Color.lerp(Colors.white, kGreenMid, t)!;
+        final navIndicator = Color.lerp(kGreenPale, Colors.white.withOpacity(0.25), t)!;
+        final navSelectedIcon = Color.lerp(kGreenMid, Colors.white, t)!;
+        final navUnselectedIcon = Color.lerp(Colors.grey, Colors.white.withOpacity(0.6), t)!;
+
+        return Scaffold(
+          backgroundColor: Color.lerp(kSurface, const Color(0xFFE8F5E9), t * 0.5)!,
+          body: _buildBody(),
+          floatingActionButton: _navIndex == 0 && _isDavatelj &&
+              FirebaseAuth.instance.currentUser != null
+              ? _buildFAB(t)
+              : null,
+          bottomNavigationBar: _buildBottomNav(
+            navBg: navBg,
+            navIndicator: navIndicator,
+            navSelectedIcon: navSelectedIcon,
+            navUnselectedIcon: navUnselectedIcon,
+          ),
+        );
+      },
     );
   }
 
@@ -403,15 +439,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildOrgSliverAppBar() {
+    // Organizacija: uvijek zeleni app bar s bijelim tekstom (kao normalni user ali bez gradienta)
+    // Animacija se vidi pri prelasku, ali finalno stanje je jasno zeleno/bijelo
+    const appBarBg = kGreenMid;
+    const titleColor = Colors.white;
+    const subtitleColor = Colors.white70;
+
     return SliverAppBar(
       expandedHeight: 110, pinned: true, elevation: 2,
-      backgroundColor: Colors.white,
-      shadowColor: Colors.black.withOpacity(0.12),
+      backgroundColor: appBarBg,
+      foregroundColor: titleColor,
+      shadowColor: Colors.black.withOpacity(0.2),
       surfaceTintColor: Colors.transparent, forceElevated: true,
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.pin,
         background: Container(
-          color: Colors.white,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF388E3C)],
+            ),
+          ),
           child: SafeArea(child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
             child: Column(mainAxisAlignment: MainAxisAlignment.end,
@@ -420,45 +468,68 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: kGreenPale,
+                    color: Colors.white.withOpacity(0.2),
                     borderRadius: kRadiusFull,
-                    border: Border.all(color: kGreenMid.withOpacity(0.3)),
+                    border: Border.all(color: Colors.white.withOpacity(0.35)),
                   ),
-                  child: Row(children: [
-                    const Icon(Icons.store_rounded, size: 13, color: kGreenMid),
-                    const SizedBox(width: 5),
+                  child: const Row(children: [
+                    Icon(Icons.store_rounded, size: 13, color: Colors.white),
+                    SizedBox(width: 5),
                     Text('Organizacija', style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w700, color: kGreenMid)),
+                      fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
                   ]),
                 ),
               ]),
               const SizedBox(height: 6),
               const Text('Dobrodošli nazaj',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
-                  color: kTextDark, letterSpacing: -0.5)),
+                  color: titleColor, letterSpacing: -0.5)),
               const SizedBox(height: 2),
               const Text('Upravljajte vaše oglase in doseg.',
-                style: TextStyle(fontSize: 14, color: kTextMid)),
+                style: TextStyle(fontSize: 14, color: subtitleColor)),
             ]),
           )),
         ),
       ),
       title: Row(children: [
         Container(width: 26, height: 26,
-          decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius8),
-          child: const Icon(Icons.eco, color: kGreenMid, size: 15)),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2), borderRadius: kRadius8),
+          child: const Icon(Icons.eco, color: Colors.white, size: 15)),
         const SizedBox(width: 8),
         const Text('FoodWasteZero',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
-            color: kTextDark, letterSpacing: -0.2)),
+            color: titleColor, letterSpacing: -0.2)),
       ]),
       centerTitle: false,
       actions: [
         Padding(padding: const EdgeInsets.only(right: 8),
-          child: _NotifButton(onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Ni novih obvestil'))))),
+          child: GestureDetector(
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ni novih obvestil'))),
+            child: Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: kRadius12,
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ),
+              child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
+            ),
+          )),
         Padding(padding: const EdgeInsets.only(right: 12),
-          child: _HamburgerButton(onTap: () => showAppDrawer(context), dark: true)),
+          child: GestureDetector(
+            onTap: () => showAppDrawer(context),
+            child: Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: kRadius12,
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ),
+              child: const Icon(Icons.menu_rounded, color: Colors.white, size: 22),
+            ),
+          )),
       ],
     );
   }
@@ -530,35 +601,52 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: kRadius16,
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.08),
-                blurRadius: 24, offset: const Offset(0, 6)),
-          ]),
-        child: TextField(
-          controller: _searchCtrl,
-          onChanged: (v) => setState(() => _searchQuery = v.trim()),
-          style: const TextStyle(fontSize: 14, color: kTextDark),
-          decoration: InputDecoration(
-            hintText: 'Išči hrano v bližini...',
-            hintStyle: kCaption.copyWith(fontSize: 14),
-            prefixIcon: const Icon(Icons.search_rounded, color: kGreenMid, size: 22),
-            suffixIcon: _searchQuery.isNotEmpty
-                ? GestureDetector(
-                    onTap: () {
-                      _searchCtrl.clear();
-                      setState(() => _searchQuery = '');
-                    },
-                    child: const Icon(Icons.cancel_rounded, color: kTextLight, size: 20))
-                : null,
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            border: InputBorder.none,
+    return AnimatedBuilder(
+      animation: _themeProgress,
+      builder: (context, _) {
+        final t = _themeProgress.value;
+        final bgColor = Color.lerp(Colors.white, Colors.white.withOpacity(0.15), t)!;
+        final iconColor = Color.lerp(kGreenMid, Colors.white70, t)!;
+        final textColor = Color.lerp(kTextDark, Colors.white, t)!;
+        final hintColor = Color.lerp(kTextLight, Colors.white54, t)!;
+        final borderColor = Color.lerp(Colors.transparent, Colors.white.withOpacity(0.3), t)!;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: kRadius16,
+              border: Border.all(color: borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08 * (1 - t * 0.5)),
+                  blurRadius: 24, offset: const Offset(0, 6)),
+              ],
+            ),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              style: TextStyle(fontSize: 14, color: textColor),
+              decoration: InputDecoration(
+                hintText: 'Išči hrano v bližini...',
+                hintStyle: TextStyle(fontSize: 14, color: hintColor),
+                prefixIcon: Icon(Icons.search_rounded, color: iconColor, size: 22),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                        child: Icon(Icons.cancel_rounded, color: hintColor, size: 20))
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                border: InputBorder.none,
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -646,38 +734,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildListingsHeader(int count) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-      child: Row(children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const Text('Oglasi v bližini', style: kHeading3),
-            if (_activeFilter != null) ...[
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => setState(() => _activeFilter = null),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull),
-                  child: Row(children: [
-                    Text(_filterLabel(_activeFilter!),
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                    const SizedBox(width: 3),
-                    const Icon(Icons.close, color: Colors.white, size: 10),
-                  ]),
-                ),
-              ),
-            ],
+    return AnimatedBuilder(
+      animation: _themeProgress,
+      builder: (context, _) {
+        final t = _themeProgress.value;
+        final titleColor = Color.lerp(kTextDark, kTextDark, t)!; // ostaje tamno
+        final countColor = Color.lerp(kGreenMid, kGreenMid, t)!;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+          child: Row(children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text('Oglasi v bližini', style: kHeading3.copyWith(color: titleColor)),
+                if (_activeFilter != null) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => setState(() => _activeFilter = null),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull),
+                      child: Row(children: [
+                        Text(_filterLabel(_activeFilter!),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 3),
+                        const Icon(Icons.close, color: Colors.white, size: 10),
+                      ]),
+                    ),
+                  ),
+                ],
+              ]),
+              const SizedBox(height: 2),
+              Text('$count rezultatov najdenih',
+                style: kCaption.copyWith(
+                    color: countColor, fontWeight: FontWeight.w600, fontSize: 14)),
+            ]),
           ]),
-          const SizedBox(height: 2),
-          Text('$count rezultatov najdenih',
-            style: kCaption.copyWith(
-                color: kGreenMid, fontWeight: FontWeight.w600, fontSize: 14)),
-        ]),
-
-       
-      ]),
+        );
+      },
     );
   }
 
@@ -692,102 +786,128 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTabRow() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 14),
-      child: SizedBox(
-        height: 38,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: _tabs.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final active = i == _selectedTab;
-            return GestureDetector(
-              onTap: () => setState(() => _selectedTab = i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-                decoration: BoxDecoration(
-                  color: active ? kGreenMid : Colors.white,
-                  borderRadius: kRadiusFull,
-                  boxShadow: active
-                      ? [BoxShadow(color: kGreenMid.withOpacity(0.4),
-                            blurRadius: 16, offset: const Offset(0, 5))]
-                      : [BoxShadow(color: Colors.black.withOpacity(0.06),
-                            blurRadius: 8, offset: const Offset(0, 2))],
-                ),
-                child: Text(_tabs[i], style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: active ? Colors.white : kTextMid,
-                )),
-              ),
-            );
-          },
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: _themeProgress,
+      builder: (context, _) {
+        final t = _themeProgress.value;
+        // Tab aktivni: zeleni → bijeli; neaktivni: bijeli → prozirno bijeli
+        final activeTabBg = Color.lerp(kGreenMid, Colors.white, t)!;
+        final activeTabText = Color.lerp(Colors.white, kGreenMid, t)!;
+        final inactiveTabBg = Color.lerp(Colors.white, Colors.white.withOpacity(0.15), t)!;
+        final inactiveTabText = Color.lerp(kTextMid, Colors.white70, t)!;
+        final activeShadow = Color.lerp(kGreenMid, Colors.black, t * 0.4)!;
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _tabs.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final active = i == _selectedTab;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedTab = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: active ? activeTabBg : inactiveTabBg,
+                      borderRadius: kRadiusFull,
+                      boxShadow: active
+                          ? [BoxShadow(color: activeShadow.withOpacity(0.35),
+                                blurRadius: 16, offset: const Offset(0, 5))]
+                          : [BoxShadow(color: Colors.black.withOpacity(0.04 * (1 - t * 0.7)),
+                                blurRadius: 8, offset: const Offset(0, 2))],
+                    ),
+                    child: Text(_tabs[i], style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      color: active ? activeTabText : inactiveTabText,
+                    )),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildFAB() {
+  Widget _buildFAB(double t) {
+    // t=1 → organizacija: bijeli FAB sa zelenim tekstom
+    final fabBg = Color.lerp(kGreenMid, Colors.white, t)!;
+    final fabFg = Color.lerp(Colors.white, kGreenMid, t)!;
+    final shadowColor = Color.lerp(kGreenMid, Colors.black, t * 0.5)!;
     return Container(
       decoration: BoxDecoration(borderRadius: kRadius16, boxShadow: [
-        BoxShadow(color: kGreenMid.withOpacity(0.5),
+        BoxShadow(color: shadowColor.withOpacity(0.4),
             blurRadius: 28, offset: const Offset(0, 10)),
       ]),
       child: FloatingActionButton.extended(
         onPressed: _showAddOglas,
-        backgroundColor: kGreenMid, elevation: 0,
+        backgroundColor: fabBg, elevation: 0,
         shape: const RoundedRectangleBorder(borderRadius: kRadius16),
-        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
-        label: const Text('Dodaj oglas',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+        icon: Icon(Icons.add_rounded, color: fabFg, size: 22),
+        label: Text('Dodaj oglas',
+          style: TextStyle(color: fabFg, fontWeight: FontWeight.w700, fontSize: 14)),
       ),
     );
   }
 
-  List<NavigationDestination> _navDestinations(bool isGuest) {
+  List<NavigationDestination> _navDestinations(bool isGuest, Color selected, Color unselected) {
     return [
-      const NavigationDestination(
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home_rounded, color: kGreenMid),
+      NavigationDestination(
+        icon: Icon(Icons.home_outlined, color: unselected),
+        selectedIcon: Icon(Icons.home_rounded, color: selected),
         label: 'Domov',
       ),
       if (!_isDavatelj)
-        const NavigationDestination(
-          icon: Icon(Icons.restaurant_rounded),
-          selectedIcon: Icon(Icons.restaurant_rounded, color: kGreenMid),
+        NavigationDestination(
+          icon: Icon(Icons.restaurant_rounded, color: unselected),
+          selectedIcon: Icon(Icons.restaurant_rounded, color: selected),
           label: 'Recepti',
         ),
-      const NavigationDestination(
-        icon: Icon(Icons.inbox_outlined),
-        selectedIcon: Icon(Icons.inbox_rounded, color: kGreenMid),
-        label: 'Objave',
+      NavigationDestination(
+        icon: Icon(Icons.inbox_outlined, color: unselected),
+        selectedIcon: Icon(Icons.inbox_rounded, color: selected),
+        label: 'Moje objave',
       ),
       NavigationDestination(
-        icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded),
+        icon: Icon(isGuest ? Icons.login_rounded : Icons.person_outline_rounded, color: unselected),
         selectedIcon: Icon(
           isGuest ? Icons.login_rounded : Icons.person_rounded,
-          color: kGreenMid,
+          color: selected,
         ),
         label: isGuest ? 'Prijava' : 'Profil',
       ),
     ];
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav({
+    required Color navBg,
+    required Color navIndicator,
+    required Color navSelectedIcon,
+    required Color navUnselectedIcon,
+  }) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnap) {
         final isGuest = isAppGuest(authSnap.data);
+        final destinations = _navDestinations(isGuest, navSelectedIcon, navUnselectedIcon);
         return Container(
-          decoration: BoxDecoration(color: Colors.white, boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1),
-                blurRadius: 30, offset: const Offset(0, -6)),
-          ]),
+          decoration: BoxDecoration(
+            color: navBg,
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.15),
+                  blurRadius: 30, offset: const Offset(0, -6)),
+            ],
+          ),
           child: NavigationBar(
-            selectedIndex: _navIndex.clamp(0, _navDestinations(isGuest).length - 1),
+            selectedIndex: _navIndex.clamp(0, destinations.length - 1),
             onDestinationSelected: (i) {
               if (isGuest && _authRequiredNavIndices().contains(i)) {
                 _showAuthPopup();
@@ -796,9 +916,9 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() => _navIndex = i);
             },
             backgroundColor: Colors.transparent, elevation: 0,
-            indicatorColor: kGreenPale,
+            indicatorColor: navIndicator,
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: _navDestinations(isGuest),
+            destinations: destinations,
           ),
         );
       },

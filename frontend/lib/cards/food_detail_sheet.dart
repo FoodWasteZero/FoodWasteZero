@@ -104,7 +104,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Greška: Niste prijavljeni. Molimo osvežite stranicu.'),
+            content: Text('Napaka: Niste prijavljeni. Osvežite stran.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -208,7 +208,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Greška: Niste prijavljeni. Molimo osvežite stranicu.'),
+            content: Text('Napaka: Niste prijavljeni. Osvežite stran.'),
             backgroundColor: Colors.red,
           ),
         );

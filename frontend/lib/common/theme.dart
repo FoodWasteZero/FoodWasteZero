@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 // ── Brand colours ─────────────────────────────────────────────────────────────
 const kGreen       = Color(0xFF1B5E20);
+const kGreenDark   = Color(0xFF1B5E20);
 const kGreenMid    = Color(0xFF2E7D32);
 const kGreenLight  = Color(0xFF4CAF50);
 const kGreenPale   = Color(0xFFE8F5E9);

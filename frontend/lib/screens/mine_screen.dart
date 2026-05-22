@@ -288,7 +288,8 @@ class _MojeScreenState extends State<MineScreen> {
                 title: const Text('Moje objave',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
                 actions: [
-                  // Svi mogu dodavati
+                  // Dodajanje samo za ne-davatelje (davatelji imajo FAB na home)
+                  if (!_isDavatelj)
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: ElevatedButton.icon(
