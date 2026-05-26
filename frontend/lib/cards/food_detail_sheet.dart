@@ -8,19 +8,23 @@ import '../models/models.dart';
 import '../screens/auth_screen.dart';
 import '../common/firestore_error.dart';
 import '../common/auth_helpers.dart';
+import '../services/offer_promotion_service.dart';
+import '../services/ui_state_service.dart';
 
 class FoodDetailSheet extends StatefulWidget {
   final FoodOglas oglas;
 
   const FoodDetailSheet({super.key, required this.oglas});
 
-  static void show(BuildContext context, FoodOglas oglas) {
-    showModalBottomSheet(
+  static Future<void> show(BuildContext context, FoodOglas oglas) async {
+    UIStateService.instance.isDetailOpen.value = true;
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => FoodDetailSheet(oglas: oglas),
     );
+    UIStateService.instance.isDetailOpen.value = false;
   }
 
   @override
@@ -31,6 +35,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
   bool _loading = false;
   bool _isDavatelj = false;
   bool _userTypeLoaded = false;
+  int _selectedPickupIndex = -1;
 
   FoodOglas get oglas => widget.oglas;
 
@@ -41,6 +46,18 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
   void initState() {
     super.initState();
     _loadUserType();
+    _initSelectedIndex();
+  }
+
+  void _initSelectedIndex() {
+    final pickupTerms = <DateTime?>[oglas.termin1, oglas.termin2, oglas.termin3, oglas.termin4]
+        .where((t) => t != null)
+        .map((t) => t!)
+        .toList();
+    if (oglas.chosenTermin != null) {
+      final idx = pickupTerms.indexWhere((t) => t.isAtSameMomentAs(oglas.chosenTermin!));
+      if (idx != -1) _selectedPickupIndex = idx;
+    }
   }
 
   void _showAuthPopup() {
@@ -111,13 +128,44 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       }
       return;
     }
+    final userUid = user!.uid;
     try {
+      final pickupTerms = <DateTime?>[oglas.termin1, oglas.termin2, oglas.termin3, oglas.termin4]
+          .where((t) => t != null).toList();
+      if (pickupTerms.isEmpty) {
+        setState(() => _loading = false);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Za ta oglas ni razpoložljivih terminov.')),
+        );
+        return;
+      }
+
+      if (_selectedPickupIndex < 0 || _selectedPickupIndex >= pickupTerms.length) {
+        setState(() => _loading = false);
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Izberite termin'),
+            content: const Text('Pred rezervacijo izberite termin prevzema.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('V redu')),
+            ],
+          ),
+        );
+        return;
+      }
+      final selectedTerm = pickupTerms[_selectedPickupIndex]!;
       await FirebaseFirestore.instance
           .collection('oglasi')
           .doc(oglas.id)
           .update({
         'status': 'rezervirano',
-        'reservedByUid': user!.uid,
+        'reservedByUid': userUid,
+        'chosenTermin': Timestamp.fromDate(selectedTerm),
+        'reservedAt': FieldValue.serverTimestamp(),
+        'offerPending': false,
+        'offerExpiresAt': FieldValue.delete(),
       });
       if (mounted) {
         Navigator.pop(context);
@@ -145,19 +193,45 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     try {
       final ref = FirebaseFirestore.instance.collection('oglasi').doc(oglas.id);
 
+      // Prevent cancellation within 24h of expiry or chosen term
+      final now = DateTime.now();
+      if (oglas.expiryDate != null && oglas.expiryDate!.difference(now) < const Duration(hours: 24)) {
+        if (mounted) {
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Rezervacije ni mogoče preklicati manj kot 24 ur pred rokom.'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+      if (oglas.chosenTermin != null && oglas.chosenTermin!.difference(now) < const Duration(hours: 24)) {
+        if (mounted) {
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Rezervacije ni mogoče preklicati manj kot 24 ur pred izbranim terminom.'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
       if (oglas.waitlist.isNotEmpty) {
         final naslednji = oglas.waitlist.first;
         final novaVrsta = oglas.waitlist.skip(1).toList();
-        await ref.update({
-          'status': 'rezervirano',
-          'reservedByUid': naslednji,
-          'waitlist': novaVrsta,
-        });
+        await OfferPromotionService.instance.promoteNextUser(
+          docId: oglas.id,
+          nextUid: naslednji,
+          remainingWaitlist: novaVrsta,
+          title: oglas.title,
+          termin1: oglas.termin1 != null ? Timestamp.fromDate(oglas.termin1!) : null,
+          termin2: oglas.termin2 != null ? Timestamp.fromDate(oglas.termin2!) : null,
+          termin3: oglas.termin3 != null ? Timestamp.fromDate(oglas.termin3!) : null,
+          termin4: oglas.termin4 != null ? Timestamp.fromDate(oglas.termin4!) : null,
+        );
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Rezervacija preklicana. Naslednji v vrsti je obveščen.'),
+              content: Text('Rezervacija preklicana. Naslednji v vrsti ima 3 ure za prevzem.'),
               backgroundColor: kOrange,
             ),
           );
@@ -166,6 +240,12 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         await ref.update({
           'status': 'naRazpolago',
           'reservedByUid': FieldValue.delete(),
+          'chosenTermin': FieldValue.delete(),
+          'offerPending': false,
+          'offerExpiresAt': FieldValue.delete(),
+          'offerToken': FieldValue.delete(),
+          'offeredUid': FieldValue.delete(),
+          'offerNotifiedAt': FieldValue.delete(),
         });
         if (mounted) {
           Navigator.pop(context);
@@ -215,12 +295,13 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       }
       return;
     }
+    final userUid = user!.uid;
     try {
       await FirebaseFirestore.instance
           .collection('oglasi')
           .doc(oglas.id)
           .update({
-        'waitlist': FieldValue.arrayUnion([user!.uid]),
+        'waitlist': FieldValue.arrayUnion([userUid]),
       });
       if (mounted) {
         final pos = oglas.waitlist.length + 1;
@@ -302,6 +383,12 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     final user = FirebaseAuth.instance.currentUser;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
+    final pickupTerms = <DateTime?>[
+      oglas.termin1,
+      oglas.termin2,
+      oglas.termin3,
+      oglas.termin4,
+    ].where((term) => term != null).toList();
 
     final jeMojaRezervacija = oglas.status == OglasStatus.rezervirano &&
         oglas.reservedByUid != null &&
@@ -395,6 +482,54 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
 
                         if (oglas.description.isNotEmpty) ...[
                           Text(oglas.description, style: kBody.copyWith(height: 1.5)),
+                          const SizedBox(height: 16),
+                        ],
+
+                        if (pickupTerms.isNotEmpty) ...[
+                          const Text(
+                            'Termini prevzema',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: kTextDark,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (var i = 0; i < pickupTerms.length; i++)
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() => _selectedPickupIndex = i);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: _selectedPickupIndex == i
+                                          ? kGreenMid.withOpacity(0.12)
+                                          : kSurface,
+                                      borderRadius: kRadius8,
+                                      border: Border.all(
+                                        color: _selectedPickupIndex == i
+                                            ? kGreenMid.withOpacity(0.8)
+                                            : kBorder,
+                                      ),
+                                    ),
+                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                      Icon(Icons.schedule_rounded, size: 13, color: kGreenMid),
+                                      const SizedBox(width: 6),
+                                      Text('Termin ${i + 1}: ${_formatPickupTerm(pickupTerms[i]!)}',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: _selectedPickupIndex == i ? kGreenMid : kTextDark)),
+                                    ]),
+                                  ),
+                                ),
+                            ],
+                          ),
                           const SizedBox(height: 16),
                         ],
 
@@ -671,6 +806,14 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 String _formatDate(DateTime dt) => '${dt.day}. ${dt.month}. ${dt.year}';
+
+String _formatPickupTerm(DateTime dt) {
+  final day = dt.day.toString().padLeft(2, '0');
+  final month = dt.month.toString().padLeft(2, '0');
+  final hour = dt.hour.toString().padLeft(2, '0');
+  final minute = dt.minute.toString().padLeft(2, '0');
+  return '$day.$month.${dt.year} $hour:$minute';
+}
 
 Widget _buildBase64Image(String base64) {
   try {

@@ -4,14 +4,18 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/offer_claim_page.dart';
 import 'common/theme.dart';
 import 'common/auth_helpers.dart';
+import 'services/offer_promotion_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -19,6 +23,8 @@ void main() async {
     debugPrint('Firebase projectId: ${Firebase.app().options.projectId}');
   }
   await ensureFirestoreAccess();
+  // Start client-driven offer promotion service (handles expired 3h offers)
+  OfferPromotionService.instance.start();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
@@ -135,6 +141,13 @@ class _AuthGateState extends State<_AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const _SplashScreen();
+    final uri = Uri.base;
+    final adId = uri.queryParameters['claim'];
+    final uid = uri.queryParameters['uid'];
+    final token = uri.queryParameters['token'];
+    if (adId != null && uid != null && token != null) {
+      return OfferClaimPage(adId: adId, expectedUid: uid, token: token);
+    }
     if (_showOnboarding) {
       return OnboardingScreen(onDone: _onOnboardingDone);
     }

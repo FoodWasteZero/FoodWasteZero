@@ -468,6 +468,14 @@ class _RecipePageState extends State<RecipePage> {
       distanceKm: 0.0,
       icon: icon,
       expiryDate: expiryDate,
+      termin1: (d['termin1'] as Timestamp?)?.toDate(),
+      termin2: (d['termin2'] as Timestamp?)?.toDate(),
+      termin3: (d['termin3'] as Timestamp?)?.toDate(),
+      termin4: (d['termin4'] as Timestamp?)?.toDate(),
+      chosenTermin: (d['chosenTermin'] as Timestamp?)?.toDate(),
+      offerPending: d['offerPending'] as bool? ?? false,
+      offerExpiresAt: (d['offerExpiresAt'] as Timestamp?)?.toDate(),
+      offerToken: d['offerToken'] as String?,
     );
   }
 

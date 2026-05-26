@@ -319,9 +319,6 @@ class _ProfilePageState extends State<ProfilePage>
           children: [
             _buildProfileHeader(),
             const SizedBox(height: 4),
-            // Analitika za uporabnika
-            _buildUporabnikStats(user.uid),
-            const SizedBox(height: 12),
             // Tab bar
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -372,51 +369,6 @@ class _ProfilePageState extends State<ProfilePage>
           ],
         ),
       ),
-    );
-  }
-
-  // ─── UPORABNIK STATS ──────────────────────────────────────────────────────
-
-  Widget _buildUporabnikStats(String uid) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('oglasi')
-          .where('reservedByUid', isEqualTo: uid)
-          .snapshots(),
-      builder: (context, snap) {
-        final docs = snap.data?.docs ?? [];
-        final steviloRezerviranih = docs.where((d) =>
-            (d.data() as Map)['status'] == 'rezervirano').length;
-        final steviloPrevzetih = docs.where((d) =>
-            (d.data() as Map)['status'] == 'prevzeto').length;
-        final skupaj = docs.length;
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(children: [
-            Expanded(child: _StatBox(
-              value: '$skupaj',
-              label: 'Skupaj',
-              icon: Icons.history_rounded,
-              color: const Color(0xFF5C6BC0),
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _StatBox(
-              value: '$steviloRezerviranih',
-              label: 'Rezervirano',
-              icon: Icons.bookmark_rounded,
-              color: const Color(0xFFFF6F00),
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _StatBox(
-              value: '$steviloPrevzetih',
-              label: 'Prevzeto',
-              icon: Icons.check_circle_rounded,
-              color: kGreenMid,
-            )),
-          ]),
-        );
-      },
     );
   }
 
@@ -1083,257 +1035,91 @@ class _UporabnikOglasCard extends StatelessWidget {
 
     final IconData icon;
     final Color bgColor;
-    final Color iconColor;
     switch (category) {
-      case 'Kuhano':
-        icon = Icons.soup_kitchen_rounded;
-        bgColor = const Color(0xFFFFE0B2);
-        iconColor = const Color(0xFFE65100);
-        break;
-      case 'Peka':
-        icon = Icons.bakery_dining_rounded;
-        bgColor = const Color(0xFFEFEBE9);
-        iconColor = const Color(0xFF6D4C41);
-        break;
-      case 'Sadje & zelenjava':
-        icon = Icons.apple_rounded;
-        bgColor = const Color(0xFFE8F5E9);
-        iconColor = kGreenMid;
-        break;
-      case 'Ostalo':
-        icon = Icons.more_horiz_rounded;
-        bgColor = const Color(0xFFE8EAF6);
-        iconColor = const Color(0xFF3949AB);
-        break;
-      default:
-        icon = Icons.grass_rounded;
-        bgColor = const Color(0xFFF1F8E9);
-        iconColor = kGreenMid;
+      case 'Kuhano': icon = Icons.soup_kitchen_rounded; bgColor = const Color(0xFFFFE0B2); break;
+      case 'Peka': icon = Icons.bakery_dining_rounded; bgColor = const Color(0xFFEFEBE9); break;
+      case 'Sadje & zelenjava': icon = Icons.apple_rounded; bgColor = const Color(0xFFE8F5E9); break;
+      case 'Ostalo': icon = Icons.more_horiz_rounded; bgColor = const Color(0xFFE8EAF6); break;
+      default: icon = Icons.grass_rounded; bgColor = const Color(0xFFF1F8E9);
     }
 
     final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
     final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
 
-    // Prevzeto kartice: subtilna, ugasnjena
-    if (isPrevzeto) {
-      return GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: kRadius12,
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05),
-                blurRadius: 8, offset: const Offset(0, 2)),
-            ],
-          ),
-          child: Row(children: [
-            // Leva barvna črta (status)
-            Container(
-              width: 4,
-              height: 72,
-              decoration: BoxDecoration(
-                color: statusClr.withOpacity(0.6),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Ikona
-            Opacity(
-              opacity: 0.6,
-              child: Container(
-                width: 42, height: 42,
-                decoration: BoxDecoration(color: bgColor, borderRadius: kRadius8),
-                child: Icon(icon, color: iconColor, size: 20),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title,
-                    style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700,
-                      color: kTextMid),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                  if (username != null) ...[
-                    const SizedBox(height: 2),
-                    Text('od $username',
-                      style: const TextStyle(fontSize: 11, color: kTextLight, fontWeight: FontWeight.w500)),
-                  ],
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    Icon(Icons.location_on_outlined, size: 11, color: kTextLight),
-                    const SizedBox(width: 2),
-                    Expanded(child: Text(location,
-                      style: const TextStyle(fontSize: 11, color: kTextLight),
-                      maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  ]),
-                ]),
-              ),
-            ),
-            // Checkmark badge
-            Padding(
-              padding: const EdgeInsets.only(right: 14),
-              child: Container(
-                width: 28, height: 28,
-                decoration: BoxDecoration(
-                  color: statusClr.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.check_rounded, size: 15, color: statusClr),
-              ),
-            ),
-          ]),
-        ),
-      );
-    }
-
-    // Rezervirano kartice: prominentne, z akcijskim izgledom
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: kRadius16,
-          boxShadow: [
-            BoxShadow(color: statusClr.withOpacity(0.12),
-              blurRadius: 20, offset: const Offset(0, 6)),
-            BoxShadow(color: Colors.black.withOpacity(0.05),
-              blurRadius: 6, offset: const Offset(0, 2)),
-          ],
-          border: Border.all(color: statusClr.withOpacity(0.2), width: 1.5),
+          borderRadius: kRadius12,
+          boxShadow: kCardShadow,
+          border: isPrevzeto
+              ? null
+              : Border.all(color: statusClr.withOpacity(0.2), width: 1.5),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Ikona kategorije
-              Container(
-                width: 50, height: 50,
-                decoration: BoxDecoration(color: bgColor, borderRadius: kRadius12),
-                child: Icon(icon, color: iconColor, size: 24),
-              ),
-              const SizedBox(width: 12),
-              // Naslov + info
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title,
-                    style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w800, color: kTextDark),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                  if (username != null) ...[
-                    const SizedBox(height: 3),
-                    Row(children: [
-                      const Icon(Icons.store_outlined, size: 12, color: kGreenMid),
-                      const SizedBox(width: 3),
-                      Text(username,
-                        style: const TextStyle(
-                          fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
-                    ]),
-                  ],
-                ]),
-              ),
-              const SizedBox(width: 8),
-              // Status pill
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: statusClr,
-                  borderRadius: kRadiusFull,
-                ),
-                child: Text(statusLabel(status),
-                  style: const TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
-              ),
-            ]),
-          ),
-          // Separator
-          Divider(height: 1, color: kBorder.withOpacity(0.5)),
-          // Meta info row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-            child: Row(children: [
-              _MetaChip(
-                icon: Icons.location_on_outlined,
-                label: location.isEmpty ? '—' : location,
-                flex: true,
-              ),
-              if (expiryDate != null) ...[
-                const SizedBox(width: 8),
-                _MetaChip(
-                  icon: Icons.event_rounded,
-                  label: 'Rok: ${_formatDate(expiryDate)}',
-                  color: _isExpiringSoon(expiryDate) ? const Color(0xFFE53935) : null,
-                ),
-              ],
-              const Spacer(),
-              Row(children: [
-                const Icon(Icons.access_time_rounded, size: 11, color: kTextLight),
-                const SizedBox(width: 3),
-                Text(_timeAgo(createdAt),
-                  style: const TextStyle(fontSize: 11, color: kTextLight)),
-              ]),
-            ]),
-          ),
-          // Tap hint
+        child: Row(children: [
+          // Ikona kategorije
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            decoration: BoxDecoration(
-              color: statusClr.withOpacity(0.06),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(14),
-                bottomRight: Radius.circular(14),
-              ),
-            ),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.open_in_new_rounded, size: 13, color: statusClr.withOpacity(0.7)),
-              const SizedBox(width: 5),
-              Text('Prikaži podrobnosti',
-                style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600,
-                  color: statusClr.withOpacity(0.8))),
+            width: 52, height: 52,
+            decoration: BoxDecoration(color: bgColor, borderRadius: kRadius12),
+            child: Icon(icon, color: kGreenMid, size: 26),
+          ),
+          const SizedBox(width: 12),
+          // Podaci
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title,
+                style: kBodyBold.copyWith(fontSize: 14),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (username != null) ...[
+                const SizedBox(height: 2),
+                Text('od $username',
+                  style: const TextStyle(fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
+              ],
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(Icons.location_on_outlined, size: 12, color: kTextLight),
+                const SizedBox(width: 3),
+                Expanded(child: Text(location,
+                  style: kCaption, maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ]),
+              if (!isPrevzeto && expiryDate != null) ...[
+                const SizedBox(height: 3),
+                Row(children: [
+                  Icon(Icons.event_outlined, size: 12, color: kTextLight),
+                  const SizedBox(width: 3),
+                  Text('Rok: ${_formatDate(expiryDate)}',
+                    style: const TextStyle(fontSize: 12, color: kTextLight)),
+                ]),
+              ],
+              const SizedBox(height: 4),
+              Text(_timeAgo(createdAt),
+                style: const TextStyle(fontSize: 11, color: kTextLight)),
             ]),
           ),
+          const SizedBox(width: 8),
+          // Desna strana
+          Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: statusClr.withOpacity(0.1),
+                borderRadius: kRadiusFull,
+                border: Border.all(color: statusClr.withOpacity(0.3)),
+              ),
+              child: Text(statusLabel(status),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusClr)),
+            ),
+            if (!isPrevzeto) ...[
+              const SizedBox(height: 8),
+              Icon(Icons.chevron_right_rounded, size: 20, color: kTextLight),
+            ],
+          ]),
         ]),
       ),
     );
-  }
-}
-
-bool _isExpiringSoon(DateTime dt) =>
-    dt.difference(DateTime.now()).inHours <= 24 &&
-    dt.isAfter(DateTime.now());
-
-class _MetaChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color? color;
-  final bool flex;
-  const _MetaChip({required this.icon, required this.label, this.color, this.flex = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = color ?? kTextLight;
-    final chip = Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 12, color: c),
-      const SizedBox(width: 3),
-      flex
-          ? Flexible(child: Text(label,
-              style: TextStyle(fontSize: 11, color: c),
-              maxLines: 1, overflow: TextOverflow.ellipsis))
-          : Text(label, style: TextStyle(fontSize: 11, color: c)),
-    ]);
-    if (flex) return Flexible(child: chip);
-    return chip;
   }
 }
 
@@ -1417,6 +1203,14 @@ FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
     imageBase64: d['imageBase64'] as String?,
     reservedByUid: d['reservedByUid'] as String?,
     expiryDate: expiryDate,
+    termin1: (d['termin1'] as Timestamp?)?.toDate(),
+    termin2: (d['termin2'] as Timestamp?)?.toDate(),
+    termin3: (d['termin3'] as Timestamp?)?.toDate(),
+    termin4: (d['termin4'] as Timestamp?)?.toDate(),
+    chosenTermin: (d['chosenTermin'] as Timestamp?)?.toDate(),
+    offerPending: d['offerPending'] as bool? ?? false,
+    offerExpiresAt: (d['offerExpiresAt'] as Timestamp?)?.toDate(),
+    offerToken: d['offerToken'] as String?,
     waitlist: waitlist,
   );
 }

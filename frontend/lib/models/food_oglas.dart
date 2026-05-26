@@ -27,6 +27,14 @@ class FoodOglas {
   final String? imageBase64;
   final String? reservedByUid;
   final DateTime? expiryDate;
+  final DateTime? termin1;
+  final DateTime? termin2;
+  final DateTime? termin3;
+  final DateTime? termin4;
+  final DateTime? chosenTermin;
+  final bool offerPending;
+  final DateTime? offerExpiresAt;
+  final String? offerToken;
   final List<String> waitlist; // NOVO
 
   const FoodOglas({
@@ -48,6 +56,14 @@ class FoodOglas {
     this.imageBase64,
     this.reservedByUid,
     this.expiryDate,
+    this.termin1,
+    this.termin2,
+    this.termin3,
+    this.termin4,
+    this.chosenTermin,
+    this.offerPending = false,
+    this.offerExpiresAt,
+    this.offerToken,
     this.waitlist = const [],
   });
 
@@ -58,86 +74,12 @@ class FoodOglas {
     imageColor: imageColor, category: category, isFree: isFree,
     isExpiringSoon: isExpiringSoon, distanceKm: km, icon: icon,
     latLng: latLng, imageBase64: imageBase64, reservedByUid: reservedByUid,
-    expiryDate: expiryDate, waitlist: waitlist,
+    expiryDate: expiryDate, termin1: termin1, termin2: termin2,
+    termin3: termin3, termin4: termin4, chosenTermin: chosenTermin,
+    offerPending: offerPending, offerExpiresAt: offerExpiresAt,
+    offerToken: offerToken, waitlist: waitlist,
   );
 }
-
-final List<FoodOglas> kSampleOglasi = [
-  const FoodOglas(
-    id: '1',
-    title: 'Domača jabolka z vrta (cca 5 kg)',
-    description: 'Sveža domača jabolka, sort Zlati delišes. Brez škropljenja.',
-    location: 'Maribor, Center',
-    time: 'Pred 32 min',
-    status: OglasStatus.naRazpolago,
-    imageColor: Color(0xFFE8F5E9),
-    category: 'Sadje & zelenjava',
-    isFree: true,
-    distanceKm: 0.4,
-    icon: Icons.apple,
-    latLng: LatLng(46.5562, 15.6450),
-  ),
-  const FoodOglas(
-    id: '2',
-    title: 'Polna posoda Golaža',
-    description: 'Domač golaž, kuhan danes zjutraj. Dovolj za 4 osebe.',
-    location: 'Tezno, Maribor',
-    time: 'Pred 1 uro',
-    status: OglasStatus.rezervirano,
-    username: '@AnaMarija',
-    imageColor: Color(0xFFFFE0B2),
-    category: 'Kuhano',
-    isFree: true,
-    isExpiringSoon: true,
-    distanceKm: 1.8,
-    icon: Icons.soup_kitchen,
-    latLng: LatLng(46.5480, 15.6610),
-  ),
-  const FoodOglas(
-    id: '3',
-    title: 'Svež domač kmečki kruh (polovica)',
-    description: 'Pol štruce domačega kruha, pečenega danes.',
-    location: 'Hoče',
-    time: 'Pred 2 urama',
-    status: OglasStatus.prevzeto,
-    username: '@LukaP',
-    imageColor: Color(0xFFEFEBE9),
-    category: 'Peka',
-    isFree: false,
-    distanceKm: 3.1,
-    icon: Icons.bakery_dining,
-    latLng: LatLng(46.5100, 15.6500),
-  ),
-  const FoodOglas(
-    id: '4',
-    title: 'Rižota s piščancem',
-    description: 'Domača rižota s piščančjim filejem in zelenjavo.',
-    location: 'Center, Maribor',
-    time: 'Pred 3 urama',
-    status: OglasStatus.naRazpolago,
-    imageColor: Color(0xFFF9FBE7),
-    category: 'Kuhano',
-    isFree: true,
-    distanceKm: 0.7,
-    icon: Icons.rice_bowl,
-    latLng: LatLng(46.5547, 15.6459),
-  ),
-  const FoodOglas(
-    id: '5',
-    title: 'Paradižnik iz vrta (2 kg)',
-    description: 'Zrel domač paradižnik, različne sorte.',
-    location: 'Pobrežje',
-    time: 'Pred 20 min',
-    status: OglasStatus.naRazpolago,
-    imageColor: Color(0xFFFFEBEE),
-    category: 'Sadje & zelenjava',
-    isFree: true,
-    isExpiringSoon: true,
-    distanceKm: 2.3,
-    icon: Icons.grass,
-    latLng: LatLng(46.5600, 15.6700),
-  ),
-];
 
 Color statusColor(OglasStatus s) {
   switch (s) {

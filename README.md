@@ -49,9 +49,13 @@ Aplikacija je optimizirana za hitro kroženje dveh tipov hrane:
 | **Frontend** | Flutter (Dart) |
 | **Baza podatkov** | Cloud Firestore |
 | **Avtentikacija** | Firebase Auth |
-| **Logika** | Cloud Functions |
 | **Shranjevanje** | Firebase Storage |
 | **Zemljevidi** | Google Maps SDK |
+
+---
+
+## Opomba o čakalni vrsti
+Cloud Functions niso na voljo, aplikacija uporablja client-side rezervacijsko logiko: naslednji uporabnik v čakalni vrsti se premakne v stanje `rezervirano` z 3-urno potrditvijo, ko nekdo prekliče ali ko poteče predhodna ponudba. Potrditev se izvede v aplikaciji, e-poštni osnutek pa se lahko odpre lokalno prek e-poštnega programa.
 
 ---
 
