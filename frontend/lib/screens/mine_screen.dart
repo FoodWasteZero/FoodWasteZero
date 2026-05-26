@@ -211,6 +211,7 @@ class _MojeScreenState extends State<MineScreen> {
         initialLocation: d['location'] as String? ?? '',
         initialImageBase64: d['imageBase64'] as String?,
         initialExpiryDate: (d['expiryDate'] as Timestamp?)?.toDate(),
+        initialGrams: (d['grams'] as num?)?.toInt(),
         onSaved: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Oglas uspešno posodobljen! ✅'),
@@ -542,6 +543,7 @@ class AddOglasSheet extends StatefulWidget {
   final String? initialLocation;
   final String? initialImageBase64;
   final DateTime? initialExpiryDate;
+  final int? initialGrams;
 
   const AddOglasSheet({
     super.key,
@@ -553,6 +555,7 @@ class AddOglasSheet extends StatefulWidget {
     this.initialLocation,
     this.initialImageBase64,
     this.initialExpiryDate,
+    this.initialGrams,
   });
 
   bool get isEditing => editDocId != null;
@@ -568,8 +571,11 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
 
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descCtrl;
+  late final TextEditingController _gramsCtrl;
   late final TextEditingController _locationCtrl;
   bool _titleError = false;
+  bool _gramsError = false;
+  bool _locationError = false;
 
   Uint8List? _pickedBytes;
   String? _existingBase64;
@@ -590,6 +596,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     _selectedCategory = widget.initialCategory;
     _titleCtrl = TextEditingController(text: widget.initialTitle ?? '');
     _descCtrl = TextEditingController(text: widget.initialDesc ?? '');
+    _gramsCtrl = TextEditingController(text: widget.initialGrams != null ? widget.initialGrams.toString() : '');
     _locationCtrl = TextEditingController(text: widget.initialLocation ?? '');
     _existingBase64 = widget.initialImageBase64;
     _expiryDate = widget.initialExpiryDate;
@@ -637,6 +644,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     _geocodeTimer?.cancel();
     _titleCtrl.dispose();
     _descCtrl.dispose();
+    _gramsCtrl.dispose();
     _locationCtrl.dispose();
     super.dispose();
   }
@@ -687,11 +695,18 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
   }
 
   Future<void> _save() async {
-    if (_titleCtrl.text.trim().isEmpty) {
-      setState(() => _titleError = true);
+    final titleEmpty = _titleCtrl.text.trim().isEmpty;
+    final gramsEmpty = _gramsCtrl.text.trim().isEmpty;
+    final locationEmpty = _locationCtrl.text.trim().isEmpty;
+    if (titleEmpty || gramsEmpty || locationEmpty) {
+      setState(() {
+        _titleError = titleEmpty;
+        _gramsError = gramsEmpty;
+        _locationError = locationEmpty;
+      });
       return;
     }
-    setState(() { _titleError = false; _loading = true; });
+    setState(() { _titleError = false; _gramsError = false; _locationError = false; _loading = true; });
 
     final user = FirebaseAuth.instance.currentUser;
 
@@ -714,6 +729,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
             .update({
           'title': _titleCtrl.text.trim(),
           'description': _descCtrl.text.trim(),
+          'grams': int.tryParse(_gramsCtrl.text.trim()) ?? 0,
           'category': _selectedCategory ?? 'Ostalo',
           'location': _locationCtrl.text.trim(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -729,6 +745,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
         await docRef.set({
           'title': _titleCtrl.text.trim(),
           'description': _descCtrl.text.trim(),
+          'grams': int.tryParse(_gramsCtrl.text.trim()) ?? 0,
           'category': _selectedCategory ?? 'Ostalo',
           'location': _locationCtrl.text.trim(),
           'isFree': true,
@@ -906,11 +923,11 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               ),
               const SizedBox(height: 16),
 
-              // Naziv
+              // Naziv (obvezno)
               _OglasFormField(
                 ctrl: _titleCtrl,
-                label: 'Naziv oglasa',
-                hint: 'npr. Domača jabolka, 3 kg',
+                label: 'Naziv oglasa *',
+                hint: 'npr. Domača jabolka',
                 icon: Icons.label_outline_rounded,
                 hasError: _titleError,
                 onChanged: (_) {
@@ -924,6 +941,31 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                     const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
                     const SizedBox(width: 4),
                     Text('Naziv oglasa je obvezen.',
+                        style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              const SizedBox(height: 12),
+
+              // Grami (obvezno)
+              _OglasFormField(
+                ctrl: _gramsCtrl,
+                label: 'Količina v gramih *',
+                hint: 'npr. 500',
+                icon: Icons.monitor_weight_outlined,
+                hasError: _gramsError,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) {
+                  if (_gramsError) setState(() => _gramsError = false);
+                },
+              ),
+              if (_gramsError)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 2),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
+                    const SizedBox(width: 4),
+                    Text('Količina v gramih je obvezna.',
                         style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
                   ]),
                 ),
@@ -979,13 +1021,27 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               ),
               const SizedBox(height: 16),
 
-              // Lokacija
+              // Lokacija (obvezno)
               _OglasFormField(
                 ctrl: _locationCtrl,
-                label: 'Naslov prevzema',
+                label: 'Naslov prevzema *',
                 hint: 'npr. Partizanska 5, Maribor',
                 icon: Icons.location_on_rounded,
+                hasError: _locationError,
+                onChanged: (_) {
+                  if (_locationError) setState(() => _locationError = false);
+                },
               ),
+              if (_locationError)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 2),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
+                    const SizedBox(width: 4),
+                    Text('Naslov prevzema je obvezen.',
+                        style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
               Padding(
                 padding: const EdgeInsets.only(top: 6, left: 2),
                 child: Row(children: [
@@ -1145,6 +1201,8 @@ class _OglasFormField extends StatelessWidget {
   final int maxLines;
   final bool hasError;
   final ValueChanged<String>? onChanged;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _OglasFormField({
     required this.ctrl,
@@ -1154,6 +1212,8 @@ class _OglasFormField extends StatelessWidget {
     this.maxLines = 1,
     this.hasError = false,
     this.onChanged,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   @override
@@ -1176,6 +1236,8 @@ class _OglasFormField extends StatelessWidget {
           controller: ctrl,
           maxLines: maxLines,
           onChanged: onChanged,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: const TextStyle(fontSize: 13, color: kTextDark),
           decoration: InputDecoration(
             hintText: hint,
