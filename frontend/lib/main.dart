@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'common/theme.dart';
 import 'common/auth_helpers.dart';
 
@@ -81,9 +83,6 @@ class FoodWasteZeroApp extends StatelessWidget {
 }
 
 // ── Auth gate ──────────────────────────────────────────────────────────────────
-// Sluša authStateChanges() in ob vsaki spremembi (prijava/odjava) ustvari
-// svež HomeScreen z novim UniqueKey — s tem prisilimo popoln rebuild stanja
-// (isDavatelj, navIndex, itd.) brez ročnega refresh-a.
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
@@ -92,46 +91,53 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
-  // Key se zamenja ob vsaki spremembi auth stanja — HomeScreen se popolnoma
-  // obnovi in interno pokliče _loadUserType() s pravilnim uporabnikom.
   Key _homeKey = UniqueKey();
   bool _loading = true;
-  String? _prevUid; // sledimo UID-u, da ne rebuilda ob irelevantnih event-ih
+  bool _showOnboarding = false;
+  String? _prevUid;
 
   @override
   void initState() {
     super.initState();
+    _checkOnboarding();
     FirebaseAuth.instance.authStateChanges().listen(_onAuthChanged);
+  }
+
+  Future<void> _checkOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('onboarding_seen') ?? false;
+    if (mounted) {
+      setState(() => _showOnboarding = !seen);
+    }
   }
 
   void _onAuthChanged(User? user) {
     if (!mounted) return;
-
-    // Določimo "identiteto" trenutnega stanja
     final newUid = user?.uid;
     final isGuest = user == null || user.isAnonymous;
-
-    // Ignoriramo, če je UID enak (npr. token refresh) — samo pravo
-    // menjavo (login/logout) obravnavamo
     if (newUid == _prevUid && !_loading) return;
-
     setState(() {
       _prevUid = newUid;
       _loading = false;
-      // Ob spremembi auth stanja ustvarimo svež HomeScreen
       _homeKey = UniqueKey();
     });
-
-    // Če je postal gost (po odjavi), zagotovimo anonimni dostop
     if (isGuest && user == null) {
       ensureFirestoreAccess();
     }
   }
 
+  Future<void> _onOnboardingDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_seen', true);
+    if (mounted) setState(() => _showOnboarding = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const _SplashScreen();
-    // Ključ zagotovi, da Flutter ustvari popolnoma nov HomeScreen widget
+    if (_showOnboarding) {
+      return OnboardingScreen(onDone: _onOnboardingDone);
+    }
     return HomeScreen(key: _homeKey);
   }
 }

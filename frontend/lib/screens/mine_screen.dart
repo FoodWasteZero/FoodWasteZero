@@ -508,23 +508,30 @@ class _ActionChip extends StatelessWidget {
   final VoidCallback onTap;
   final String tooltip;
 
-  const _ActionChip({required this.icon, required this.color,
-      required this.onTap, required this.tooltip});
+  const _ActionChip({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    required this.tooltip,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 32, height: 32,
-          decoration: BoxDecoration(
-            color: Colors.white, borderRadius: kRadius8,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12),
-                blurRadius: 8, offset: const Offset(0, 2))],
+      child: Material(
+        color: color,
+        borderRadius: kRadius8,
+        elevation: 3,
+        shadowColor: color.withOpacity(0.4),
+        child: InkWell(
+          borderRadius: kRadius8,
+          onTap: onTap,
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: Icon(icon, color: Colors.white, size: 16),
           ),
-          child: Icon(icon, color: color, size: 16),
         ),
       ),
     );
