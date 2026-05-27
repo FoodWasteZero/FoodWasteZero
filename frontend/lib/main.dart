@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/offer_claim_page.dart';
+import 'screens/pickup_confirm_page.dart';
 import 'common/theme.dart';
 import 'common/auth_helpers.dart';
 import 'services/offer_promotion_service.dart';
@@ -145,8 +146,13 @@ class _AuthGateState extends State<_AuthGate> {
     final adId = uri.queryParameters['claim'];
     final uid = uri.queryParameters['uid'];
     final token = uri.queryParameters['token'];
+    final pickupAdId = uri.queryParameters['pickup'];
+    final pickupToken = uri.queryParameters['token'];
     if (adId != null && uid != null && token != null) {
       return OfferClaimPage(adId: adId, expectedUid: uid, token: token);
+    }
+    if (pickupAdId != null && pickupToken != null) {
+      return PickupConfirmPage(adId: pickupAdId, token: pickupToken);
     }
     if (_showOnboarding) {
       return OnboardingScreen(onDone: _onOnboardingDone);

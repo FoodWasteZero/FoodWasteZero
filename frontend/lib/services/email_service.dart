@@ -78,6 +78,78 @@ class EmailService {
     debugPrint('Offer email sent to $to via Resend');
   }
 
+  static Future<void> sendPickupQrEmail({
+    required String to,
+    required String title,
+    required String pickupUrl,
+    required String? selectedTermLabel,
+  }) async {
+    final isWeb = kIsWeb;
+    if (isWeb) {
+      final proxyUrl = dotenv.maybeGet('EMAIL_PROXY_URL');
+      if (proxyUrl == null || proxyUrl.isEmpty) {
+        throw StateError('EMAIL_PROXY_URL is missing from .env for web');
+      }
+
+      final bodyText = _buildPickupBodyText(title, pickupUrl, selectedTermLabel);
+      final resp = await http.post(
+        Uri.parse('$proxyUrl/send-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'to': to,
+          'subject': 'QR koda za prevzem: $title',
+          'text': bodyText,
+          'html': _buildPickupHtml(title, pickupUrl, selectedTermLabel),
+        }),
+      );
+
+      debugPrint('EmailService(web pickup): status=${resp.statusCode} body=${resp.body}');
+
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        throw StateError('Email proxy failed: ${resp.statusCode} ${resp.body}');
+      }
+      debugPrint('Pickup QR email sent to $to via web proxy');
+      return;
+    }
+
+    final apiKey = dotenv.maybeGet('EMAIL_API_KEY');
+    if (apiKey == null || apiKey.isEmpty) {
+      throw StateError('EMAIL_API_KEY is missing from .env for mobile');
+    }
+    final fromAddress = dotenv.maybeGet('EMAIL_FROM_ADDRESS')?.trim().isNotEmpty == true
+        ? dotenv.maybeGet('EMAIL_FROM_ADDRESS')!.trim()
+        : 'onboarding@resend.dev';
+
+    final bodyText = _buildPickupBodyText(title, pickupUrl, selectedTermLabel);
+    final html = _buildPickupHtml(title, pickupUrl, selectedTermLabel);
+    final payload = jsonEncode({
+      'from': fromAddress,
+      'to': to,
+      'subject': 'QR koda za prevzem: $title',
+      'text': bodyText,
+      'html': html,
+    });
+
+    debugPrint('EmailService(mobile pickup): sending to=$to from=$fromAddress subject=QR koda za prevzem: $title');
+    debugPrint('EmailService(mobile pickup): payload=${payload.length} bytes');
+
+    final resp = await http.post(
+      Uri.parse(_resendUrl),
+      headers: {
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      },
+      body: payload,
+    );
+
+    debugPrint('EmailService(mobile pickup): status=${resp.statusCode} body=${resp.body}');
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw StateError('Email API failed: ${resp.statusCode} ${resp.body}');
+    }
+    debugPrint('Pickup QR email sent to $to via Resend');
+  }
+
   static String _buildBodyText(String title, String claimUrl, String? selectedTermLabel) {
     final bodyText = StringBuffer()
       ..writeln('Rezervacija za "$title" je pripravljena za potrditev.')
@@ -104,6 +176,40 @@ class EmailService {
         <p><a href="$claimUrl">$claimUrl</a></p>
       </div>
     ''';
+  }
+
+  static String _buildPickupBodyText(String title, String pickupUrl, String? selectedTermLabel) {
+    final qrUrl = _buildQrImageUrl(pickupUrl);
+    final bodyText = StringBuffer()
+      ..writeln('QR koda za prevzem za "$title" je pripravljena.')
+      ..writeln()
+      ..writeln('Organizacija naj skenira QR kodo ali odpre povezavo za potrditev prevzema:')
+      ..writeln(pickupUrl)
+      ..writeln()
+      ..writeln('QR slika: $qrUrl');
+    if (selectedTermLabel != null && selectedTermLabel.isNotEmpty) {
+      bodyText.writeln();
+      bodyText.writeln('Izbran termin: $selectedTermLabel');
+    }
+    return bodyText.toString();
+  }
+
+  static String _buildPickupHtml(String title, String pickupUrl, String? selectedTermLabel) {
+    final qrUrl = _buildQrImageUrl(pickupUrl);
+    return '''
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#1f2937">
+        <h2 style="margin:0 0 12px">QR koda za prevzem</h2>
+        <p>Za oglas <strong>${_escapeHtml(title)}</strong> je pripravljena QR koda za potrditev prevzema.</p>
+        ${selectedTermLabel != null && selectedTermLabel.isNotEmpty ? '<p>Izbran termin: <strong>${_escapeHtml(selectedTermLabel)}</strong></p>' : ''}
+        <p style="margin:20px 0"><img src="$qrUrl" alt="QR koda za prevzem" width="220" height="220" style="display:block;border:8px solid #fff;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.08)" /></p>
+        <p>Če QR ne deluje, odprite povezavo:</p>
+        <p><a href="$pickupUrl">$pickupUrl</a></p>
+      </div>
+    ''';
+  }
+
+  static String _buildQrImageUrl(String value) {
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${Uri.encodeComponent(value)}';
   }
 
   static String _escapeHtml(String input) {

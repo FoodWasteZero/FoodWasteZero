@@ -1,13 +1,16 @@
+import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../common/theme.dart';
 import '../models/models.dart';
 import '../screens/auth_screen.dart';
 import '../common/firestore_error.dart';
 import '../common/auth_helpers.dart';
+import '../services/email_service.dart';
 import '../services/offer_promotion_service.dart';
 import '../services/ui_state_service.dart';
 
@@ -168,6 +171,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       }
 
       final newRemaining = remaining - _selectedPortions;
+      final pickupToken = newRemaining == 0 ? _createToken() : null;
       await FirebaseFirestore.instance
           .collection('oglasi')
           .doc(oglas.id)
@@ -179,7 +183,26 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         'reservedAt': FieldValue.serverTimestamp(),
         'offerPending': false,
         'offerExpiresAt': FieldValue.delete(),
+        if (pickupToken != null) 'pickupToken': pickupToken,
       });
+
+      if (newRemaining == 0) {
+        try {
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(userUid).get();
+          final email = userDoc.data()?['email'] as String?;
+          final baseUrl = _baseUrl();
+          final pickupUrl = '$baseUrl/?pickup=${oglas.id}&token=$pickupToken';
+
+          if (email != null && email.isNotEmpty) {
+            final termLabel = _formatPickupTerm(selectedTerm);
+            _sendPickupEmail(email, pickupUrl, termLabel).catchError((e) {
+              debugPrint('Pickup email failed: $e');
+            });
+          }
+        } catch (_) {
+          // Best-effort: reservation already succeeded.
+        }
+      }
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -259,6 +282,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
           'offerToken': FieldValue.delete(),
           'offeredUid': FieldValue.delete(),
           'offerNotifiedAt': FieldValue.delete(),
+          'pickupToken': FieldValue.delete(),
         });
         if (mounted) {
           Navigator.pop(context);
@@ -278,6 +302,33 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         );
       }
     }
+  }
+
+  Future<void> _sendPickupEmail(String email, String pickupUrl, String termLabel) async {
+    await EmailService.sendPickupQrEmail(
+      to: email,
+      title: oglas.title,
+      pickupUrl: pickupUrl,
+      selectedTermLabel: termLabel,
+    );
+  }
+
+  String _baseUrl() {
+    final custom = dotenv.maybeGet('WEB_BASE_URL');
+    if (custom != null && custom.trim().isNotEmpty) {
+      return custom.trim().replaceAll(RegExp(r'/$'), '');
+    }
+    final base = Uri.base;
+    if (base.scheme == 'http' || base.scheme == 'https') {
+      return base.origin;
+    }
+    return 'https://foodwastezero.web.app';
+  }
+
+  String _createToken() {
+    final rnd = Random.secure();
+    final bytes = List<int>.generate(24, (_) => rnd.nextInt(256));
+    return bytes.map((value) => value.toRadixString(16).padLeft(2, '0')).join();
   }
 
   // ── Dodaj v čakalno vrsto ─────────────────────────────────────────────────

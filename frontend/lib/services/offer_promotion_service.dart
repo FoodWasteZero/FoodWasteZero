@@ -68,6 +68,7 @@ class OfferPromotionService {
             'offeredUid': FieldValue.delete(),
             'offerToken': FieldValue.delete(),
             'chosenTermin': FieldValue.delete(),
+              'pickupToken': FieldValue.delete(),
           });
         }
       } catch (_) {
@@ -103,6 +104,7 @@ class OfferPromotionService {
         'offerToken': offerToken,
         'offerNotifiedAt': FieldValue.delete(),
         'chosenTermin': FieldValue.delete(),
+        'pickupToken': FieldValue.delete(),
         'reservedAt': FieldValue.serverTimestamp(),
       });
     });
