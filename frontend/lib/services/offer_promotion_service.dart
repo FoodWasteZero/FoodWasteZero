@@ -107,7 +107,13 @@ class OfferPromotionService {
       });
     });
 
-    await _sendOfferEmail(docId, nextUid, title, offerToken, termin1, termin2, termin3, termin4);
+    // Schedule sending the offer email asynchronously so callers (e.g. the
+    // cancelling user) don't have to wait for the external HTTP request to
+    // complete. The transaction above is the important part and completes
+    // before we return.
+    _sendOfferEmail(docId, nextUid, title, offerToken, termin1, termin2, termin3, termin4)
+      .catchError((e) => debugPrint('OfferPromotion: async email send failed: $e'));
+    debugPrint('OfferPromotion: email send scheduled (async) for doc=$docId');
   }
 
   Future<void> _sendOfferEmail(
