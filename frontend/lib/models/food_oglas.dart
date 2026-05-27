@@ -10,7 +10,7 @@ class LatLng {
 
 class FoodOglas {
   final String id;
-  final String? uid;          // vlasnik oglasa (davatelj)
+  final String? uid;
   final String title;
   final String description;
   final String location;
@@ -35,7 +35,9 @@ class FoodOglas {
   final bool offerPending;
   final DateTime? offerExpiresAt;
   final String? offerToken;
-  final List<String> waitlist; // NOVO
+  final List<String> waitlist;
+  final int? portions;          // NOVO: skupno število porcij
+  final int? remainingPortions; // NOVO: preostale porcije
 
   const FoodOglas({
     required this.id,
@@ -65,9 +67,10 @@ class FoodOglas {
     this.offerExpiresAt,
     this.offerToken,
     this.waitlist = const [],
+    this.portions,
+    this.remainingPortions,
   });
 
-  // Kopira oglas z novo razdaljo (za GPS sortiranje)
   FoodOglas copyWithDistance(double km) => FoodOglas(
     id: id, uid: uid, title: title, description: description,
     location: location, time: time, status: status, username: username,
@@ -78,6 +81,7 @@ class FoodOglas {
     termin3: termin3, termin4: termin4, chosenTermin: chosenTermin,
     offerPending: offerPending, offerExpiresAt: offerExpiresAt,
     offerToken: offerToken, waitlist: waitlist,
+    portions: portions, remainingPortions: remainingPortions,
   );
 }
 

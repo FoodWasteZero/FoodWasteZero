@@ -454,7 +454,10 @@ class _HomeScreenState extends State<HomeScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => AddOglasSheet(onSaved: () {
+      useSafeArea: true, 
+      builder: (_) => AddOglasSheet(
+        showPriceField: true,
+        onSaved: () {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Oglas uspešno objavljen! 🎉')));
       }),

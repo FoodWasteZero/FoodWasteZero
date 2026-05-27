@@ -36,6 +36,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
   bool _isDavatelj = false;
   bool _userTypeLoaded = false;
   int _selectedPickupIndex = -1;
+  int _selectedPortions = 1;
 
   FoodOglas get oglas => widget.oglas;
 
@@ -156,12 +157,24 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         return;
       }
       final selectedTerm = pickupTerms[_selectedPickupIndex]!;
+
+      final remaining = oglas.remainingPortions ?? oglas.portions ?? 1;
+      if (_selectedPortions > remaining) {
+        setState(() => _loading = false);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Na voljo je samo $remaining ${remaining == 1 ? 'porcija' : 'porcije'}.')),
+        );
+        return;
+      }
+
+      final newRemaining = remaining - _selectedPortions;
       await FirebaseFirestore.instance
           .collection('oglasi')
           .doc(oglas.id)
           .update({
-        'status': 'rezervirano',
-        'reservedByUid': userUid,
+        'status': newRemaining == 0 ? 'rezervirano' : 'naRazpolago',
+        if (newRemaining == 0) 'reservedByUid': userUid,
+        'remainingPortions': newRemaining,
         'chosenTermin': Timestamp.fromDate(selectedTerm),
         'reservedAt': FieldValue.serverTimestamp(),
         'offerPending': false,
@@ -533,6 +546,86 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                           const SizedBox(height: 16),
                         ],
 
+                        // ── Izbor števila porcij ───────────────────────────
+                        if (oglas.status == OglasStatus.naRazpolago &&
+                            !(user != null && oglas.uid != null && oglas.uid == user.uid) &&
+                            !(_userTypeLoaded && _isDavatelj) &&
+                            !_jeVzorecOglasa) ...[
+                          const Text(
+                            'Število porcij',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kTextDark),
+                          ),
+                          const SizedBox(height: 8),
+                          () {
+                            final maxPortions = oglas.remainingPortions ?? oglas.portions ?? 1;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: kSurface,
+                                borderRadius: kRadius12,
+                                border: Border.all(color: kBorder),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.restaurant_rounded, size: 16, color: kGreenMid),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Na voljo: $maxPortions ${maxPortions == 1 ? 'porcija' : maxPortions < 5 ? 'porcije' : 'porcij'}',
+                                      style: kCaption.copyWith(fontSize: 13, color: kTextMid),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: _selectedPortions > 1
+                                        ? () => setState(() => _selectedPortions--)
+                                        : null,
+                                    child: Container(
+                                      width: 36, height: 36,
+                                      decoration: BoxDecoration(
+                                        color: _selectedPortions > 1 ? kGreenPale : const Color(0xFFF0F0F0),
+                                        borderRadius: kRadius8,
+                                        border: Border.all(
+                                          color: _selectedPortions > 1 ? kGreenMid.withOpacity(0.4) : kBorder,
+                                        ),
+                                      ),
+                                      child: Icon(Icons.remove_rounded,
+                                          size: 18,
+                                          color: _selectedPortions > 1 ? kGreenMid : kTextLight),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: Text(
+                                      '$_selectedPortions',
+                                      style: const TextStyle(
+                                          fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: _selectedPortions < maxPortions
+                                        ? () => setState(() => _selectedPortions++)
+                                        : null,
+                                    child: Container(
+                                      width: 36, height: 36,
+                                      decoration: BoxDecoration(
+                                        color: _selectedPortions < maxPortions ? kGreenPale : const Color(0xFFF0F0F0),
+                                        borderRadius: kRadius8,
+                                        border: Border.all(
+                                          color: _selectedPortions < maxPortions ? kGreenMid.withOpacity(0.4) : kBorder,
+                                        ),
+                                      ),
+                                      child: Icon(Icons.add_rounded,
+                                          size: 18,
+                                          color: _selectedPortions < maxPortions ? kGreenMid : kTextLight),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }(),
+                          const SizedBox(height: 16),
+                        ],
+
                         Wrap(
                           spacing: 8, runSpacing: 8,
                           children: [
@@ -583,6 +676,15 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                             icon: Icons.queue_rounded,
                             color: const Color(0xFF5C6BC0),
                             text: 'Ste na $mojaPozijaVVrsti. mestu v čakalni vrsti. Obveščeni boste, ko bo oglas na voljo.',
+                          ),
+
+                        if (oglas.status == OglasStatus.naRazpolago &&
+                            (oglas.remainingPortions ?? (oglas.portions ?? 1)) <= 0 &&
+                            oglas.waitlist.isNotEmpty)
+                          _InfoBox(
+                            icon: Icons.people_outline_rounded,
+                            color: kTextMid,
+                            text: '${oglas.waitlist.length} ${oglas.waitlist.length == 1 ? 'oseba čaka' : 'osebe čakajo'} v vrsti.',
                           ),
 
                         if (oglas.status == OglasStatus.rezervirano &&
@@ -682,6 +784,46 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     if (oglas.status == OglasStatus.naRazpolago) {
       if (jeVlasnik || (_userTypeLoaded && _isDavatelj) || _jeVzorecOglasa) {
         return Row(children: [navBtn]);
+      }
+      // Če so vse porcije zasedene (remainingPortions == 0), pokaži čakalno vrsto
+      final remaining = oglas.remainingPortions ?? oglas.portions ?? 1;
+      if (remaining <= 0) {
+        if (semVVrsti) {
+          return Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _zapustiVrsto,
+                icon: const Icon(Icons.exit_to_app_rounded, size: 16),
+                label: const Text('Zapusti vrsto'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF5C6BC0),
+                  side: const BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
+                  shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            navBtn,
+          ]);
+        }
+        return Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _dodajVVrsto,
+              icon: const Icon(Icons.queue_rounded, size: 16),
+              label: const Text('Čakalna vrsta'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF5C6BC0),
+                side: const BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
+                shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          navBtn,
+        ]);
       }
       return Row(children: [
         Expanded(

@@ -132,6 +132,8 @@ FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
     offerExpiresAt: (d['offerExpiresAt'] as Timestamp?)?.toDate(),
     offerToken: d['offerToken'] as String?,
     waitlist: waitlist,
+    portions: (d['portions'] as num?)?.toInt(),
+    remainingPortions: (d['remainingPortions'] as num?)?.toInt(),
   );
 }
 
@@ -220,10 +222,12 @@ class _MojeScreenState extends State<MineScreen> {
         initialImageBase64: d['imageBase64'] as String?,
         initialExpiryDate: (d['expiryDate'] as Timestamp?)?.toDate(),
         initialGrams: (d['grams'] as num?)?.toInt(),
+        initialPrice: (d['price'] as num?)?.toDouble(),
         initialTermin1: (d['termin1'] as Timestamp?)?.toDate(),
         initialTermin2: (d['termin2'] as Timestamp?)?.toDate(),
         initialTermin3: (d['termin3'] as Timestamp?)?.toDate(),
         initialTermin4: (d['termin4'] as Timestamp?)?.toDate(),
+        initialPortions: (d['portions'] as num?)?.toInt(),
         onSaved: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Oglas uspešno posodobljen! ✅'),
@@ -547,6 +551,7 @@ class _ActionChip extends StatelessWidget {
 // AddOglasSheet — BEZ isFree togglea, z vsemi kategorijami
 // ─────────────────────────────────────────────────────────────────────────────
 class AddOglasSheet extends StatefulWidget {
+  final bool showPriceField;
   final VoidCallback? onSaved;
   final String? editDocId;
   final String? initialTitle;
@@ -556,13 +561,16 @@ class AddOglasSheet extends StatefulWidget {
   final String? initialImageBase64;
   final DateTime? initialExpiryDate;
   final int? initialGrams;
+  final double? initialPrice;
   final DateTime? initialTermin1;
   final DateTime? initialTermin2;
   final DateTime? initialTermin3;
   final DateTime? initialTermin4;
+  final int? initialPortions;
 
   const AddOglasSheet({
     super.key,
+    this.showPriceField = false,
     this.onSaved,
     this.editDocId,
     this.initialTitle,
@@ -572,10 +580,12 @@ class AddOglasSheet extends StatefulWidget {
     this.initialImageBase64,
     this.initialExpiryDate,
     this.initialGrams,
+    this.initialPrice,
     this.initialTermin1,
     this.initialTermin2,
     this.initialTermin3,
     this.initialTermin4,
+    this.initialPortions,
   });
 
   bool get isEditing => editDocId != null;
@@ -592,6 +602,8 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _gramsCtrl;
+  late final TextEditingController _portionsCtrl;
+  late final TextEditingController _priceCtrl;
   late final TextEditingController _locationCtrl;
   late final TextEditingController _termin1Ctrl;
   late final TextEditingController _termin2Ctrl;
@@ -627,6 +639,10 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     _titleCtrl = TextEditingController(text: widget.initialTitle ?? '');
     _descCtrl = TextEditingController(text: widget.initialDesc ?? '');
     _gramsCtrl = TextEditingController(text: widget.initialGrams != null ? widget.initialGrams.toString() : '');
+    _portionsCtrl = TextEditingController(text: widget.initialPortions != null ? widget.initialPortions.toString() : '');
+    _priceCtrl = TextEditingController(
+      text: widget.initialPrice != null ? widget.initialPrice!.toStringAsFixed(2) : '',
+    );
     _locationCtrl = TextEditingController(text: widget.initialLocation ?? '');
     _termin1Value = widget.initialTermin1;
     _termin2Value = widget.initialTermin2;
@@ -683,6 +699,8 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _gramsCtrl.dispose();
+    _portionsCtrl.dispose();
+    _priceCtrl.dispose();
     _locationCtrl.dispose();
     _termin1Ctrl.dispose();
     _termin2Ctrl.dispose();
@@ -872,8 +890,10 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           'title': _titleCtrl.text.trim(),
           'description': _descCtrl.text.trim(),
           'grams': int.tryParse(_gramsCtrl.text.trim()) ?? 0,
+          'portions': int.tryParse(_portionsCtrl.text.trim()) ?? 1,
           'category': _selectedCategory ?? 'Ostalo',
           'location': _locationCtrl.text.trim(),
+          'price': double.tryParse(_priceCtrl.text.trim().replaceAll(',', '.')) ?? 0.0,
           'termin1': Timestamp.fromDate(_termin1Value!),
           'termin2': Timestamp.fromDate(_termin2Value!),
           if (_termin3Value != null) 'termin3': Timestamp.fromDate(_termin3Value!),
@@ -888,13 +908,16 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
         });
       } else {
         final docRef = FirebaseFirestore.instance.collection('oglasi').doc();
+        final portions = int.tryParse(_portionsCtrl.text.trim()) ?? 1;
         await docRef.set({
           'title': _titleCtrl.text.trim(),
           'description': _descCtrl.text.trim(),
           'grams': int.tryParse(_gramsCtrl.text.trim()) ?? 0,
+          'portions': portions,
+          'remainingPortions': portions,
           'category': _selectedCategory ?? 'Ostalo',
           'location': _locationCtrl.text.trim(),
-          'isFree': true,
+          'price': double.tryParse(_priceCtrl.text.trim().replaceAll(',', '.')) ?? 0.0,
           'status': 'naRazpolago',
           'uid': user?.uid,
           'username': user?.displayName != null ? '@${user!.displayName}' : null,
@@ -967,9 +990,13 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
         ]),
       ),
       body: SafeArea(
+        top: false,
+        bottom: false,
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
-              24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 32),
+              24, 20, 24,
+              MediaQuery.of(context).viewInsets.bottom + 32,
+              ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
 
             // ── Korak 0: Kategorija ──────────────────────────────────────
@@ -1183,6 +1210,72 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                   ]),
                 ),
               const SizedBox(height: 12),
+
+              // Število porcij
+              _OglasFormField(
+                ctrl: _portionsCtrl,
+                label: 'Število porcij',
+                hint: 'npr. 3',
+                icon: Icons.people_outline_rounded,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 6, left: 2),
+                child: Text(
+                  'Koliko oseb lahko prevzame ta oglas? Vsaka rezervira svojo porcijo.',
+                  style: kCaption.copyWith(color: kTextLight, fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Cena ────────────────────────────────────────────────────
+              if (widget.showPriceField) ...[
+              const _SectionLabel(icon: Icons.euro_rounded, label: 'Cena'),
+              const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F7F5),
+                    borderRadius: kRadius12,
+                    border: Border.all(color: kBorder),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 44,
+                      alignment: Alignment.center,
+                      child: const Text('€',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w700, color: kGreenMid)),
+                    ),
+                    Container(width: 1, height: 44, color: kBorder),
+                    Expanded(
+                      child: TextField(
+                        controller: _priceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d*[,.]?\d{0,2}')),
+                        ],
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextDark),
+                        decoration: InputDecoration(
+                          hintText: '0,00',
+                          hintStyle: kCaption.copyWith(fontSize: 15),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: InputBorder.none,
+                          suffixText: 'EUR',
+                          suffixStyle: kCaption.copyWith(fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 2),
+                  child: Text('Vnesite ceno v evrih (npr. 2,50)',
+                      style: kCaption.copyWith(color: kTextLight, fontSize: 12)),
+                ),
+              ],
+              const SizedBox(height: 12),
+              
 
               // Opis
               _OglasFormField(
