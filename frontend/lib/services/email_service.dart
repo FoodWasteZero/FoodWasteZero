@@ -18,7 +18,7 @@ class EmailService {
     }
     final fromAddress = dotenv.maybeGet('EMAIL_FROM_ADDRESS')?.trim().isNotEmpty == true
         ? dotenv.maybeGet('EMAIL_FROM_ADDRESS')!.trim()
-        : 'FoodWasteZero <onboarding@resend.dev>';
+        : 'onboarding@resend.dev';
 
     final bodyText = StringBuffer()
       ..writeln('Rezervacija za "$title" je pripravljena za potrditev.')
@@ -26,11 +26,31 @@ class EmailService {
       ..writeln('Kliknite povezavo za potrditev in izbiro termina:')
       ..writeln(claimUrl)
       ..writeln()
-      ..writeln('Ta povezava velja 3 ure.')
-      ..writeln();
+      ..writeln('Ta povezava velja 3 ure.');
     if (selectedTermLabel != null && selectedTermLabel.isNotEmpty) {
+      bodyText.writeln();
       bodyText.writeln('Predlagani termin: $selectedTermLabel');
     }
+
+    final payload = jsonEncode({
+      'from': fromAddress,
+      'to': to,
+      'subject': 'Potrditev rezervacije: $title',
+      'text': bodyText.toString(),
+      'html': '''
+        <div style="font-family:Arial,sans-serif;line-height:1.5;color:#1f2937">
+          <h2 style="margin:0 0 12px">Rezervacija čaka na potrditev</h2>
+          <p>Za oglas <strong>${_escapeHtml(title)}</strong> je na voljo 3-urni rok za potrditev.</p>
+          ${selectedTermLabel != null && selectedTermLabel.isNotEmpty ? '<p>Predlagani termin: <strong>${_escapeHtml(selectedTermLabel)}</strong></p>' : ''}
+          <p><a href="$claimUrl" style="display:inline-block;background:#2E7D32;color:#fff;text-decoration:none;padding:12px 16px;border-radius:10px;font-weight:700">Odpri potrditev</a></p>
+          <p>Če gumb ne deluje, kopirajte povezavo:</p>
+          <p><a href="$claimUrl">$claimUrl</a></p>
+        </div>
+      ''',
+    });
+
+    debugPrint('EmailService: sending to=$to from=$fromAddress subject=Potrditev rezervacije: $title');
+    debugPrint('EmailService: payload=${payload.length} bytes');
 
     final resp = await http.post(
       Uri.parse(_resendUrl),
@@ -38,23 +58,10 @@ class EmailService {
         'Authorization': 'Bearer $apiKey',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({
-        'from': fromAddress,
-        'to': [to],
-        'subject': 'Potrditev rezervacije: $title',
-        'text': bodyText.toString(),
-        'html': '''
-          <div style="font-family:Arial,sans-serif;line-height:1.5;color:#1f2937">
-            <h2 style="margin:0 0 12px">Rezervacija čaka na potrditev</h2>
-            <p>Za oglas <strong>${_escapeHtml(title)}</strong> je na voljo 3-urni rok za potrditev.</p>
-            ${selectedTermLabel != null && selectedTermLabel.isNotEmpty ? '<p>Predlagani termin: <strong>${_escapeHtml(selectedTermLabel)}</strong></p>' : ''}
-            <p><a href="$claimUrl" style="display:inline-block;background:#2E7D32;color:#fff;text-decoration:none;padding:12px 16px;border-radius:10px;font-weight:700">Odpri potrditev</a></p>
-            <p>Če gumb ne deluje, kopirajte povezavo:</p>
-            <p><a href="$claimUrl">$claimUrl</a></p>
-          </div>
-        ''',
-      }),
+      body: payload,
     );
+
+    debugPrint('EmailService: received status=${resp.statusCode} body=${resp.body.length} bytes');
 
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       debugPrint('Email API response: ${resp.statusCode} ${resp.body}');

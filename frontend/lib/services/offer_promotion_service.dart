@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -88,6 +87,7 @@ class OfferPromotionService {
     required Timestamp? termin4,
   }) async {
     final offerToken = _createToken();
+    debugPrint('OfferPromotion: promoteNextUser doc=$docId nextUid=$nextUid token=$offerToken');
     final ref = FirebaseFirestore.instance.collection('oglasi').doc(docId);
     await FirebaseFirestore.instance.runTransaction((tx) async {
       final snapDoc = await tx.get(ref);
@@ -124,9 +124,23 @@ class OfferPromotionService {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final email = userDoc.data()?['email'] as String?;
       if (email == null || email.isEmpty) return;
-      // Email sending has been disabled per user request. Instead of
-      // sending an email, just mark that the offer was processed so the
-      // UI can reflect the state. Clients will rely on in-app banners.
+      debugPrint('OfferPromotion: preparing to send offer email to $email for doc $docId');
+      final baseUrl = _baseUrl();
+      final claimUrl = '$baseUrl/?claim=$docId&uid=$uid&token=$offerToken';
+
+      final selectedTerm = [termin1, termin2, termin3, termin4]
+          .whereType<Timestamp>()
+          .map((t) => t.toDate())
+          .toList();
+      final termLabel = selectedTerm.isNotEmpty ? _formatDateTime(selectedTerm.first) : null;
+
+      await EmailService.sendClaimEmail(
+        to: email,
+        title: title,
+        claimUrl: claimUrl,
+        selectedTermLabel: termLabel,
+      );
+
       await FirebaseFirestore.instance.collection('oglasi').doc(docId).update({
         'offerNotifiedAt': FieldValue.serverTimestamp(),
         'offerEmailTo': email,
@@ -139,7 +153,7 @@ class OfferPromotionService {
   String _createToken() {
     final rnd = Random.secure();
     final bytes = List<int>.generate(24, (_) => rnd.nextInt(256));
-    return base64UrlEncode(bytes).replaceAll('=', '');
+    return bytes.map((value) => value.toRadixString(16).padLeft(2, '0')).join();
   }
 
   String _baseUrl() {
