@@ -93,8 +93,10 @@ class _ProfilePageState extends State<ProfilePage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Napaka pri odjavi: $e'),
-              backgroundColor: Colors.red.shade700));
+          SnackBar(
+              content: Text('Napaka pri odjavi: $e'),
+              backgroundColor: Colors.red.shade700),
+        );
       }
     }
   }
@@ -114,7 +116,8 @@ class _ProfilePageState extends State<ProfilePage>
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModal) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Container(
             margin: const EdgeInsets.all(12),
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
@@ -129,7 +132,10 @@ class _ProfilePageState extends State<ProfilePage>
                 Row(
                   children: [
                     const Text('Uredi profil',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: kTextDark)),
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: kTextDark)),
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.pop(ctx),
@@ -138,88 +144,136 @@ class _ProfilePageState extends State<ProfilePage>
                   ],
                 ),
                 const SizedBox(height: 20),
-                _EditField(ctrl: nameCtrl, label: 'Ime', icon: Icons.person_outline_rounded),
+                _EditField(
+                    ctrl: nameCtrl,
+                    label: 'Ime',
+                    icon: Icons.person_outline_rounded),
                 const SizedBox(height: 12),
-                _EditField(ctrl: emailCtrl, label: 'E-pošta', icon: Icons.email_outlined,
-                  keyboardType: TextInputType.emailAddress),
+                _EditField(
+                    ctrl: emailCtrl,
+                    label: 'E-pošta',
+                    icon: Icons.email_outlined,
+                    keyboardType: TextInputType.emailAddress),
                 const SizedBox(height: 20),
                 const Text('Novo geslo (pustite prazno, če ne menjate)',
-                  style: TextStyle(fontSize: 12, color: kTextMid, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: kTextMid,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
                 _EditField(
-                  ctrl: pwCtrl, label: 'Novo geslo', icon: Icons.lock_outline_rounded,
+                  ctrl: pwCtrl,
+                  label: 'Novo geslo',
+                  icon: Icons.lock_outline_rounded,
                   obscure: obscurePw,
                   suffix: IconButton(
-                    onPressed: () => setModal(() => obscurePw = !obscurePw),
-                    icon: Icon(obscurePw ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: kTextLight, size: 20),
+                    onPressed: () =>
+                        setModal(() => obscurePw = !obscurePw),
+                    icon: Icon(
+                        obscurePw
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: kTextLight,
+                        size: 20),
                   ),
                 ),
                 const SizedBox(height: 12),
                 _EditField(
-                  ctrl: pw2Ctrl, label: 'Ponovi geslo', icon: Icons.lock_outline_rounded,
+                  ctrl: pw2Ctrl,
+                  label: 'Ponovi geslo',
+                  icon: Icons.lock_outline_rounded,
                   obscure: obscurePw2,
                   suffix: IconButton(
-                    onPressed: () => setModal(() => obscurePw2 = !obscurePw2),
-                    icon: Icon(obscurePw2 ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: kTextLight, size: 20),
+                    onPressed: () =>
+                        setModal(() => obscurePw2 = !obscurePw2),
+                    icon: Icon(
+                        obscurePw2
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: kTextLight,
+                        size: 20),
                   ),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: saving ? null : () async {
-                      final newName = nameCtrl.text.trim();
-                      final newEmail = emailCtrl.text.trim();
-                      final newPw = pwCtrl.text.trim();
-                      final newPw2 = pw2Ctrl.text.trim();
-                      if (newPw.isNotEmpty && newPw != newPw2) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Gesli se ne ujemata'),
-                            backgroundColor: Colors.red));
-                        return;
-                      }
-                      setModal(() => saving = true);
-                      try {
-                        final user = FirebaseAuth.instance.currentUser!;
-                        if (newName != _displayName) {
-                          await user.updateDisplayName(newName);
-                          await FirebaseFirestore.instance
-                            .collection('users').doc(user.uid).update({'ime': newName});
-                        }
-                        if (newEmail != _email && newEmail.isNotEmpty) {
-                          await user.verifyBeforeUpdateEmail(newEmail);
-                        }
-                        if (newPw.isNotEmpty) {
-                          await user.updatePassword(newPw);
-                        }
-                        if (mounted) {
-                          setState(() { _displayName = newName; _email = newEmail; });
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Profil posodobljen ✓')));
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Napaka: $e'), backgroundColor: Colors.red));
-                        }
-                      } finally {
-                        setModal(() => saving = false);
-                      }
-                    },
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final newName = nameCtrl.text.trim();
+                            final newEmail = emailCtrl.text.trim();
+                            final newPw = pwCtrl.text.trim();
+                            final newPw2 = pw2Ctrl.text.trim();
+                            if (newPw.isNotEmpty && newPw != newPw2) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Gesli se ne ujemata'),
+                                    backgroundColor: Colors.red),
+                              );
+                              return;
+                            }
+                            setModal(() => saving = true);
+                            try {
+                              final user =
+                                  FirebaseAuth.instance.currentUser!;
+                              if (newName != _displayName) {
+                                await user.updateDisplayName(newName);
+                                await FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(user.uid)
+                                    .update({'ime': newName});
+                              }
+                              if (newEmail != _email &&
+                                  newEmail.isNotEmpty) {
+                                await user
+                                    .verifyBeforeUpdateEmail(newEmail);
+                              }
+                              if (newPw.isNotEmpty) {
+                                await user.updatePassword(newPw);
+                              }
+                              if (mounted) {
+                                setState(() {
+                                  _displayName = newName;
+                                  _email = newEmail;
+                                });
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('Profil posodobljen ✓')),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text('Napaka: $e'),
+                                      backgroundColor: Colors.red),
+                                );
+                              }
+                            } finally {
+                              setModal(() => saving = false);
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kGreenMid,
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(14))),
+                          borderRadius:
+                              BorderRadius.all(Radius.circular(14))),
                     ),
                     child: saving
-                      ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Shrani spremembe',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                        : const Text('Shrani spremembe',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
                   ),
                 ),
               ],
@@ -238,7 +292,8 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   bool get _isDavatelj => _userType == 'davatelj';
-  bool get _isGuest => isAppGuest(FirebaseAuth.instance.currentUser);
+  bool get _isGuest =>
+      isAppGuest(FirebaseAuth.instance.currentUser);
 
   void _showAuthPopup() {
     showModalBottomSheet(
@@ -253,7 +308,8 @@ class _ProfilePageState extends State<ProfilePage>
   @override
   Widget build(BuildContext context) {
     if (_loadingUser) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+          body: Center(child: CircularProgressIndicator()));
     }
     if (_isGuest) return _buildGuestView();
     return _isDavatelj ? _buildDavateljView() : _buildUporabnikView();
@@ -272,18 +328,25 @@ class _ProfilePageState extends State<ProfilePage>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 96, height: 96,
-                  decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadiusFull),
-                  child: const Icon(Icons.person_outline_rounded, size: 52, color: kGreenMid),
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                      color: kGreenPale, borderRadius: kRadiusFull),
+                  child: const Icon(Icons.person_outline_rounded,
+                      size: 52, color: kGreenMid),
                 ),
                 const SizedBox(height: 24),
                 const Text('Niste prijavljeni',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextDark)),
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: kTextDark)),
                 const SizedBox(height: 10),
                 const Text(
                   'Prijavite se ali se registrirajte, da dostopate do profila in svojih oglasov.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
+                  style:
+                      TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
@@ -293,10 +356,14 @@ class _ProfilePageState extends State<ProfilePage>
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kGreenMid,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+                      shape: const RoundedRectangleBorder(
+                          borderRadius: kRadius12),
                     ),
                     child: const Text('Prijava / Registracija',
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Colors.white)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: Colors.white)),
                   ),
                 ),
               ],
@@ -318,44 +385,11 @@ class _ProfilePageState extends State<ProfilePage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildProfileHeader(),
-            const SizedBox(height: 4),
-            // Tab bar
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: kRadius12,
-                boxShadow: kCardShadow,
-              ),
-              child: TabBar(
-                controller: _tabCtrl,
-                indicator: BoxDecoration(
-                  color: kGreenMid,
-                  borderRadius: kRadius12,
-                  boxShadow: kElevatedShadow,
-                ),
-                labelColor: Colors.white,
-                unselectedLabelColor: kTextMid,
-                labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                dividerColor: Colors.transparent,
-                tabs: [
-                  Tab(
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
-                      Icon(Icons.bookmark_rounded, size: 15),
-                      SizedBox(width: 5),
-                      Text('Rezervirano'),
-                    ]),
-                  ),
-                  Tab(
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
-                      Icon(Icons.check_circle_rounded, size: 15),
-                      SizedBox(width: 5),
-                      Text('Prevzeto'),
-                    ]),
-                  ),
-                ],
-              ),
-            ),
+            // ── Analitika za uporabnika ──────────────────────────
+            _UporabnikStatsRow(uid: user.uid),
+            const SizedBox(height: 8),
+            // ── Tab bar ──────────────────────────────────────────
+            _buildTabBar(),
             const SizedBox(height: 4),
             Expanded(
               child: TabBarView(
@@ -368,6 +402,66 @@ class _ProfilePageState extends State<ProfilePage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: kRadius16,
+        boxShadow: kCardShadow,
+      ),
+      child: TabBar(
+        controller: _tabCtrl,
+        indicator: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
+          ),
+          borderRadius: kRadius12,
+          boxShadow: [
+            BoxShadow(
+              color: kGreenMid.withOpacity(0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelColor: Colors.white,
+        unselectedLabelColor: kTextMid,
+        labelStyle:
+            const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        unselectedLabelStyle:
+            const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        dividerColor: Colors.transparent,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.bookmark_rounded, size: 15),
+                SizedBox(width: 5),
+                Text('Rezervirano'),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.check_circle_rounded, size: 15),
+                SizedBox(width: 5),
+                Text('Prevzeto'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -397,17 +491,19 @@ class _ProfilePageState extends State<ProfilePage>
           .where('uid', isEqualTo: uid)
           .snapshots(),
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Center(child: CircularProgressIndicator(color: kGreenMid));
+        if (snap.connectionState == ConnectionState.waiting &&
+            !snap.hasData) {
+          return const Center(
+              child: CircularProgressIndicator(color: kGreenMid));
         }
         if (snap.hasError) {
-          return _buildEmptyState('Napaka pri nalaganju', Icons.error_outline_rounded,
+          return _buildEmptyState(
+              'Napaka pri nalaganju', Icons.error_outline_rounded,
               subtitle: 'Preverite internetno povezavo.');
         }
 
         final allDocs = snap.data?.docs ?? [];
 
-        // Sortiraj po createdAt
         allDocs.sort((a, b) {
           final ta = (a.data() as Map)['createdAt'] as Timestamp?;
           final tb = (b.data() as Map)['createdAt'] as Timestamp?;
@@ -435,51 +531,54 @@ class _ProfilePageState extends State<ProfilePage>
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
           children: [
-            // Statistike
             _DavateljStatsRow(
               totalObjav: totalObjav,
               prevzetih: steviloPrevzetih,
               rezerviranih: steviloRezerviranih,
             ),
             const SizedBox(height: 20),
-
-            // Aktivne objave
             Row(children: [
               Container(
-                width: 4, height: 18,
-                decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull),
+                width: 4,
+                height: 18,
+                decoration: BoxDecoration(
+                    color: kGreenMid, borderRadius: kRadiusFull),
               ),
               const SizedBox(width: 8),
               Text('Aktivne objave (${aktivni.length})',
-                style: kHeading3.copyWith(fontSize: 15)),
+                  style: kHeading3.copyWith(fontSize: 15)),
             ]),
             const SizedBox(height: 10),
             if (aktivni.isEmpty)
               _buildInlineEmpty('Ni aktivnih objav',
                   'Kliknite + za dodajanje novega oglasa.'),
             ...aktivni.map((doc) => _DavateljOglasCard(
-              doc: doc,
-              showMarkPrevzeto: true,
-              onTap: () => FoodDetailSheet.show(context, _docToOglasProfile(doc)),
-            )),
-
+                  doc: doc,
+                  showMarkPrevzeto: true,
+                  onTap: () => FoodDetailSheet.show(
+                      context, _docToOglasProfile(doc)),
+                )),
             if (arhiv.isNotEmpty) ...[
               const SizedBox(height: 16),
               Row(children: [
                 Container(
-                  width: 4, height: 18,
-                  decoration: BoxDecoration(color: kTextLight, borderRadius: kRadiusFull),
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                      color: kTextLight, borderRadius: kRadiusFull),
                 ),
                 const SizedBox(width: 8),
                 Text('Arhiv — prevzeto (${arhiv.length})',
-                  style: kHeading3.copyWith(fontSize: 15, color: kTextMid)),
+                    style: kHeading3.copyWith(
+                        fontSize: 15, color: kTextMid)),
               ]),
               const SizedBox(height: 10),
               ...arhiv.map((doc) => _DavateljOglasCard(
-                doc: doc,
-                showMarkPrevzeto: false,
-                onTap: () => FoodDetailSheet.show(context, _docToOglasProfile(doc)),
-              )),
+                    doc: doc,
+                    showMarkPrevzeto: false,
+                    onTap: () => FoodDetailSheet.show(
+                        context, _docToOglasProfile(doc)),
+                  )),
             ],
           ],
         );
@@ -496,11 +595,14 @@ class _ProfilePageState extends State<ProfilePage>
           .where('reservedByUid', isEqualTo: uid)
           .snapshots(),
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Center(child: CircularProgressIndicator(color: kGreenMid));
+        if (snap.connectionState == ConnectionState.waiting &&
+            !snap.hasData) {
+          return const Center(
+              child: CircularProgressIndicator(color: kGreenMid));
         }
         if (snap.hasError) {
-          return _buildEmptyState('Napaka pri nalaganju', Icons.error_outline_rounded);
+          return _buildEmptyState(
+              'Napaka pri nalaganju', Icons.error_outline_rounded);
         }
         final docs = (snap.data?.docs ?? []).where((doc) {
           return (doc.data() as Map)['status'] == 'rezervirano';
@@ -509,7 +611,8 @@ class _ProfilePageState extends State<ProfilePage>
           return _buildEmptyState(
             'Ni aktivnih rezervacij',
             Icons.bookmark_outline_rounded,
-            subtitle: 'Ko si rezervirate oglas na domači strani, se bo prikazal tukaj.',
+            subtitle:
+                'Ko si rezervirate oglas na domači strani, se bo prikazal tukaj.',
           );
         }
         return ListView.builder(
@@ -517,7 +620,8 @@ class _ProfilePageState extends State<ProfilePage>
           itemCount: docs.length,
           itemBuilder: (_, i) => _UporabnikOglasCard(
             doc: docs[i],
-            onTap: () => FoodDetailSheet.show(context, _docToOglasProfile(docs[i])),
+            onTap: () => FoodDetailSheet.show(
+                context, _docToOglasProfile(docs[i])),
           ),
         );
       },
@@ -531,11 +635,14 @@ class _ProfilePageState extends State<ProfilePage>
           .where('reservedByUid', isEqualTo: uid)
           .snapshots(),
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Center(child: CircularProgressIndicator(color: kGreenMid));
+        if (snap.connectionState == ConnectionState.waiting &&
+            !snap.hasData) {
+          return const Center(
+              child: CircularProgressIndicator(color: kGreenMid));
         }
         if (snap.hasError) {
-          return _buildEmptyState('Napaka pri nalaganju', Icons.error_outline_rounded);
+          return _buildEmptyState(
+              'Napaka pri nalaganju', Icons.error_outline_rounded);
         }
         final docs = (snap.data?.docs ?? []).where((doc) {
           return (doc.data() as Map)['status'] == 'prevzeto';
@@ -544,7 +651,8 @@ class _ProfilePageState extends State<ProfilePage>
           return _buildEmptyState(
             'Ni prevzetih obrokov',
             Icons.check_circle_outline_rounded,
-            subtitle: 'Tukaj se bodo prikazali oglasi, ki ste jih že prevzeli.',
+            subtitle:
+                'Tukaj se bodo prikazali oglasi, ki ste jih že prevzeli.',
           );
         }
         return ListView.builder(
@@ -581,25 +689,31 @@ class _ProfilePageState extends State<ProfilePage>
       ),
       child: Row(
         children: [
-          // Avatar
           Stack(
             children: [
               Container(
-                width: 60, height: 60,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: kRadiusFull,
-                  border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                  border: Border.all(
+                      color: Colors.white.withOpacity(0.5), width: 2),
                 ),
                 child: Icon(
-                  isDav ? Icons.store_rounded : Icons.person_rounded,
-                  color: Colors.white, size: 30,
+                  isDav
+                      ? Icons.store_rounded
+                      : Icons.person_rounded,
+                  color: Colors.white,
+                  size: 30,
                 ),
               ),
               Positioned(
-                bottom: 0, right: 0,
+                bottom: 0,
+                right: 0,
                 child: Container(
-                  width: 16, height: 16,
+                  width: 16,
+                  height: 16,
                   decoration: BoxDecoration(
                     color: const Color(0xFF00C853),
                     borderRadius: kRadiusFull,
@@ -610,52 +724,57 @@ class _ProfilePageState extends State<ProfilePage>
             ],
           ),
           const SizedBox(width: 14),
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name,
-                  style: const TextStyle(
-                    color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800)),
                 const SizedBox(height: 2),
                 Text(_email,
-                  style: const TextStyle(color: Colors.white60, fontSize: 12),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                    style: const TextStyle(
+                        color: Colors.white60, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: kRadiusFull,
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(
-                      isDav ? Icons.volunteer_activism_rounded : Icons.search_rounded,
-                      color: Colors.amber, size: 13),
-                    const SizedBox(width: 4),
-                    Text(
-                      isDav ? 'Organizacija' : 'Uporabnik',
-                      style: const TextStyle(
-                        color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                  ]),
+                  child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                            isDav
+                                ? Icons.volunteer_activism_rounded
+                                : Icons.search_rounded,
+                            color: Colors.amber,
+                            size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          isDav ? 'Organizacija' : 'Uporabnik',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ]),
                 ),
               ],
             ),
           ),
-          // Akcije
           Column(
             children: [
-              _HeaderBtn(
-                icon: Icons.edit_rounded,
-                onTap: _showEditProfile,
-              ),
+              _HeaderBtn(icon: Icons.edit_rounded, onTap: _showEditProfile),
               const SizedBox(height: 8),
               _HeaderBtn(
-                icon: Icons.logout_rounded,
-                onTap: _logout,
-                dimmed: true,
-              ),
+                  icon: Icons.logout_rounded, onTap: _logout, dimmed: true),
             ],
           ),
         ],
@@ -667,21 +786,27 @@ class _ProfilePageState extends State<ProfilePage>
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
-            child: Icon(icon, size: 40, color: kGreenMid),
-          ),
-          const SizedBox(height: 16),
-          Text(label, style: kHeading3, textAlign: TextAlign.center),
-          if (subtitle != null) ...[
-            const SizedBox(height: 8),
-            Text(subtitle,
-              style: const TextStyle(color: kTextLight, fontSize: 13, height: 1.5),
-              textAlign: TextAlign.center),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                  color: kGreenPale, shape: BoxShape.circle),
+              child: Icon(icon, size: 40, color: kGreenMid),
+            ),
+            const SizedBox(height: 16),
+            Text(label, style: kHeading3, textAlign: TextAlign.center),
+            if (subtitle != null) ...[
+              const SizedBox(height: 8),
+              Text(subtitle,
+                  style: const TextStyle(
+                      color: kTextLight, fontSize: 13, height: 1.5),
+                  textAlign: TextAlign.center),
+            ],
           ],
-        ]),
+        ),
       ),
     );
   }
@@ -698,11 +823,131 @@ class _ProfilePageState extends State<ProfilePage>
       child: Row(children: [
         Icon(Icons.inbox_rounded, size: 28, color: kBorder),
         const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: kBodyBold.copyWith(color: kTextMid)),
-          const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextLight)),
-        ])),
+        Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Text(label, style: kBodyBold.copyWith(color: kTextMid)),
+              const SizedBox(height: 2),
+              Text(subtitle,
+                  style: const TextStyle(
+                      fontSize: 12, color: kTextLight)),
+            ])),
+      ]),
+    );
+  }
+}
+
+// ─── UPORABNIK STATS ROW ───────────────────────────────────────────────────
+// Prikazuje analitiko za navadnega uporabnika (koliko rezervirano / prevzeto)
+
+class _UporabnikStatsRow extends StatelessWidget {
+  final String uid;
+  const _UporabnikStatsRow({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('oglasi')
+          .where('reservedByUid', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snap) {
+        final docs = snap.data?.docs ?? [];
+        final rezervirano =
+            docs.where((d) => (d.data() as Map)['status'] == 'rezervirano').length;
+        final prevzeto =
+            docs.where((d) => (d.data() as Map)['status'] == 'prevzeto').length;
+        final skupaj = docs.length;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Row(children: [
+            Expanded(
+              child: _MiniStat(
+                value: '$skupaj',
+                label: 'Skupaj',
+                icon: Icons.history_rounded,
+                color: const Color(0xFF5C6BC0),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MiniStat(
+                value: '$rezervirano',
+                label: 'Rezervirano',
+                icon: Icons.bookmark_rounded,
+                color: kOrange,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MiniStat(
+                value: '$prevzeto',
+                label: 'Prevzeto',
+                icon: Icons.check_circle_rounded,
+                color: kGreenMid,
+              ),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _MiniStat({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: kRadius12,
+        boxShadow: kCardShadow,
+        border: Border.all(color: color.withOpacity(0.12)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: kRadius8,
+          ),
+          child: Icon(icon, size: 17, color: color),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value,
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: color,
+                      height: 1)),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 10,
+                      color: kTextMid,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
       ]),
     );
   }
@@ -724,21 +969,24 @@ class _DavateljStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Expanded(child: _StatBox(
+      Expanded(
+          child: _StatBox(
         value: '$totalObjav',
         label: 'Skupaj objav',
         icon: Icons.storefront_rounded,
         color: kGreenMid,
       )),
       const SizedBox(width: 10),
-      Expanded(child: _StatBox(
+      Expanded(
+          child: _StatBox(
         value: '$rezerviranih',
         label: 'Rezervirano',
         icon: Icons.bookmark_rounded,
         color: const Color(0xFFFF6F00),
       )),
       const SizedBox(width: 10),
-      Expanded(child: _StatBox(
+      Expanded(
+          child: _StatBox(
         value: '$prevzetih',
         label: 'Prevzeto',
         icon: Icons.check_circle_rounded,
@@ -764,7 +1012,8 @@ class _StatBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding:
+          const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: kRadius12,
@@ -773,7 +1022,8 @@ class _StatBox extends StatelessWidget {
       ),
       child: Column(children: [
         Container(
-          width: 38, height: 38,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
             borderRadius: kRadius8,
@@ -782,12 +1032,17 @@ class _StatBox extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(value,
-          style: TextStyle(
-            fontSize: 22, fontWeight: FontWeight.w900, color: color)),
+            style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: color)),
         const SizedBox(height: 2),
         Text(label,
-          style: const TextStyle(fontSize: 11, color: kTextMid, fontWeight: FontWeight.w500),
-          textAlign: TextAlign.center),
+            style: const TextStyle(
+                fontSize: 11,
+                color: kTextMid,
+                fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center),
       ]),
     );
   }
@@ -812,20 +1067,30 @@ class _DavateljOglasCard extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: kRadius12),
         title: const Text('Označi kot prevzeto',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kTextDark)),
-        content: const Text('Ali je bila hrana uspešno prevzeta pri donatorju?',
-          style: TextStyle(color: kTextMid, fontSize: 14)),
+            style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: kTextDark)),
+        content: const Text(
+            'Ali je bila hrana uspešno prevzeta pri donatorju?',
+            style: TextStyle(color: kTextMid, fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Prekliči', style: TextStyle(color: kTextLight)),
+            child: const Text('Prekliči',
+                style: TextStyle(color: kTextLight)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: kGreenMid, elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: kRadius8)),
-            child: const Text('Potrdi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                backgroundColor: kGreenMid,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: kRadius8)),
+            child: const Text('Potrdi',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -847,24 +1112,44 @@ class _DavateljOglasCard extends StatelessWidget {
     final statusStr = d['status'] as String? ?? 'naRazpolago';
     final reservedByUid = d['reservedByUid'] as String?;
     final waitlistRaw = d['waitlist'];
-    final waitlistLen = (waitlistRaw is List) ? waitlistRaw.length : 0;
+    final waitlistLen =
+        (waitlistRaw is List) ? waitlistRaw.length : 0;
 
     OglasStatus status;
     switch (statusStr) {
-      case 'rezervirano': status = OglasStatus.rezervirano; break;
-      case 'prevzeto': status = OglasStatus.prevzeto; break;
-      default: status = OglasStatus.naRazpolago;
+      case 'rezervirano':
+        status = OglasStatus.rezervirano;
+        break;
+      case 'prevzeto':
+        status = OglasStatus.prevzeto;
+        break;
+      default:
+        status = OglasStatus.naRazpolago;
     }
     final statusClr = statusColor(status);
 
     final IconData icon;
     final Color bgColor;
     switch (category) {
-      case 'Kuhano': icon = Icons.soup_kitchen_rounded; bgColor = const Color(0xFFFFE0B2); break;
-      case 'Peka': icon = Icons.bakery_dining_rounded; bgColor = const Color(0xFFEFEBE9); break;
-      case 'Sadje & zelenjava': icon = Icons.apple_rounded; bgColor = const Color(0xFFE8F5E9); break;
-      case 'Ostalo': icon = Icons.more_horiz_rounded; bgColor = const Color(0xFFE8EAF6); break;
-      default: icon = Icons.grass_rounded; bgColor = const Color(0xFFF1F8E9);
+      case 'Kuhano':
+        icon = Icons.soup_kitchen_rounded;
+        bgColor = const Color(0xFFFFE0B2);
+        break;
+      case 'Peka':
+        icon = Icons.bakery_dining_rounded;
+        bgColor = const Color(0xFFEFEBE9);
+        break;
+      case 'Sadje & zelenjava':
+        icon = Icons.apple_rounded;
+        bgColor = const Color(0xFFE8F5E9);
+        break;
+      case 'Ostalo':
+        icon = Icons.more_horiz_rounded;
+        bgColor = const Color(0xFFE8EAF6);
+        break;
+      default:
+        icon = Icons.grass_rounded;
+        bgColor = const Color(0xFFF1F8E9);
     }
 
     final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
@@ -879,124 +1164,195 @@ class _DavateljOglasCard extends StatelessWidget {
           borderRadius: kRadius12,
           boxShadow: kCardShadow,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(children: [
-                // Ikona
-                Container(
-                  width: 48, height: 48,
-                  decoration: BoxDecoration(color: bgColor, borderRadius: kRadius12),
-                  child: Icon(icon, color: kGreenMid, size: 24),
-                ),
-                const SizedBox(width: 12),
-                // Info
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title,
-                    style: kBodyBold,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 3),
-                  Row(children: [
-                    Icon(Icons.location_on_outlined, size: 12, color: kTextLight),
-                    const SizedBox(width: 3),
-                    Expanded(child: Text(location,
-                      style: kCaption, maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  ]),
-                  const SizedBox(height: 3),
-                  Row(children: [
-                    Icon(Icons.access_time_outlined, size: 12, color: kTextLight),
-                    const SizedBox(width: 3),
-                    Text(timeStr, style: kCaption),
-                  ]),
-                ])),
-                const SizedBox(width: 8),
-                // Status badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: statusClr.withOpacity(0.1),
-                    borderRadius: kRadiusFull,
-                    border: Border.all(color: statusClr.withOpacity(0.3)),
-                  ),
-                  child: Text(statusLabel(status),
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusClr)),
-                ),
-              ]),
-            ),
-
-            // Info vrstica: rezerviran s strani + čakalna vrsta
-            if (status == OglasStatus.rezervirano || waitlistLen > 0) ...[
-              Divider(height: 1, color: kBorder.withOpacity(0.6)),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: Row(children: [
-                  if (reservedByUid != null && status == OglasStatus.rezervirano) ...[
-                    const Icon(Icons.person_outline_rounded, size: 13, color: kTextMid),
-                    const SizedBox(width: 4),
-                    const Text('Rezervirano',
-                      style: TextStyle(fontSize: 12, color: kTextMid, fontWeight: FontWeight.w500)),
-                    const SizedBox(width: 12),
-                  ],
-                  if (waitlistLen > 0) ...[
-                    const Icon(Icons.queue_rounded, size: 13, color: Color(0xFF5C6BC0)),
-                    const SizedBox(width: 4),
-                    Text('$waitlistLen v čakalni vrsti',
-                      style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF5C6BC0), fontWeight: FontWeight.w600)),
-                  ],
-                  const Spacer(),
-                  // Gumb Označi prevzeto
-                  if (showMarkPrevzeto && status == OglasStatus.rezervirano)
-                    GestureDetector(
-                      onTap: () => _markPrevzeto(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: kGreenMid,
-                          borderRadius: kRadius8,
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: const [
-                          Icon(Icons.check_rounded, size: 13, color: Colors.white),
-                          SizedBox(width: 4),
-                          Text('Prevzeto',
-                            style: TextStyle(
-                              fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
+        child: ClipRRect(
+          borderRadius: kRadius12,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Status accent strip ──────────────────────────
+                Container(width: 4, color: statusClr),
+                // ── Content ──────────────────────────────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                                color: bgColor, borderRadius: kRadius12),
+                            child: Icon(icon, color: kGreenMid, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                Text(title,
+                                    style: kBodyBold,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                const SizedBox(height: 3),
+                                Row(children: [
+                                  Icon(Icons.location_on_outlined,
+                                      size: 12, color: kTextLight),
+                                  const SizedBox(width: 3),
+                                  Expanded(
+                                      child: Text(location,
+                                          style: kCaption,
+                                          maxLines: 1,
+                                          overflow:
+                                              TextOverflow.ellipsis)),
+                                ]),
+                                const SizedBox(height: 3),
+                                Row(children: [
+                                  Icon(Icons.access_time_outlined,
+                                      size: 12, color: kTextLight),
+                                  const SizedBox(width: 3),
+                                  Text(timeStr, style: kCaption),
+                                ]),
+                              ])),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: statusClr.withOpacity(0.1),
+                              borderRadius: kRadiusFull,
+                              border: Border.all(
+                                  color: statusClr.withOpacity(0.3)),
+                            ),
+                            child: Text(statusLabel(status),
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: statusClr)),
+                          ),
                         ]),
                       ),
-                    ),
-                ]),
-              ),
-            ],
 
-            // Gumb Označi prevzeto za naRazpolago brez čakalne vrste (samo davatelj)
-            if (showMarkPrevzeto && status == OglasStatus.naRazpolago) ...[
-              Divider(height: 1, color: kBorder.withOpacity(0.6)),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-                child: GestureDetector(
-                  onTap: () => _markPrevzeto(context),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                    decoration: BoxDecoration(
-                      color: kGreenPale,
-                      borderRadius: kRadius8,
-                      border: Border.all(color: kGreenMid.withOpacity(0.3)),
-                    ),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
-                      Icon(Icons.check_circle_outline_rounded, size: 15, color: kGreenMid),
-                      SizedBox(width: 6),
-                      Text('Označi kot prevzeto',
-                        style: TextStyle(
-                          fontSize: 13, color: kGreenMid, fontWeight: FontWeight.w700)),
-                    ]),
+                      if (status == OglasStatus.rezervirano ||
+                          waitlistLen > 0) ...[
+                        Divider(
+                            height: 1,
+                            color: kBorder.withOpacity(0.6)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          child: Row(children: [
+                            if (reservedByUid != null &&
+                                status ==
+                                    OglasStatus.rezervirano) ...[
+                              const Icon(
+                                  Icons.person_outline_rounded,
+                                  size: 13,
+                                  color: kTextMid),
+                              const SizedBox(width: 4),
+                              const Text('Rezervirano',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: kTextMid,
+                                      fontWeight: FontWeight.w500)),
+                              const SizedBox(width: 12),
+                            ],
+                            if (waitlistLen > 0) ...[
+                              const Icon(Icons.queue_rounded,
+                                  size: 13,
+                                  color: Color(0xFF5C6BC0)),
+                              const SizedBox(width: 4),
+                              Text('$waitlistLen v čakalni vrsti',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF5C6BC0),
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                            const Spacer(),
+                            if (showMarkPrevzeto &&
+                                status == OglasStatus.rezervirano)
+                              GestureDetector(
+                                onTap: () => _markPrevzeto(context),
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: kGreenMid,
+                                    borderRadius: kRadius8,
+                                  ),
+                                  child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(Icons.check_rounded,
+                                            size: 13,
+                                            color: Colors.white),
+                                        SizedBox(width: 4),
+                                        Text('Prevzeto',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white,
+                                                fontWeight:
+                                                    FontWeight.w700)),
+                                      ]),
+                                ),
+                              ),
+                          ]),
+                        ),
+                      ],
+
+                      if (showMarkPrevzeto &&
+                          status == OglasStatus.naRazpolago) ...[
+                        Divider(
+                            height: 1,
+                            color: kBorder.withOpacity(0.6)),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                              14, 8, 14, 10),
+                          child: GestureDetector(
+                            onTap: () => _markPrevzeto(context),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 9),
+                              decoration: BoxDecoration(
+                                color: kGreenPale,
+                                borderRadius: kRadius8,
+                                border: Border.all(
+                                    color:
+                                        kGreenMid.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: const [
+                                    Icon(
+                                        Icons
+                                            .check_circle_outline_rounded,
+                                        size: 15,
+                                        color: kGreenMid),
+                                    SizedBox(width: 6),
+                                    Text('Označi kot prevzeto',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: kGreenMid,
+                                            fontWeight:
+                                                FontWeight.w700)),
+                                  ]),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1027,20 +1383,39 @@ class _UporabnikOglasCard extends StatelessWidget {
 
     OglasStatus status;
     switch (statusStr) {
-      case 'rezervirano': status = OglasStatus.rezervirano; break;
-      case 'prevzeto': status = OglasStatus.prevzeto; break;
-      default: status = OglasStatus.naRazpolago;
+      case 'rezervirano':
+        status = OglasStatus.rezervirano;
+        break;
+      case 'prevzeto':
+        status = OglasStatus.prevzeto;
+        break;
+      default:
+        status = OglasStatus.naRazpolago;
     }
     final statusClr = statusColor(status);
 
     final IconData icon;
     final Color bgColor;
     switch (category) {
-      case 'Kuhano': icon = Icons.soup_kitchen_rounded; bgColor = const Color(0xFFFFE0B2); break;
-      case 'Peka': icon = Icons.bakery_dining_rounded; bgColor = const Color(0xFFEFEBE9); break;
-      case 'Sadje & zelenjava': icon = Icons.apple_rounded; bgColor = const Color(0xFFE8F5E9); break;
-      case 'Ostalo': icon = Icons.more_horiz_rounded; bgColor = const Color(0xFFE8EAF6); break;
-      default: icon = Icons.grass_rounded; bgColor = const Color(0xFFF1F8E9);
+      case 'Kuhano':
+        icon = Icons.soup_kitchen_rounded;
+        bgColor = const Color(0xFFFFE0B2);
+        break;
+      case 'Peka':
+        icon = Icons.bakery_dining_rounded;
+        bgColor = const Color(0xFFEFEBE9);
+        break;
+      case 'Sadje & zelenjava':
+        icon = Icons.apple_rounded;
+        bgColor = const Color(0xFFE8F5E9);
+        break;
+      case 'Ostalo':
+        icon = Icons.more_horiz_rounded;
+        bgColor = const Color(0xFFE8EAF6);
+        break;
+      default:
+        icon = Icons.grass_rounded;
+        bgColor = const Color(0xFFF1F8E9);
     }
 
     final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
@@ -1050,74 +1425,122 @@ class _UporabnikOglasCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: kRadius12,
           boxShadow: kCardShadow,
-          border: isPrevzeto
-              ? null
-              : Border.all(color: statusClr.withOpacity(0.2), width: 1.5),
         ),
-        child: Row(children: [
-          // Ikona kategorije
-          Container(
-            width: 52, height: 52,
-            decoration: BoxDecoration(color: bgColor, borderRadius: kRadius12),
-            child: Icon(icon, color: kGreenMid, size: 26),
-          ),
-          const SizedBox(width: 12),
-          // Podaci
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title,
-                style: kBodyBold.copyWith(fontSize: 14),
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-              if (username != null) ...[
-                const SizedBox(height: 2),
-                Text('od $username',
-                  style: const TextStyle(fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
+        child: ClipRRect(
+          borderRadius: kRadius12,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Colored left strip by status ─────────────────
+                Container(
+                  width: 4,
+                  color: isPrevzeto
+                      ? kGreenMid.withOpacity(0.4)
+                      : statusClr,
+                ),
+                // ── Main content ─────────────────────────────────
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(children: [
+                      // Ikona kategorije
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                            color: bgColor, borderRadius: kRadius12),
+                        child:
+                            Icon(icon, color: kGreenMid, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      // Podatki
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                          Text(title,
+                              style: kBodyBold.copyWith(fontSize: 14),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          if (username != null) ...[
+                            const SizedBox(height: 2),
+                            Text('od $username',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: kGreenMid,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                          const SizedBox(height: 5),
+                          Row(children: [
+                            Icon(Icons.location_on_outlined,
+                                size: 12, color: kTextLight),
+                            const SizedBox(width: 3),
+                            Expanded(
+                                child: Text(location,
+                                    style: kCaption,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis)),
+                          ]),
+                          if (!isPrevzeto && expiryDate != null) ...[
+                            const SizedBox(height: 3),
+                            Row(children: [
+                              Icon(Icons.event_outlined,
+                                  size: 12, color: kTextLight),
+                              const SizedBox(width: 3),
+                              Text(
+                                  'Rok: ${_formatDate(expiryDate)}',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: kTextLight)),
+                            ]),
+                          ],
+                          const SizedBox(height: 4),
+                          Text(_timeAgo(createdAt),
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: kTextLight)),
+                        ]),
+                      ),
+                      const SizedBox(width: 8),
+                      // Desna stran — status badge + chevron
+                      Column(
+                          mainAxisAlignment:
+                              MainAxisAlignment.center,
+                          children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: statusClr.withOpacity(0.1),
+                            borderRadius: kRadiusFull,
+                            border: Border.all(
+                                color: statusClr.withOpacity(0.3)),
+                          ),
+                          child: Text(statusLabel(status),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: statusClr)),
+                        ),
+                        if (!isPrevzeto) ...[
+                          const SizedBox(height: 8),
+                          Icon(Icons.chevron_right_rounded,
+                              size: 20, color: kTextLight),
+                        ],
+                      ]),
+                    ]),
+                  ),
+                ),
               ],
-              const SizedBox(height: 4),
-              Row(children: [
-                Icon(Icons.location_on_outlined, size: 12, color: kTextLight),
-                const SizedBox(width: 3),
-                Expanded(child: Text(location,
-                  style: kCaption, maxLines: 1, overflow: TextOverflow.ellipsis)),
-              ]),
-              if (!isPrevzeto && expiryDate != null) ...[
-                const SizedBox(height: 3),
-                Row(children: [
-                  Icon(Icons.event_outlined, size: 12, color: kTextLight),
-                  const SizedBox(width: 3),
-                  Text('Rok: ${_formatDate(expiryDate)}',
-                    style: const TextStyle(fontSize: 12, color: kTextLight)),
-                ]),
-              ],
-              const SizedBox(height: 4),
-              Text(_timeAgo(createdAt),
-                style: const TextStyle(fontSize: 11, color: kTextLight)),
-            ]),
-          ),
-          const SizedBox(width: 8),
-          // Desna strana
-          Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: statusClr.withOpacity(0.1),
-                borderRadius: kRadiusFull,
-                border: Border.all(color: statusClr.withOpacity(0.3)),
-              ),
-              child: Text(statusLabel(status),
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusClr)),
             ),
-            if (!isPrevzeto) ...[
-              const SizedBox(height: 8),
-              Icon(Icons.chevron_right_rounded, size: 20, color: kTextLight),
-            ],
-          ]),
-        ]),
+          ),
+        ),
       ),
     );
   }
@@ -1130,18 +1553,22 @@ class _HeaderBtn extends StatelessWidget {
   final VoidCallback onTap;
   final bool dimmed;
 
-  const _HeaderBtn({required this.icon, required this.onTap, this.dimmed = false});
+  const _HeaderBtn(
+      {required this.icon, required this.onTap, this.dimmed = false});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 38, height: 38,
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(dimmed ? 0.12 : 0.2),
           borderRadius: kRadius12,
-          border: Border.all(color: Colors.white.withOpacity(dimmed ? 0.2 : 0.35)),
+          border: Border.all(
+              color:
+                  Colors.white.withOpacity(dimmed ? 0.2 : 0.35)),
         ),
         child: Icon(icon, color: Colors.white, size: 17),
       ),
@@ -1158,7 +1585,8 @@ String _timeAgo(DateTime? dt) {
   return 'Pred ${diff.inDays} dni';
 }
 
-String _formatDate(DateTime dt) => '${dt.day}. ${dt.month}. ${dt.year}';
+String _formatDate(DateTime dt) =>
+    '${dt.day}. ${dt.month}. ${dt.year}';
 
 FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
   final d = doc.data() as Map<String, dynamic>;
@@ -1172,18 +1600,34 @@ FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
   final IconData icon;
   final Color color;
   switch (category) {
-    case 'Kuhano': icon = Icons.soup_kitchen_rounded; color = const Color(0xFFFFE0B2); break;
-    case 'Peka': icon = Icons.bakery_dining_rounded; color = const Color(0xFFEFEBE9); break;
-    case 'Sadje & zelenjava': icon = Icons.apple_rounded; color = const Color(0xFFE8F5E9); break;
-    case 'Ostalo': icon = Icons.more_horiz_rounded; color = const Color(0xFFE8EAF6); break;
-    default: icon = Icons.grass_rounded; color = const Color(0xFFF1F8E9);
+    case 'Kuhano':
+      icon = Icons.soup_kitchen_rounded;
+      color = const Color(0xFFFFE0B2);
+      break;
+    case 'Peka':
+      icon = Icons.bakery_dining_rounded;
+      color = const Color(0xFFEFEBE9);
+      break;
+    case 'Sadje & zelenjava':
+      icon = Icons.apple_rounded;
+      color = const Color(0xFFE8F5E9);
+      break;
+    case 'Ostalo':
+      icon = Icons.more_horiz_rounded;
+      color = const Color(0xFFE8EAF6);
+      break;
+    default:
+      icon = Icons.grass_rounded;
+      color = const Color(0xFFF1F8E9);
   }
   final lat = (d['lat'] as num?)?.toDouble();
   final lng = (d['lng'] as num?)?.toDouble();
   final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
   final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
   final waitlistRaw = d['waitlist'];
-  final waitlist = (waitlistRaw is List) ? waitlistRaw.map((e) => e.toString()).toList() : <String>[];
+  final waitlist = (waitlistRaw is List)
+      ? waitlistRaw.map((e) => e.toString()).toList()
+      : <String>[];
   return FoodOglas(
     id: doc.id,
     uid: d['uid'] as String?,
@@ -1224,15 +1668,21 @@ class _EditField extends StatelessWidget {
   final Widget? suffix;
 
   const _EditField({
-    required this.ctrl, required this.label, required this.icon,
-    this.obscure = false, this.keyboardType, this.suffix,
+    required this.ctrl,
+    required this.label,
+    required this.icon,
+    this.obscure = false,
+    this.keyboardType,
+    this.suffix,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: kSurface, borderRadius: kRadius12, border: Border.all(color: kBorder)),
+          color: kSurface,
+          borderRadius: kRadius12,
+          border: Border.all(color: kBorder)),
       child: TextField(
         controller: ctrl,
         obscureText: obscure,
@@ -1244,7 +1694,8 @@ class _EditField extends StatelessWidget {
           prefixIcon: Icon(icon, color: kTextLight, size: 20),
           suffixIcon: suffix,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
