@@ -63,7 +63,6 @@ class EmailService {
 
     final resp = await http.post(
       Uri.parse(_resendUrl),
-      headers: {'Content-Type': 'application/json'},
       headers: {
         'Authorization': 'Bearer $apiKey',
         'Content-Type': 'application/json',
