@@ -134,6 +134,8 @@ FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
     waitlist: waitlist,
     portions: (d['portions'] as num?)?.toInt(),
     remainingPortions: (d['remainingPortions'] as num?)?.toInt(),
+    price: (d['price'] as num?)?.toDouble(),
+    isDavatelj: d['isDavatelj'] as bool? ?? false,
   );
 }
 
@@ -873,6 +875,16 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     try {
       final imageBase64 = await _encodeImageToBase64();
 
+      // Preveri ali je uporabnik davatelj
+      bool isDavatelj = false;
+      if (user != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        isDavatelj = userDoc.data()?['userType'] == 'davatelj';
+      }
+
       // Geocodiranje adrese (ako još nije urađeno ili se promijenila)
       double? lat = _geocodedLat;
       double? lng = _geocodedLng;
@@ -883,28 +895,46 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
       }
 
       if (widget.isEditing) {
-        await FirebaseFirestore.instance
-            .collection('oglasi')
-            .doc(widget.editDocId)
-            .update({
-          'title': _titleCtrl.text.trim(),
-          'description': _descCtrl.text.trim(),
-          'grams': int.tryParse(_gramsCtrl.text.trim()) ?? 0,
-          'portions': int.tryParse(_portionsCtrl.text.trim()) ?? 1,
-          'category': _selectedCategory ?? 'Ostalo',
-          'location': _locationCtrl.text.trim(),
-          'price': double.tryParse(_priceCtrl.text.trim().replaceAll(',', '.')) ?? 0.0,
-          'termin1': Timestamp.fromDate(_termin1Value!),
-          'termin2': Timestamp.fromDate(_termin2Value!),
-          if (_termin3Value != null) 'termin3': Timestamp.fromDate(_termin3Value!),
-          if (_termin4Value != null) 'termin4': Timestamp.fromDate(_termin4Value!),
-          'updatedAt': FieldValue.serverTimestamp(),
-          if (imageBase64 != null) 'imageBase64': imageBase64,
-          'expiryDate': _expiryDate != null
-              ? Timestamp.fromDate(_expiryDate!)
-              : FieldValue.delete(),
-          if (lat != null) 'lat': lat,
-          if (lng != null) 'lng': lng,
+        // Pri urejanju: posodobi portions IN remainingPortions skupaj
+        // Preberemo trenutno stanje iz Firestorea, da izračunamo razliko
+        final newPortions = int.tryParse(_portionsCtrl.text.trim()) ?? 1;
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final docRef = FirebaseFirestore.instance
+              .collection('oglasi')
+              .doc(widget.editDocId);
+          final snapshot = await transaction.get(docRef);
+          if (!snapshot.exists) throw Exception('Oglas ne obstaja več.');
+          final data = snapshot.data()!;
+
+          final oldPortions = (data['portions'] as num?)?.toInt() ?? 1;
+          final oldRemaining = (data['remainingPortions'] as num?)?.toInt() ?? oldPortions;
+
+          // Izračunaj koliko je že rezerviranih (razlika med skupnim in preostalim)
+          final reserved = oldPortions - oldRemaining;
+          // Novo preostalo = novo skupno - že rezervirano (ne sme biti negativno)
+          final newRemaining = (newPortions - reserved).clamp(0, newPortions);
+
+          transaction.update(docRef, {
+            'title': _titleCtrl.text.trim(),
+            'description': _descCtrl.text.trim(),
+            'grams': int.tryParse(_gramsCtrl.text.trim()) ?? 0,
+            'portions': newPortions,
+            'remainingPortions': newRemaining,
+            'category': _selectedCategory ?? 'Ostalo',
+            'location': _locationCtrl.text.trim(),
+            'price': double.tryParse(_priceCtrl.text.trim().replaceAll(',', '.')) ?? 0.0,
+            'termin1': Timestamp.fromDate(_termin1Value!),
+            'termin2': Timestamp.fromDate(_termin2Value!),
+            if (_termin3Value != null) 'termin3': Timestamp.fromDate(_termin3Value!),
+            if (_termin4Value != null) 'termin4': Timestamp.fromDate(_termin4Value!),
+            'updatedAt': FieldValue.serverTimestamp(),
+            if (imageBase64 != null) 'imageBase64': imageBase64,
+            'expiryDate': _expiryDate != null
+                ? Timestamp.fromDate(_expiryDate!)
+                : FieldValue.delete(),
+            if (lat != null) 'lat': lat,
+            if (lng != null) 'lng': lng,
+          });
         });
       } else {
         final docRef = FirebaseFirestore.instance.collection('oglasi').doc();
@@ -921,6 +951,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           'status': 'naRazpolago',
           'uid': user?.uid,
           'username': user?.displayName != null ? '@${user!.displayName}' : null,
+          'isDavatelj': isDavatelj,
           'createdAt': FieldValue.serverTimestamp(),
           'expiringSoon': false,
           'waitlist': [],

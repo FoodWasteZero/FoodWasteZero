@@ -132,77 +132,113 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       }
       return;
     }
+
+    // Preverimo termin pred transakcijo (UI validacija)
+    final localPickupTerms = <DateTime?>[oglas.termin1, oglas.termin2, oglas.termin3, oglas.termin4]
+        .where((t) => t != null).toList();
+    if (localPickupTerms.isEmpty) {
+      setState(() => _loading = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Za ta oglas ni razpoložljivih terminov.')),
+      );
+      return;
+    }
+    if (_selectedPickupIndex < 0 || _selectedPickupIndex >= localPickupTerms.length) {
+      setState(() => _loading = false);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Izberite termin'),
+          content: const Text('Pred rezervacijo izberite termin prevzema.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('V redu')),
+          ],
+        ),
+      );
+      return;
+    }
+
     final userUid = user!.uid;
+    int? finalNewRemaining;
+    DateTime? finalSelectedTerm;
+    String? finalPickupToken;
+
     try {
-      final pickupTerms = <DateTime?>[oglas.termin1, oglas.termin2, oglas.termin3, oglas.termin4]
-          .where((t) => t != null).toList();
-      if (pickupTerms.isEmpty) {
-        setState(() => _loading = false);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Za ta oglas ni razpoložljivih terminov.')),
-        );
-        return;
-      }
+      // Transakcija: atomično beri in piši, da preprečimo race condition
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final docRef = FirebaseFirestore.instance.collection('oglasi').doc(oglas.id);
+        final snapshot = await transaction.get(docRef);
 
-      if (_selectedPickupIndex < 0 || _selectedPickupIndex >= pickupTerms.length) {
-        setState(() => _loading = false);
-        if (!mounted) return;
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Izberite termin'),
-            content: const Text('Pred rezervacijo izberite termin prevzema.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('V redu')),
-            ],
-          ),
-        );
-        return;
-      }
-      final selectedTerm = pickupTerms[_selectedPickupIndex]!;
+        if (!snapshot.exists) throw Exception('Oglas ne obstaja več.');
 
-      final remaining = oglas.remainingPortions ?? oglas.portions ?? 1;
-      if (_selectedPortions > remaining) {
-        setState(() => _loading = false);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Na voljo je samo $remaining ${remaining == 1 ? 'porcija' : 'porcije'}.')),
-        );
-        return;
-      }
+        final data = snapshot.data()!;
 
-      final newRemaining = remaining - _selectedPortions;
-      final pickupToken = newRemaining == 0 ? _createToken() : null;
-      await FirebaseFirestore.instance
-          .collection('oglasi')
-          .doc(oglas.id)
-          .update({
-        'status': newRemaining == 0 ? 'rezervirano' : 'naRazpolago',
-        if (newRemaining == 0) 'reservedByUid': userUid,
-        'remainingPortions': newRemaining,
-        'chosenTermin': Timestamp.fromDate(selectedTerm),
-        'reservedAt': FieldValue.serverTimestamp(),
-        'offerPending': false,
-        'offerExpiresAt': FieldValue.delete(),
-        if (pickupToken != null) 'pickupToken': pickupToken,
+        // Beri SVEŽO vrednost iz Firestorea (ne iz lokalnega oglas objekta)
+        final currentRemaining = (data['remainingPortions'] as num?)?.toInt()
+            ?? (data['portions'] as num?)?.toInt()
+            ?? 1;
+
+        // Preveri porcije s svežimi podatki
+        if (_selectedPortions > currentRemaining) {
+          throw Exception(
+            'Na voljo je samo $currentRemaining '
+            '${currentRemaining == 1 ? 'porcija' : 'porcije'}.',
+          );
+        }
+
+        // Preveri, da je izbrani termin še vedno veljaven
+        final freshTerms = <DateTime?>[
+          (data['termin1'] as Timestamp?)?.toDate(),
+          (data['termin2'] as Timestamp?)?.toDate(),
+          (data['termin3'] as Timestamp?)?.toDate(),
+          (data['termin4'] as Timestamp?)?.toDate(),
+        ].where((t) => t != null).toList();
+
+        if (_selectedPickupIndex < 0 || _selectedPickupIndex >= freshTerms.length) {
+          throw Exception('Izbrani termin ni več na voljo.');
+        }
+        final selectedTerm = freshTerms[_selectedPickupIndex]!;
+
+        final newRemaining = currentRemaining - _selectedPortions;
+        final pickupToken = newRemaining == 0 ? _createToken() : null;
+
+        transaction.update(docRef, {
+          'status': newRemaining == 0 ? 'rezervirano' : 'naRazpolago',
+          if (newRemaining == 0) 'reservedByUid': userUid,
+          'remainingPortions': newRemaining,
+          'chosenTermin': Timestamp.fromDate(selectedTerm),
+          'reservedAt': FieldValue.serverTimestamp(),
+          'offerPending': false,
+          'offerExpiresAt': FieldValue.delete(),
+          if (pickupToken != null) 'pickupToken': pickupToken,
+        });
+
+        // Shrani vrednosti za uporabo po transakciji
+        finalNewRemaining = newRemaining;
+        finalSelectedTerm = selectedTerm;
+        finalPickupToken = pickupToken;
       });
 
-      if (newRemaining == 0) {
+      // Po uspešni transakciji: pošlji e-mail (best-effort)
+      if (finalNewRemaining == 0 && finalSelectedTerm != null) {
         try {
           final userDoc = await FirebaseFirestore.instance.collection('users').doc(userUid).get();
           final email = userDoc.data()?['email'] as String?;
           final baseUrl = _baseUrl();
-          final pickupUrl = '$baseUrl/?pickup=${oglas.id}&token=$pickupToken';
+          final pickupUrl = '$baseUrl/?pickup=${oglas.id}&token=$finalPickupToken';
 
           if (email != null && email.isNotEmpty) {
-            final termLabel = _formatPickupTerm(selectedTerm);
+            final termLabel = _formatPickupTerm(finalSelectedTerm!);
             _sendPickupEmail(email, pickupUrl, termLabel).catchError((e) {
               debugPrint('Pickup email failed: $e');
             });
           }
         } catch (_) {
-          // Best-effort: reservation already succeeded.
+          // Best-effort: rezervacija je že uspela.
         }
       }
+
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -212,9 +248,13 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        final isUserFacing = msg.contains('Na voljo je samo') ||
+            msg.contains('ni več na voljo') ||
+            msg.contains('ne obstaja več');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(firestoreErrorMessage(e)),
+            content: Text(isUserFacing ? msg : firestoreErrorMessage(e)),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),
@@ -273,16 +313,31 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
           );
         }
       } else {
-        await ref.update({
-          'status': 'naRazpolago',
-          'reservedByUid': FieldValue.delete(),
-          'chosenTermin': FieldValue.delete(),
-          'offerPending': false,
-          'offerExpiresAt': FieldValue.delete(),
-          'offerToken': FieldValue.delete(),
-          'offeredUid': FieldValue.delete(),
-          'offerNotifiedAt': FieldValue.delete(),
-          'pickupToken': FieldValue.delete(),
+        // Obnovi remainingPortions z transakcijo, da preprečimo napačne vrednosti
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) throw Exception('Oglas ne obstaja več.');
+          final data = snapshot.data()!;
+
+          // Skupno število porcij (original)
+          final totalPortions = (data['portions'] as num?)?.toInt() ?? 1;
+          // Trenutno preostalo (pred preklicem je 0 ali delno)
+          final currentRemaining = (data['remainingPortions'] as num?)?.toInt() ?? 0;
+          // Vrni rezervirane porcije nazaj (ne presezi skupnega)
+          final restored = (currentRemaining + _selectedPortions).clamp(0, totalPortions);
+
+          transaction.update(ref, {
+            'status': 'naRazpolago',
+            'reservedByUid': FieldValue.delete(),
+            'chosenTermin': FieldValue.delete(),
+            'remainingPortions': restored,
+            'offerPending': false,
+            'offerExpiresAt': FieldValue.delete(),
+            'offerToken': FieldValue.delete(),
+            'offeredUid': FieldValue.delete(),
+            'offerNotifiedAt': FieldValue.delete(),
+            'pickupToken': FieldValue.delete(),
+          });
         });
         if (mounted) {
           Navigator.pop(context);
@@ -541,6 +596,52 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                           Text('Objavljeno od ${oglas.username}',
                               style: kCaption.copyWith(
                                   color: kGreenMid, fontWeight: FontWeight.w600)),
+
+                        const SizedBox(height: 10),
+
+                        // ── Cena ──────────────────────────────────────────
+                        if (oglas.price != null && oglas.price! > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF5C6BC0).withOpacity(0.08),
+                              borderRadius: kRadius8,
+                              border: Border.all(color: const Color(0xFF5C6BC0).withOpacity(0.3)),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.euro_rounded, size: 15, color: Color(0xFF5C6BC0)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Cena: ${oglas.price!.toStringAsFixed(2)} €',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF5C6BC0),
+                                ),
+                              ),
+                            ]),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: kGreenPale,
+                              borderRadius: kRadius8,
+                              border: Border.all(color: kGreenMid.withOpacity(0.3)),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.volunteer_activism_rounded, size: 15, color: kGreenMid),
+                              const SizedBox(width: 6),
+                              const Text(
+                                'Brezplačno',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: kGreenMid,
+                                ),
+                              ),
+                            ]),
+                          ),
 
                         const SizedBox(height: 16),
 

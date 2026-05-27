@@ -74,11 +74,17 @@ class FoodCard extends StatelessWidget {
                             color: kOrange,
                           ),
                         ),
-                      if (oglas.isFree)
-                        Positioned(
+                      Positioned(
                           bottom: 8, left: 8,
-                          child: _PillBadge(
-                              label: 'BREZPLAČNO', color: kGreenLight),
+                          child: (oglas.price != null && oglas.price! > 0)
+                              ? _PillBadge(
+                                  label: '€ ${oglas.price!.toStringAsFixed(2)}',
+                                  color: const Color(0xFF5C6BC0),
+                                )
+                              : _PillBadge(
+                                  label: 'BREZPLAČNO',
+                                  color: kGreenLight,
+                                ),
                         ),
                     ],
                   ),
@@ -92,18 +98,45 @@ class FoodCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: kGreenPale,
-                          borderRadius: kRadiusFull,
-                        ),
-                        child: Text(oglas.category,
-                            style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: kGreenMid)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: kGreenPale,
+                              borderRadius: kRadiusFull,
+                            ),
+                            child: Text(oglas.category,
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: kGreenMid)),
+                          ),
+                          if (oglas.isDavatelj)
+                            Tooltip(
+                              message: 'Verificirana organizacija',
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Container(
+                                    width: 20, height: 20,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.verified_rounded,
+                                    color: Color(0xFF1DA1F2),
+                                    size: 22,
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(oglas.title,
