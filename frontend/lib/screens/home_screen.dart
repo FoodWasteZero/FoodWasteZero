@@ -48,15 +48,9 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
       icon = Icons.grass_rounded; color = const Color(0xFFF1F8E9);
   }
 
-  double distKm = 1.0;
+  double distKm = 0.0; // Razdalja se preračuna v _applyFilters glede na pravo GPS lokacijo
   final lat = (d['lat'] as num?)?.toDouble();
   final lng = (d['lng'] as num?)?.toDouble();
-  if (lat != null && lng != null) {
-    const refLat = 46.5547; const refLng = 15.6459;
-    final dLat = (lat - refLat) * 111.0;
-    final dLng = (lng - refLng) * 111.0 * cos(refLat * pi / 180);
-    distKm = sqrt(dLat * dLat + dLng * dLng);
-  }
 
   final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
   final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
@@ -162,6 +156,10 @@ class _HomeScreenState extends State<HomeScreen>
     );
     _themeProgress = CurvedAnimation(parent: _themeAnim, curve: Curves.easeInOut);
     _loadUserType();
+    // Takoj ob zagonu zahtevaj lokacijo — tiho v ozadju, brez forsiranja filtra
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchLocationSilent();
+    });
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
       if (user == null) {
@@ -171,6 +169,52 @@ class _HomeScreenState extends State<HomeScreen>
         _loadUserType();
       }
     });
+  }
+
+  // ── Tiho pridobi lokacijo ob zagonu (samo prosi za dovoljenje + GPS) ─────
+  Future<void> _fetchLocationSilent() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        // Pokaži sistemski dialog za dovoljenje — to je tisto "kot ostale aplikacije"
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) return;
+
+      // Najprej poskusi hitro zadnjo znano lokacijo (takojšen odziv)
+      Position? lastKnown;
+      try {
+        lastKnown = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+
+      if (lastKnown != null && mounted) {
+        setState(() {
+          _userLat = lastKnown!.latitude;
+          _userLng = lastKnown!.longitude;
+        });
+        _reverseGeocode(lastKnown.latitude, lastKnown.longitude);
+      }
+
+      // Potem pridobi natančno lokacijo
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      if (mounted) {
+        setState(() {
+          _userLat = pos.latitude;
+          _userLng = pos.longitude;
+        });
+        _reverseGeocode(pos.latitude, pos.longitude);
+      }
+    } catch (_) {
+      // Tiho spregledaj napake pri zagonu — uporabnik ni kliknil ničesar
+    }
   }
 
   // ── Prava GPS lokacija korisnika ──────────────────────────────────────────
@@ -385,16 +429,15 @@ class _HomeScreenState extends State<HomeScreen>
   List<FoodOglas> _applyFilters(List<FoodOglas> all) {
     var list = List<FoodOglas>.from(all);
 
-    // Vedno preračunaj razdaljo od prave GPS lokacije, ko jo imamo
-    if (_userLat != null && _userLng != null) {
-      list = list.map((o) {
-        if (o.latLng == null) return o;
-        final dLat = (o.latLng!.lat - _userLat!) * 111.0;
-        final dLng = (o.latLng!.lng - _userLng!) *
-            111.0 * cos(_userLat! * pi / 180);
-        return o.copyWithDistance(sqrt(dLat * dLat + dLng * dLng));
-      }).toList();
-    }
+    // Vedno preračunaj razdaljo — od prave GPS lokacije ali Maribora kot fallback
+    final refLat = _userLat ?? 46.5547;
+    final refLng = _userLng ?? 15.6459;
+    list = list.map((o) {
+      if (o.latLng == null) return o;
+      final dLat = (o.latLng!.lat - refLat) * 111.0;
+      final dLng = (o.latLng!.lng - refLng) * 111.0 * cos(refLat * pi / 180);
+      return o.copyWithDistance(sqrt(dLat * dLat + dLng * dLng));
+    }).toList();
 
     if (_selectedTab != 0) {
       list = list.where((o) => o.category == _tabs[_selectedTab]).toList();
@@ -907,11 +950,12 @@ class _HomeScreenState extends State<HomeScreen>
       animation: _themeProgress,
       builder: (context, _) {
         final t = _themeProgress.value;
-        final bgColor = Color.lerp(Colors.white, Colors.white.withOpacity(0.15), t)!;
-        final iconColor = Color.lerp(kGreenMid, Colors.white70, t)!;
-        final textColor = Color.lerp(kTextDark, Colors.white, t)!;
-        final hintColor = Color.lerp(kTextLight, Colors.white54, t)!;
-        final borderColor = Color.lerp(Colors.transparent, Colors.white.withOpacity(0.3), t)!;
+        // Org mode: bijela pozadina s malo prozirnosti umjesto skoro prozirne
+        final bgColor = Color.lerp(Colors.white, Colors.white.withOpacity(0.92), t)!;
+        final iconColor = Color.lerp(kGreenMid, kGreenMid, t)!;
+        final textColor = Color.lerp(kTextDark, kTextDark, t)!;
+        final hintColor = Color.lerp(kTextLight, kTextLight, t)!;
+        final borderColor = Color.lerp(Colors.transparent, Colors.white.withOpacity(0.6), t)!;
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -1052,6 +1096,8 @@ class _HomeScreenState extends State<HomeScreen>
         HeatmapPreviewCard(onTap: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => HeatmapFullPage(
             onScrollToOglas: _scrollToOglas,
+            userLat: _userLat,
+            userLng: _userLng,
           )))),
       ]),
     );
@@ -1114,11 +1160,11 @@ class _HomeScreenState extends State<HomeScreen>
       animation: _themeProgress,
       builder: (context, _) {
         final t = _themeProgress.value;
-        // Tab aktivni: zeleni → bijeli; neaktivni: bijeli → prozirno bijeli
+        // Tab aktivni: zeleni → bijeli; neaktivni: bijeli → bijeli s vidljivim rubom
         final activeTabBg = Color.lerp(kGreenMid, Colors.white, t)!;
         final activeTabText = Color.lerp(Colors.white, kGreenMid, t)!;
-        final inactiveTabBg = Color.lerp(Colors.white, Colors.white.withOpacity(0.15), t)!;
-        final inactiveTabText = Color.lerp(kTextMid, Colors.white70, t)!;
+        final inactiveTabBg = Color.lerp(Colors.white, Colors.white.withOpacity(0.88), t)!;
+        final inactiveTabText = Color.lerp(kTextMid, kTextMid, t)!;
         final activeShadow = Color.lerp(kGreenMid, Colors.black, t * 0.4)!;
 
         return Padding(
@@ -1230,19 +1276,31 @@ class _HomeScreenState extends State<HomeScreen>
                   blurRadius: 30, offset: const Offset(0, -6)),
             ],
           ),
-          child: NavigationBar(
-            selectedIndex: _navIndex.clamp(0, destinations.length - 1),
-            onDestinationSelected: (i) {
-              if (isGuest && _authRequiredNavIndices().contains(i)) {
-                _showAuthPopup();
-                return;
-              }
-              setState(() => _navIndex = i);
-            },
-            backgroundColor: Colors.transparent, elevation: 0,
-            indicatorColor: navIndicator,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: destinations,
+          child: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                final isSelected = states.contains(WidgetState.selected);
+                return TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? navSelectedIcon : navUnselectedIcon,
+                );
+              }),
+            ),
+            child: NavigationBar(
+              selectedIndex: _navIndex.clamp(0, destinations.length - 1),
+              onDestinationSelected: (i) {
+                if (isGuest && _authRequiredNavIndices().contains(i)) {
+                  _showAuthPopup();
+                  return;
+                }
+                setState(() => _navIndex = i);
+              },
+              backgroundColor: Colors.transparent, elevation: 0,
+              indicatorColor: navIndicator,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: destinations,
+            ),
           ),
         );
       },
@@ -1550,32 +1608,42 @@ class _EmptyState extends StatelessWidget {
 const _kRefLat = 46.5547;
 const _kRefLng = 15.6450;
 // Območje prikaza ±km
-const _kViewKm = 5.0;
+const _kViewKm = 8.0; // Pokriva cijeli Maribor ±8km od centra
 
 // Pretvori geo koordinate v relativne [0,1] pozicije na canvasu
 // HotspotData: (relX, relY, intensity, title, id, description, status)
 typedef HotspotData = (double, double, double, String, String, String, String);
 
-(double rx, double ry) _geoToRelative(double lat, double lng) {
-  final rx = ((lng - _kRefLng) / (_kViewKm / 55.0) + 1.0) / 2.0;
-  final ry = (1.0 - (lat - _kRefLat) / (_kViewKm / 111.0) + 1.0) / 2.0;
-  return (rx.clamp(0.05, 0.95), ry.clamp(0.05, 0.95));
+(double rx, double ry) _geoToRelative(double lat, double lng,
+    {double refLat = _kRefLat, double refLng = _kRefLng}) {
+  // 1 lat degree = 111km; 1 lng degree = 111 * cos(lat) km
+  const kmPerLat = 111.0;
+  final kmPerLng = 111.0 * cos(_kRefLat * pi / 180); // ~76km pri lat 46.5
+  final dxKm = (lng - refLng) * kmPerLng;
+  final dyKm = (lat - refLat) * kmPerLat;
+  // Referenčna točka = centar mape (0.5, 0.5); ±_kViewKm = rub mape
+  final rx = 0.5 + dxKm / (_kViewKm * 2);
+  final ry = 0.5 - dyKm / (_kViewKm * 2); // Y invertiran (lat gore = ekran gore)
+  return (rx.clamp(0.02, 0.98), ry.clamp(0.02, 0.98));
 }
 
 // Fallback točke (prikazane dokler se Firestore ne naloži)
+// Fallback hotspoti razpoređeni oko centra (0.5, 0.5)
 const _kFallbackHs = [
-  (0.35, 0.45, 3.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
-  (0.55, 0.35, 2.5, 'Vzorčni oglas', '', '', 'naRazpolago'),
-  (0.65, 0.55, 4.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
-  (0.45, 0.65, 2.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
-  (0.75, 0.40, 3.5, 'Vzorčni oglas', '', '', 'naRazpolago'),
-  (0.25, 0.55, 2.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.40, 0.45, 3.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.55, 0.40, 2.5, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.60, 0.55, 4.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.45, 0.60, 2.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.65, 0.45, 3.5, 'Vzorčni oglas', '', '', 'naRazpolago'),
+  (0.35, 0.55, 2.0, 'Vzorčni oglas', '', '', 'naRazpolago'),
 ];
 
 // ── Preview kartica (na home screenu) ─────────────────────────────────────────
 class HeatmapPreviewCard extends StatelessWidget {
   final VoidCallback? onTap;
-  const HeatmapPreviewCard({super.key, this.onTap});
+  final double? userLat;
+  final double? userLng;
+  const HeatmapPreviewCard({super.key, this.onTap, this.userLat, this.userLng});
 
   @override
   Widget build(BuildContext context) {
@@ -1596,7 +1664,9 @@ class HeatmapPreviewCard extends StatelessWidget {
                 .where('status', isEqualTo: 'naRazpolago')
                 .snapshots(),
             builder: (_, snap) {
-              final hotspots = _extractHotspots(snap.data?.docs);
+              final refLat = userLat ?? _kRefLat;
+              final refLng = userLng ?? _kRefLng;
+              final hotspots = _extractHotspots(snap.data?.docs, refLat: refLat, refLng: refLng);
               final count = snap.data?.docs.length ?? 0;
               return Stack(fit: StackFit.expand, children: [
                 const _MapBackground(),
@@ -1645,7 +1715,9 @@ class HeatmapPreviewCard extends StatelessWidget {
 // ── Polna stran heatmape ───────────────────────────────────────────────────────
 class HeatmapFullPage extends StatefulWidget {
   final void Function(String oglasId)? onScrollToOglas;
-  const HeatmapFullPage({super.key, this.onScrollToOglas});
+  final double? userLat;
+  final double? userLng;
+  const HeatmapFullPage({super.key, this.onScrollToOglas, this.userLat, this.userLng});
   @override State<HeatmapFullPage> createState() => _HeatmapFullPageState();
 }
 
@@ -1661,6 +1733,50 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> {
   // Fiksna višina bottom panela — ne narašča
   static const _panelCollapsed = 200.0;
   static const _panelExpanded2 = 320.0;
+
+  // Zoom / pan — GestureDetector based
+  double _scale = 1.0;
+  double _prevScale = 1.0;
+  Offset _offset = Offset.zero;
+  Offset _prevOffset = Offset.zero;
+  Offset _focalPointStart = Offset.zero;
+  Size _mapSize = Size.zero;
+
+  static const _minScale = 1.0;
+  static const _maxScale = 5.0;
+
+  double get _currentScale => _scale;
+
+  Offset _clampOffset(Offset o, double s, Size size) {
+    if (size == Size.zero) return Offset.zero;
+    final maxX = size.width * (s - 1);
+    final maxY = size.height * (s - 1);
+    return Offset(
+      o.dx.clamp(-maxX, 0.0),
+      o.dy.clamp(-maxY, 0.0),
+    );
+  }
+
+  void _zoomButton(double factor) {
+    final next = (_scale * factor).clamp(_minScale, _maxScale);
+    if (next == _scale) return;
+    final cx = _mapSize.width / 2;
+    final cy = _mapSize.height / 2;
+    final ratio = next / _scale;
+    final newOffset = Offset(
+      cx - (cx - _offset.dx) * ratio,
+      cy - (cy - _offset.dy) * ratio,
+    );
+    setState(() {
+      _scale = next;
+      _offset = _clampOffset(newOffset, next, _mapSize);
+    });
+  }
+
+  void _resetZoom() => setState(() { _scale = 1.0; _offset = Offset.zero; });
+
+  @override
+  void dispose() { super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -1686,7 +1802,9 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> {
                       _filterValues[_filters.indexOf(_filter)])
                   .toList();
 
-          final hotspots = _extractHotspots(filtered);
+          final hotspots = _extractHotspots(filtered,
+              refLat: widget.userLat ?? _kRefLat,
+              refLng: widget.userLng ?? _kRefLng);
           final activeCount = allDocs
               .where((d) => (d.data() as Map)['status'] == 'naRazpolago')
               .length;
@@ -1815,37 +1933,121 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> {
 
               // ── MAPA (flex — zapolni preostali prostor) ──────────────────
               Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    const _MapBackground(dark: true),
-                    _LiveHeatmapCanvas(
-                      hotspots: hotspots,
-                      preview: false,
-                      showLabels: _showLabels,
-                      selectedId: _selectedHotspot?.$5,
-                      onHotspotTap: (hs) => setState(() =>
-                          _selectedHotspot = _selectedHotspot?.$5 == hs.$5 ? null : hs),
+                child: LayoutBuilder(builder: (_, constraints) {
+                  // Zapamti veličinu mape za zoom/pan računanje
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_mapSize != constraints.biggest) {
+                      _mapSize = constraints.biggest;
+                    }
+                  });
+                  _mapSize = constraints.biggest;
+                  final mapW = constraints.maxWidth;
+                  final mapH = constraints.maxHeight;
+
+                  return GestureDetector(
+                    // Pan
+                    onScaleStart: (d) {
+                      _prevScale = _scale;
+                      _prevOffset = _offset;
+                      _focalPointStart = d.localFocalPoint;
+                    },
+                    onScaleUpdate: (d) {
+                      setState(() {
+                        // Zoom
+                        final newScale = (_prevScale * d.scale).clamp(_minScale, _maxScale);
+                        // Pan — pomakni za razliku focalPointa
+                        final panDelta = d.localFocalPoint - _focalPointStart;
+                        // Focal point u koordinatama scene
+                        final focalScene = (_focalPointStart - _prevOffset) / _prevScale;
+                        final newOffset = d.localFocalPoint - focalScene * newScale;
+                        _scale = newScale;
+                        _offset = _clampOffset(newOffset, newScale, Size(mapW, mapH));
+                      });
+                    },
+                    onScaleEnd: (_) {
+                      _prevScale = _scale;
+                      _prevOffset = _offset;
+                    },
+                    // Tap na prazan prostor → dismiss popup
+                    onTap: _selectedHotspot != null
+                        ? () => setState(() => _selectedHotspot = null)
+                        : null,
+                    child: ClipRect(
+                      child: Stack(
+                        children: [
+                          // Transformirana mapa
+                          Transform(
+                            transform: Matrix4.identity()
+                              ..translate(_offset.dx, _offset.dy)
+                              ..scale(_scale),
+                            child: SizedBox(
+                              width: mapW,
+                              height: mapH,
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Pozadina
+                                  Builder(builder: (_) {
+                                    double? uRelX, uRelY;
+                                    if (widget.userLat != null && widget.userLng != null) {
+                                      uRelX = 0.5; uRelY = 0.5;
+                                    }
+                                    return _MapBackground(dark: true, userRelX: uRelX, userRelY: uRelY);
+                                  }),
+                                  // Heatmap canvas + tap točke
+                                  _LiveHeatmapCanvas(
+                                    hotspots: hotspots,
+                                    preview: false,
+                                    showLabels: _showLabels,
+                                    selectedId: _selectedHotspot?.$5,
+                                    scale: _scale,
+                                    onHotspotTap: (hs) => setState(() =>
+                                        _selectedHotspot = _selectedHotspot?.$5 == hs.$5 ? null : hs),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Zoom gumbi (ne transformiraju se)
+                          Positioned(
+                            right: 12,
+                            top: 12,
+                            child: Column(children: [
+                              _ZoomButton(
+                                icon: Icons.add_rounded,
+                                onTap: () => _zoomButton(1.4),
+                                enabled: _scale < _maxScale - 0.05,
+                              ),
+                              const SizedBox(height: 6),
+                              _ZoomButton(
+                                icon: Icons.remove_rounded,
+                                onTap: () => _zoomButton(1 / 1.4),
+                                enabled: _scale > _minScale + 0.05,
+                              ),
+                              const SizedBox(height: 6),
+                              _ZoomButton(
+                                icon: Icons.center_focus_strong_rounded,
+                                onTap: _resetZoom,
+                                enabled: _scale > _minScale + 0.05,
+                              ),
+                            ]),
+                          ),
+
+                          // Mini popup — izvan transformacije, uvijek pri dnu
+                          if (_selectedHotspot != null)
+                            _HotspotPopup(
+                              hotspot: _selectedHotspot!,
+                              onClose: () => setState(() => _selectedHotspot = null),
+                              onDetails: widget.onScrollToOglas != null
+                                  ? () => widget.onScrollToOglas!(_selectedHotspot!.$5)
+                                  : null,
+                            ),
+                        ],
+                      ),
                     ),
-                    // Tap outside → dismiss popup
-                    if (_selectedHotspot != null)
-                      Positioned.fill(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTap: () => setState(() => _selectedHotspot = null),
-                        ),
-                      ),
-                    // Mini popup
-                    if (_selectedHotspot != null)
-                      _HotspotPopup(
-                        hotspot: _selectedHotspot!,
-                        onClose: () => setState(() => _selectedHotspot = null),
-                        onDetails: widget.onScrollToOglas != null
-                            ? () => widget.onScrollToOglas!(_selectedHotspot!.$5)
-                            : null,
-                      ),
-                  ],
-                ),
+                  );
+                }),
               ),
 
               // ── BOTTOM PANEL (fiksna višina, ne overlaya) ────────────────
@@ -1950,6 +2152,7 @@ class _LiveHeatmapCanvas extends StatefulWidget {
   final bool showLabels;
   final String? selectedId;
   final void Function(HotspotData)? onHotspotTap;
+  final double scale;
 
   const _LiveHeatmapCanvas({
     required this.hotspots,
@@ -1957,6 +2160,7 @@ class _LiveHeatmapCanvas extends StatefulWidget {
     this.showLabels = false,
     this.selectedId,
     this.onHotspotTap,
+    this.scale = 1.0,
   });
 
   @override
@@ -2025,7 +2229,9 @@ class _LiveHeatmapCanvasState extends State<_LiveHeatmapCanvas>
     final cx = hs.$1 * w;
     final cy = hs.$2 * h;
     final isSelected = widget.selectedId == hs.$5;
-    const hitSize = 36.0;
+    // Scale the hit area inversely with zoom so it stays easy to tap
+    final scale = widget.scale;
+    final hitSize = (36.0 / scale).clamp(24.0, 48.0);
     return Positioned(
       left: cx - hitSize / 2,
       top: cy - hitSize / 2,
@@ -2145,7 +2351,8 @@ class _LiveHeatmapPainter extends CustomPainter {
 
 // ── Helper: iz Firestore docs izvuci hotspots ──────────────────────────────────
 List<HotspotData> _extractHotspots(
-    List<QueryDocumentSnapshot>? docs) {
+    List<QueryDocumentSnapshot>? docs,
+    {double refLat = _kRefLat, double refLng = _kRefLng}) {
   if (docs == null || docs.isEmpty) return [];
   final result = <HotspotData>[];
   for (final doc in docs) {
@@ -2156,7 +2363,7 @@ List<HotspotData> _extractHotspots(
     final description = d['description'] as String? ?? '';
     final status = d['status'] as String? ?? 'naRazpolago';
     if (lat == null || lng == null) continue;
-    final (rx, ry) = _geoToRelative(lat, lng);
+    final (rx, ry) = _geoToRelative(lat, lng, refLat: refLat, refLng: refLng);
     // Intenzitet ovisi o statusu: prosti = 3, rezervirani = 2, prevzeti = 1
     final intensity = status == 'naRazpolago'
         ? 3.0
@@ -2171,11 +2378,13 @@ List<HotspotData> _extractHotspots(
 // ── Pozadinska mapa (grid + ceste) ────────────────────────────────────────────
 class _MapBackground extends StatelessWidget {
   final bool dark;
-  const _MapBackground({this.dark = false});
+  final double? userRelX; // relativna pozicija korisnika [0,1]
+  final double? userRelY;
+  const _MapBackground({this.dark = false, this.userRelX, this.userRelY});
 
   @override
   Widget build(BuildContext context) => CustomPaint(
-        painter: _MapGridPainter(dark: dark),
+        painter: _MapGridPainter(dark: dark, userRelX: userRelX, userRelY: userRelY),
         child: Container(
             color: dark ? const Color(0xFF0F2318) : const Color(0xFF1A3A2A)),
       );
@@ -2183,7 +2392,9 @@ class _MapBackground extends StatelessWidget {
 
 class _MapGridPainter extends CustomPainter {
   final bool dark;
-  const _MapGridPainter({this.dark = false});
+  final double? userRelX;
+  final double? userRelY;
+  const _MapGridPainter({this.dark = false, this.userRelX, this.userRelY});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2199,48 +2410,64 @@ class _MapGridPainter extends CustomPainter {
     for (double x = 0; x < size.width; x += step)
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gp);
 
-    // Glavne ceste Maribora (stilizovano)
+    // Glavne ceste Maribora — prilagođeno novoj projekciji (center=0.5,0.5)
+    // Drava teče W→E kroz centar (~y=0.52), Partizanska je glavna H cesta (~y=0.48)
     final rp = Paint()
       ..color = roadColor
-      ..strokeWidth = dark ? 5.0 : 3.0
+      ..strokeWidth = dark ? 4.5 : 3.0
       ..strokeCap = StrokeCap.round;
 
-    // Horizontalne ceste
+    // Partizanska / Koroška (glavna H os kroz centar)
     canvas.drawLine(
-        Offset(0, size.height * 0.45), Offset(size.width, size.height * 0.45), rp);
+        Offset(0, size.height * 0.48), Offset(size.width, size.height * 0.48), rp);
+    // Tyrševa / Ob Dravi (vzporedna sjeverno)
     canvas.drawLine(
-        Offset(0, size.height * 0.65), Offset(size.width, size.height * 0.65), rp);
+        Offset(0, size.height * 0.38), Offset(size.width * 0.75, size.height * 0.38), rp);
+    // Cesta Pobrežje (južno)
     canvas.drawLine(
-        Offset(0, size.height * 0.28), Offset(size.width * 0.7, size.height * 0.28), rp);
+        Offset(0, size.height * 0.62), Offset(size.width, size.height * 0.62), rp);
 
-    // Vertikalne ceste
+    // Ul. heroja Staneta / Gosposvetska (V os — malo lijevo od centra)
     canvas.drawLine(
-        Offset(size.width * 0.35, 0), Offset(size.width * 0.35, size.height), rp);
+        Offset(size.width * 0.46, 0), Offset(size.width * 0.46, size.height), rp);
+    // Ul. Vita Kraigherja (V os desno)
     canvas.drawLine(
-        Offset(size.width * 0.62, 0), Offset(size.width * 0.62, size.height), rp);
+        Offset(size.width * 0.58, 0), Offset(size.width * 0.58, size.height), rp);
+    // Cesta prema Limbuš (Z rub)
     canvas.drawLine(
-        Offset(size.width * 0.80, size.height * 0.2),
-        Offset(size.width * 0.80, size.height * 0.8), rp);
+        Offset(size.width * 0.25, size.height * 0.3),
+        Offset(size.width * 0.25, size.height * 0.75), rp);
+    // Cesta prema Ruše (I rub)
+    canvas.drawLine(
+        Offset(size.width * 0.78, size.height * 0.25),
+        Offset(size.width * 0.78, size.height * 0.75), rp);
 
-    // Reka Drava (ukrivljena linija)
+    // Reka Drava — teče W→E malo ispod centra (~y=0.52-0.54)
     final riverP = Paint()
-      ..color = const Color(0xFF1565C0).withOpacity(0.4)
-      ..strokeWidth = dark ? 8.0 : 5.0
+      ..color = const Color(0xFF1565C0).withOpacity(0.45)
+      ..strokeWidth = dark ? 9.0 : 6.0
       ..strokeCap = StrokeCap.round;
-    final path = Path()
-      ..moveTo(0, size.height * 0.55)
-      ..cubicTo(size.width * 0.25, size.height * 0.52, size.width * 0.5,
-          size.height * 0.58, size.width * 0.75, size.height * 0.54)
-      ..cubicTo(size.width * 0.88, size.height * 0.52, size.width,
-          size.height * 0.56, size.width, size.height * 0.56);
-    canvas.drawPath(path, riverP);
+    final riverPath = Path()
+      ..moveTo(0, size.height * 0.54)
+      ..cubicTo(
+          size.width * 0.20, size.height * 0.52,
+          size.width * 0.40, size.height * 0.55,
+          size.width * 0.55, size.height * 0.53)
+      ..cubicTo(
+          size.width * 0.70, size.height * 0.51,
+          size.width * 0.85, size.height * 0.54,
+          size.width,        size.height * 0.53);
+    canvas.drawPath(riverPath, riverP);
 
-    // Moj pin (center, lokacija korisnika)
-    final myX = size.width * 0.35;
-    final myY = size.height * 0.45;
+    // Moj pin — prava GPS pozicija korisnika ali center mape
+    final myX = (userRelX != null) ? userRelX! * size.width : size.width * 0.5;
+    final myY = (userRelY != null) ? userRelY! * size.height : size.height * 0.5;
     canvas.drawCircle(
-        Offset(myX, myY), 10,
-        Paint()..color = const Color(0xFF2196F3).withOpacity(0.2));
+        Offset(myX, myY), 14,
+        Paint()..color = const Color(0xFF2196F3).withOpacity(0.18));
+    canvas.drawCircle(
+        Offset(myX, myY), 8,
+        Paint()..color = const Color(0xFF2196F3).withOpacity(0.35));
     canvas.drawCircle(
         Offset(myX, myY), 6,
         Paint()..color = Colors.white);
@@ -2250,7 +2477,8 @@ class _MapGridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_) => false;
+  bool shouldRepaint(_MapGridPainter o) =>
+      o.userRelX != userRelX || o.userRelY != userRelY || o.dark != dark;
 }
 
 // ── Mini popup za klik na heatmap točku ──────────────────────────────────────
@@ -2436,4 +2664,40 @@ class _LegendDot extends StatelessWidget {
     const SizedBox(width: 5),
     Text(label, style: kCaption),
   ]);
+}
+
+// ── Zoom gumb za heatmap ──────────────────────────────────────────────────────
+class _ZoomButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool enabled;
+  const _ZoomButton({required this.icon, required this.onTap, this.enabled = true});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: enabled
+              ? Colors.white.withOpacity(0.18)
+              : Colors.white.withOpacity(0.07),
+          borderRadius: kRadius12,
+          border: Border.all(
+              color: Colors.white.withOpacity(enabled ? 0.35 : 0.15)),
+          boxShadow: enabled
+              ? [BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2))]
+              : [],
+        ),
+        child: Icon(icon,
+            color: enabled ? Colors.white : Colors.white38, size: 18),
+      ),
+    );
+  }
 }

@@ -528,13 +528,42 @@ class _ProfilePageState extends State<ProfilePage>
             .where((d) => (d.data() as Map)['status'] == 'rezervirano')
             .length;
 
+        // Izračunaj grame in CO₂ iz vseh prevzetih objav organizacije
+        int totalGrams = 0;
+        int totalPorcij = 0;
+        final Map<String, int> gramsPerCat = {
+          'Kuhano': 350, 'Peka': 200, 'Sadje & zelenjava': 500,
+          'Sestavine': 400, 'Ostalo': 300,
+        };
+        for (final doc in arhiv) {
+          final d = doc.data() as Map<String, dynamic>;
+          final cat = d['category'] as String? ?? 'Ostalo';
+          final portions = (d['portions'] as num?)?.toInt() ?? 1;
+          final gramsPerUnit = gramsPerCat[cat] ?? 300;
+          totalGrams += gramsPerUnit * portions;
+          totalPorcij += portions;
+        }
+        final co2Kg = (totalGrams / 1000) * 2.5;
+
+        // Trend: objave v zadnjih 7 dneh
+        final now7 = DateTime.now();
+        final thisWeek = allDocs.where((d) {
+          final ts = (d.data() as Map)['createdAt'] as Timestamp?;
+          if (ts == null) return false;
+          return now7.difference(ts.toDate()).inDays <= 7;
+        }).length;
+
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
           children: [
-            _DavateljStatsRow(
+            _DavateljAnalyticsSection(
               totalObjav: totalObjav,
               prevzetih: steviloPrevzetih,
               rezerviranih: steviloRezerviranih,
+              totalGrams: totalGrams,
+              totalPorcij: totalPorcij,
+              co2Kg: co2Kg,
+              thisWeek: thisWeek,
             ),
             const SizedBox(height: 20),
             Row(children: [
@@ -838,9 +867,37 @@ class _ProfilePageState extends State<ProfilePage>
   }
 }
 
-// ─── UPORABNIK STATS ROW ───────────────────────────────────────────────────
-// Prikazuje analitiko za navadnega uporabnika (koliko rezervirano / prevzeto)
+// ─── HELPER FUNKCIJE ZA ANALITIKO ────────────────────────────────────────
+int _gramsForCategoryA(String cat, int portions) {
+  const Map<String, int> gramsPerUnit = {
+    'Kuhano': 350, 'Peka': 200, 'Sadje & zelenjava': 500,
+    'Sestavine': 400, 'Ostalo': 300,
+  };
+  return (gramsPerUnit[cat] ?? 300) * portions;
+}
 
+double _co2SavedA(int totalGrams) => (totalGrams / 1000) * 2.5;
+
+int _computeStreakA(List<DateTime> dates) {
+  if (dates.isEmpty) return 0;
+  final sorted = [...dates]..sort((a, b) => b.compareTo(a));
+  int streak = 0;
+  DateTime cursor = DateTime.now();
+  for (final d in sorted) {
+    final dayOnly = DateTime(d.year, d.month, d.day);
+    final cursorDay = DateTime(cursor.year, cursor.month, cursor.day);
+    final diff = cursorDay.difference(dayOnly).inDays;
+    if (diff <= 1) {
+      streak++;
+      cursor = dayOnly;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// ─── UPORABNIK STATS ROW ─────────────────────────────────────────────────────
 class _UporabnikStatsRow extends StatelessWidget {
   final String uid;
   const _UporabnikStatsRow({required this.uid});
@@ -854,196 +911,246 @@ class _UporabnikStatsRow extends StatelessWidget {
           .snapshots(),
       builder: (context, snap) {
         final docs = snap.data?.docs ?? [];
-        final rezervirano =
-            docs.where((d) => (d.data() as Map)['status'] == 'rezervirano').length;
-        final prevzeto =
-            docs.where((d) => (d.data() as Map)['status'] == 'prevzeto').length;
-        final skupaj = docs.length;
+        final prevzetoDocs = docs.where((d) => (d.data() as Map)['status'] == 'prevzeto').toList();
+        final rezerviranoDocs = docs.where((d) => (d.data() as Map)['status'] == 'rezervirano').toList();
+
+        int totalGrams = 0;
+        int totalPorcij = 0;
+        final prevzetoDates = <DateTime>[];
+
+        for (final doc in prevzetoDocs) {
+          final d = doc.data() as Map<String, dynamic>;
+          final cat = d['category'] as String? ?? 'Ostalo';
+          final portions = (d['portions'] as num?)?.toInt() ?? 1;
+          totalGrams += _gramsForCategoryA(cat, portions);
+          totalPorcij += portions;
+          final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
+          if (createdAt != null) prevzetoDates.add(createdAt);
+        }
+
+        final co2 = _co2SavedA(totalGrams);
+        final streak = _computeStreakA(prevzetoDates);
+
+        final gramsLabel = totalGrams >= 1000
+            ? '${(totalGrams / 1000).toStringAsFixed(1)} kg'
+            : '${totalGrams} g';
+        final co2Label = co2 >= 1
+            ? '${co2.toStringAsFixed(1)} kg'
+            : '${(co2 * 1000).toStringAsFixed(0)} g';
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-          child: Row(children: [
-            Expanded(
-              child: _MiniStat(
-                value: '$skupaj',
-                label: 'Skupaj',
-                icon: Icons.history_rounded,
-                color: const Color(0xFF5C6BC0),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(children: [
+                  Container(width: 4, height: 16,
+                      decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull)),
+                  const SizedBox(width: 8),
+                  const Text('Vaša analitika', style: kHeading3),
+                ]),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _MiniStat(
-                value: '$rezervirano',
-                label: 'Rezervirano',
-                icon: Icons.bookmark_rounded,
-                color: kOrange,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _MiniStat(
-                value: '$prevzeto',
-                label: 'Prevzeto',
-                icon: Icons.check_circle_rounded,
-                color: kGreenMid,
-              ),
-            ),
-          ]),
+              Row(children: [
+                Expanded(child: _AnalyticCard(
+                  value: gramsLabel,
+                  label: 'Hrane rešeno',
+                  icon: Icons.scale_rounded,
+                  color: kGreenMid,
+                  subtitle: '${prevzetoDocs.length} obrokov prevzeto',
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: _AnalyticCard(
+                  value: co2Label,
+                  label: 'CO₂ prihranek',
+                  icon: Icons.eco_rounded,
+                  color: const Color(0xFF00897B),
+                  subtitle: 'prihranjenega CO₂',
+                )),
+              ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: _AnalyticCard(
+                  value: '$totalPorcij',
+                  label: 'Skupaj porcij',
+                  icon: Icons.restaurant_rounded,
+                  color: const Color(0xFF5C6BC0),
+                  subtitle: 'skupaj porcij',
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: _AnalyticCard(
+                  value: '$streak',
+                  label: 'Dnevi zapored',
+                  icon: Icons.local_fire_department_rounded,
+                  color: const Color(0xFFE53935),
+                  subtitle: streak > 0 ? 'aktivni streak! 🔥' : 'začni danes',
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: _AnalyticCard(
+                  value: '${rezerviranoDocs.length}',
+                  label: 'Čaka prevzem',
+                  icon: Icons.bookmark_rounded,
+                  color: kOrange,
+                  subtitle: 'aktivnih rezervacij',
+                )),
+              ]),
+            ],
+          ),
         );
       },
     );
   }
 }
 
-class _MiniStat extends StatelessWidget {
+class _AnalyticCard extends StatelessWidget {
   final String value;
   final String label;
+  final String subtitle;
   final IconData icon;
   final Color color;
 
-  const _MiniStat({
+  const _AnalyticCard({
     required this.value,
     required this.label,
     required this.icon,
     required this.color,
+    required this.subtitle,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: kRadius12,
-        boxShadow: kCardShadow,
-        border: Border.all(color: color.withOpacity(0.12)),
-      ),
-      child: Row(children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: kRadius8,
-          ),
-          child: Icon(icon, size: 17, color: color),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: color,
-                      height: 1)),
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 10,
-                      color: kTextMid,
-                      fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ),
-      ]),
-    );
-  }
-}
-
-// ─── DAVATELJ STATS ROW ────────────────────────────────────────────────────
-
-class _DavateljStatsRow extends StatelessWidget {
-  final int totalObjav;
-  final int prevzetih;
-  final int rezerviranih;
-
-  const _DavateljStatsRow({
-    required this.totalObjav,
-    required this.prevzetih,
-    required this.rezerviranih,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      Expanded(
-          child: _StatBox(
-        value: '$totalObjav',
-        label: 'Skupaj objav',
-        icon: Icons.storefront_rounded,
-        color: kGreenMid,
-      )),
-      const SizedBox(width: 10),
-      Expanded(
-          child: _StatBox(
-        value: '$rezerviranih',
-        label: 'Rezervirano',
-        icon: Icons.bookmark_rounded,
-        color: const Color(0xFFFF6F00),
-      )),
-      const SizedBox(width: 10),
-      Expanded(
-          child: _StatBox(
-        value: '$prevzetih',
-        label: 'Prevzeto',
-        icon: Icons.check_circle_rounded,
-        color: const Color(0xFF1565C0),
-      )),
-    ]);
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String value;
-  final String label;
-  final IconData icon;
-  final Color color;
-
-  const _StatBox({
-    required this.value,
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: kRadius12,
         boxShadow: kCardShadow,
         border: Border.all(color: color.withOpacity(0.15)),
       ),
-      child: Column(children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: kRadius8,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: kRadius8,
+            ),
+            child: Icon(icon, size: 16, color: color),
           ),
-          child: Icon(icon, size: 19, color: color),
+          const SizedBox(height: 8),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w900, color: color, height: 1)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextDark)),
+          const SizedBox(height: 1),
+          Text(subtitle,
+              style: const TextStyle(fontSize: 10, color: kTextLight),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ─── DAVATELJ ANALYTICS SECTION ──────────────────────────────────────────────
+
+class _DavateljAnalyticsSection extends StatelessWidget {
+  final int totalObjav;
+  final int prevzetih;
+  final int rezerviranih;
+  final int totalGrams;
+  final int totalPorcij;
+  final double co2Kg;
+  final int thisWeek;
+
+  const _DavateljAnalyticsSection({
+    required this.totalObjav,
+    required this.prevzetih,
+    required this.rezerviranih,
+    required this.totalGrams,
+    required this.totalPorcij,
+    required this.co2Kg,
+    required this.thisWeek,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final gramsLabel = totalGrams >= 1000
+        ? '${(totalGrams / 1000).toStringAsFixed(1)} kg'
+        : '${totalGrams} g';
+    final co2Label = co2Kg >= 1
+        ? '${co2Kg.toStringAsFixed(1)} kg'
+        : '${(co2Kg * 1000).toStringAsFixed(0)} g';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(children: [
+            Container(width: 4, height: 16,
+                decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull)),
+            const SizedBox(width: 8),
+            const Text('Analitika organizacije', style: kHeading3),
+          ]),
         ),
-        const SizedBox(height: 8),
-        Text(value,
-            style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: color)),
-        const SizedBox(height: 2),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 11,
-                color: kTextMid,
-                fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center),
-      ]),
+        Row(children: [
+          Expanded(child: _AnalyticCard(
+            value: '$totalObjav',
+            label: 'Skupaj objav',
+            icon: Icons.storefront_rounded,
+            color: kGreenMid,
+            subtitle: '$thisWeek ta teden',
+          )),
+          const SizedBox(width: 10),
+          Expanded(child: _AnalyticCard(
+            value: '$rezerviranih',
+            label: 'Rezervirano',
+            icon: Icons.bookmark_rounded,
+            color: const Color(0xFFFF6F00),
+            subtitle: 'čaka prevzem',
+          )),
+          const SizedBox(width: 10),
+          Expanded(child: _AnalyticCard(
+            value: '$prevzetih',
+            label: 'Prevzeto',
+            icon: Icons.check_circle_rounded,
+            color: const Color(0xFF1565C0),
+            subtitle: 'uspešnih dostav',
+          )),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: _AnalyticCard(
+            value: gramsLabel,
+            label: 'Hrane rešeno',
+            icon: Icons.scale_rounded,
+            color: const Color(0xFF2E7D32),
+            subtitle: 'skupaj rešene hrane',
+          )),
+          const SizedBox(width: 10),
+          Expanded(child: _AnalyticCard(
+            value: '$totalPorcij',
+            label: 'Porcij oddano',
+            icon: Icons.restaurant_rounded,
+            color: const Color(0xFF5C6BC0),
+            subtitle: 'skupaj porcij',
+          )),
+          const SizedBox(width: 10),
+          Expanded(child: _AnalyticCard(
+            value: co2Label,
+            label: 'CO₂ prihranek',
+            icon: Icons.eco_rounded,
+            color: const Color(0xFF00897B),
+            subtitle: 'skupaj prihranjenega',
+          )),
+        ]),
+      ],
     );
   }
 }

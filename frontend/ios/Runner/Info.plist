@@ -72,5 +72,9 @@
 	  <array>
 		<string>https</string>
 	  </array>
+
+	  <key>NSLocationWhenInUseUsageDescription</key>
+      <string>Aplikacija potrebuje lokacijo za prikaz bližnjih oglasov.</string>
+
 </dict>
 </plist>
