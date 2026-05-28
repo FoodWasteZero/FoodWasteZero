@@ -126,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen>
   int _navIndex = 0;
   String _searchQuery = '';
   String? _activeFilter;
-  String _mesto = 'Maribor';
+  String _mesto = 'Lokacija...';
   final TextEditingController _searchCtrl = TextEditingController();
   StreamSubscription<User?>? _authSub;
 
@@ -294,41 +294,34 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // ── Reverse geocoding: koordinate → ime ulice/sela ────────────────────────
+  // ── Reverse geocoding: koordinate → ime grada ────────────────────────────
   Future<void> _reverseGeocode(double lat, double lng) async {
     try {
       final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
         'lat': lat.toString(),
         'lon': lng.toString(),
         'format': 'json',
-        'zoom': '16', // nivo ulice
+        'zoom': '10', // nivo grada
         'addressdetails': '1',
       });
       final resp = await http.get(uri, headers: {
         'User-Agent': 'PraktikumApp/1.0 (flutter)',
         'Accept-Language': 'sl,en',
-      }).timeout(const Duration(seconds: 5));
+      }).timeout(const Duration(seconds: 6));
 
       if (resp.statusCode != 200) return;
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final address = data['address'] as Map<String, dynamic>?;
       if (address == null || !mounted) return;
 
-      // Pokušaj dobiti: ulica + kućni broj, pa naselje/četvrt, pa grad
-      final road = address['road'] as String?;
-      final houseNumber = address['house_number'] as String?;
-      final suburb = address['suburb'] as String?;
-      final neighbourhood = address['neighbourhood'] as String?;
-      final village = address['village'] as String?;
-      final town = address['town'] as String?;
-      final city = address['city'] as String?;
-
-      String label;
-      if (road != null) {
-        label = houseNumber != null ? '$road $houseNumber' : road;
-      } else {
-        label = suburb ?? neighbourhood ?? village ?? town ?? city ?? _mesto;
-      }
+      // Prioritet: city → town → village → municipality → county
+      final label =
+          (address['city'] as String?) ??
+          (address['town'] as String?) ??
+          (address['village'] as String?) ??
+          (address['municipality'] as String?) ??
+          (address['county'] as String?) ??
+          _mesto;
 
       if (mounted) setState(() => _mesto = label);
     } catch (_) {
@@ -1775,8 +1768,145 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> {
 
   void _resetZoom() => setState(() { _scale = 1.0; _offset = Offset.zero; });
 
+  // Centrira mapu na korisnikovu GPS lokaciju s blagim zoom-om
+  // Polling timer — kad korisnik uključi GPS čekamo i primamo lokaciju
+  Timer? _locationPollTimer;
+
+  Future<void> _centerOnUser() async {
+    // Provjeri je li GPS uopće dostupan na uređaju
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (!mounted) return;
+      _showLocationAlert();
+      return;
+    }
+
+    // Provjeri dozvolu
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (!mounted) return;
+      _showLocationAlert();
+      return;
+    }
+
+    // Ima dozvolu ali možda još nema koordinata u widgetu — uzmi direktno
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (!mounted) return;
+      // Obavijesti parenta da ažurira koordinate (ako je moguće)
+      // i odmah centriraj na dobivenu poziciju
+      _doCenterOnPos(pos.latitude, pos.longitude);
+    } catch (_) {
+      // Fallback na widget.userLat ako getCurrentPosition ne uspije
+      if (widget.userLat != null && mounted) {
+        _doCenterOnPos(widget.userLat!, widget.userLng!);
+      }
+    }
+  }
+
+  void _doCenterOnPos(double lat, double lng) {
+    if (_mapSize == Size.zero) return;
+    // Izračunaj relativnu poziciju korisnika na mapi
+    final refLat = widget.userLat ?? _kRefLat;
+    final refLng = widget.userLng ?? _kRefLng;
+    final (rx, ry) = _geoToRelative(lat, lng, refLat: refLat, refLng: refLng);
+    const targetScale = 2.5;
+    // Pomakni mapu tako da je korisnikov pin na centru ekrana
+    final offsetX = _mapSize.width  * (0.5 - rx) * targetScale;
+    final offsetY = _mapSize.height * (0.5 - ry) * targetScale;
+    setState(() {
+      _scale = targetScale;
+      _offset = _clampOffset(Offset(offsetX, offsetY), targetScale, _mapSize);
+    });
+  }
+
+  void _showLocationAlert() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A3A28),
+        shape: RoundedRectangleBorder(borderRadius: kRadius16),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2196F3).withOpacity(0.15),
+              borderRadius: kRadius12,
+            ),
+            child: const Icon(Icons.location_off_rounded,
+                color: Color(0xFF2196F3), size: 22),
+          ),
+          const SizedBox(width: 12),
+          const Text('Lokacija izključena',
+              style: TextStyle(color: Colors.white,
+                  fontSize: 16, fontWeight: FontWeight.w700)),
+        ]),
+        content: const Text(
+          'Prosim vključi lokacijo v nastavitvah naprave, nato se vrni v aplikacijo.',
+          style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Prekliči',
+                style: TextStyle(color: Colors.white.withOpacity(0.5))),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _startLocationPolling();
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFF2196F3).withOpacity(0.15),
+              shape: RoundedRectangleBorder(borderRadius: kRadius12),
+            ),
+            child: const Text('Vključil sem',
+                style: TextStyle(color: Color(0xFF2196F3),
+                    fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Polira GPS svakih 2s čim korisnik kaže da je uključio
+  void _startLocationPolling() {
+    _locationPollTimer?.cancel();
+    _locationPollTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) return;
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        _locationPollTimer?.cancel();
+        _locationPollTimer = null;
+        if (!mounted) return;
+        // Trigger rebuild s novom lokacijom pa centriraj
+        setState(() {});
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (mounted) _doCenterOnPos(pos.latitude, pos.longitude);
+      } catch (_) {}
+    });
+  }
+
   @override
-  void dispose() { super.dispose(); }
+  void dispose() {
+    _locationPollTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2030,6 +2160,14 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> {
                                 icon: Icons.center_focus_strong_rounded,
                                 onTap: _resetZoom,
                                 enabled: _scale > _minScale + 0.05,
+                              ),
+                              const SizedBox(height: 6),
+                              // 4. gumb — moja lokacija (plava boja)
+                              _ZoomButton(
+                                icon: Icons.my_location_rounded,
+                                onTap: () => _centerOnUser(),
+                                enabled: true, // uvijek klikabilan — prikaže alert ako GPS isključen
+                                activeColor: const Color(0xFF2196F3),
                               ),
                             ]),
                           ),
@@ -2669,12 +2807,20 @@ class _LegendDot extends StatelessWidget {
 // ── Zoom gumb za heatmap ──────────────────────────────────────────────────────
 class _ZoomButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool enabled;
-  const _ZoomButton({required this.icon, required this.onTap, this.enabled = true});
+  final Color? activeColor; // null = bijeli stil, boja = obojeni stil (npr. plavi za lokaciju)
+
+  const _ZoomButton({
+    required this.icon,
+    required this.onTap,
+    this.enabled = true,
+    this.activeColor,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isColored = activeColor != null && enabled;
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: AnimatedContainer(
@@ -2682,21 +2828,32 @@ class _ZoomButton extends StatelessWidget {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: enabled
-              ? Colors.white.withOpacity(0.18)
-              : Colors.white.withOpacity(0.07),
+          color: isColored
+              ? activeColor!.withOpacity(0.25)
+              : enabled
+                  ? Colors.white.withOpacity(0.18)
+                  : Colors.white.withOpacity(0.07),
           borderRadius: kRadius12,
           border: Border.all(
-              color: Colors.white.withOpacity(enabled ? 0.35 : 0.15)),
+            color: isColored
+                ? activeColor!.withOpacity(0.7)
+                : Colors.white.withOpacity(enabled ? 0.35 : 0.15),
+            width: isColored ? 1.5 : 1.0,
+          ),
           boxShadow: enabled
               ? [BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: (isColored ? activeColor! : Colors.black).withOpacity(0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2))]
               : [],
         ),
-        child: Icon(icon,
-            color: enabled ? Colors.white : Colors.white38, size: 18),
+        child: Icon(
+          icon,
+          color: isColored
+              ? activeColor
+              : enabled ? Colors.white : Colors.white38,
+          size: 18,
+        ),
       ),
     );
   }
