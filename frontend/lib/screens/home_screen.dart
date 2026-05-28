@@ -96,6 +96,7 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     waitlist: waitlist,
     portions: (d['portions'] as num?)?.toInt(),
     remainingPortions: (d['remainingPortions'] as num?)?.toInt(),
+    reservedPortions: (d['reservedPortions'] as num?)?.toInt(),
     price: (d['price'] as num?)?.toDouble(),
     isDavatelj: d['isDavatelj'] as bool? ?? false,
   );

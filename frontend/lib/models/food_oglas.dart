@@ -36,10 +36,11 @@ class FoodOglas {
   final DateTime? offerExpiresAt;
   final String? offerToken;
   final List<String> waitlist;
-  final int? portions;          // NOVO: skupno število porcij
-  final int? remainingPortions; // NOVO: preostale porcije
-  final double? price;          // NOVO: cena (0 ali null = brezplačno)
-  final bool isDavatelj;        // NOVO: true = oglas od organizacije
+  final int? portions;          
+  final int? remainingPortions; 
+  final double? price;          
+  final bool isDavatelj;       
+  final int? reservedPortions;
 
   const FoodOglas({
     required this.id,
@@ -73,6 +74,7 @@ class FoodOglas {
     this.remainingPortions,
     this.price,
     this.isDavatelj = false,
+    this.reservedPortions,
   });
 
   FoodOglas copyWithDistance(double km) => FoodOglas(
@@ -87,6 +89,7 @@ class FoodOglas {
     offerToken: offerToken, waitlist: waitlist,
     portions: portions, remainingPortions: remainingPortions,
     price: price, isDavatelj: isDavatelj,
+    reservedPortions: reservedPortions,
   );
 }
 

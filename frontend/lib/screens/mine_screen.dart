@@ -1022,7 +1022,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
       ),
       body: SafeArea(
         top: false,
-        bottom: false,
+        bottom: true,
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
               24, 20, 24,
@@ -1217,10 +1217,21 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
               ),
               const SizedBox(height: 12),
 
+                // Število porcij
+              _OglasFormField(
+                ctrl: _portionsCtrl,
+                label: 'Število porcij',
+                hint: 'npr. 3',
+                icon: Icons.people_outline_rounded,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+              const SizedBox(height: 16),
+
               // Grami (obvezno)
               _OglasFormField(
                 ctrl: _gramsCtrl,
-                label: 'Količina v gramih *',
+                label: 'Porcija po __ gramov *',
                 hint: 'npr. 500',
                 icon: Icons.monitor_weight_outlined,
                 hasError: _gramsError,
@@ -1242,23 +1253,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 ),
               const SizedBox(height: 12),
 
-              // Število porcij
-              _OglasFormField(
-                ctrl: _portionsCtrl,
-                label: 'Število porcij',
-                hint: 'npr. 3',
-                icon: Icons.people_outline_rounded,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 6, left: 2),
-                child: Text(
-                  'Koliko oseb lahko prevzame ta oglas? Vsaka rezervira svojo porcijo.',
-                  style: kCaption.copyWith(color: kTextLight, fontSize: 12),
-                ),
-              ),
-              const SizedBox(height: 16),
+            
 
               // ── Cena ────────────────────────────────────────────────────
               if (widget.showPriceField) ...[
