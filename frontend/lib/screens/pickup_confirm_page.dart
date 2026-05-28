@@ -1,9 +1,12 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../common/auth_helpers.dart';
 import '../common/theme.dart';
 import 'auth_screen.dart';
+import '../services/email_service.dart';
 
 class PickupConfirmPage extends StatefulWidget {
   final String adId;
@@ -100,11 +103,33 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
     });
 
     try {
+      // Generate a short confirmation code to send to the reserver
+      final confirmationCode = (100000 + Random().nextInt(900000)).toString();
+
       await FirebaseFirestore.instance.collection('oglasi').doc(widget.adId).update({
         'status': 'prevzeto',
         'pickupConfirmedAt': FieldValue.serverTimestamp(),
         'pickupToken': FieldValue.delete(),
+        'pickupConfirmationCode': confirmationCode,
       });
+
+      // Notify the reserver by email (best-effort)
+      try {
+        final reservedUid = _data?['reservedByUid'] as String?;
+        if (reservedUid != null && reservedUid.isNotEmpty) {
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(reservedUid).get();
+          final email = userDoc.data()?['email'] as String?;
+          if (email != null && email.isNotEmpty) {
+            await EmailService.sendPickupConfirmedEmail(
+              to: email,
+              title: (_data?['title'] as String?) ?? 'Prevzem',
+              confirmationCode: confirmationCode,
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Failed to send pickup confirmed email: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

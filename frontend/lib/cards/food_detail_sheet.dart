@@ -201,18 +201,20 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         final selectedTerm = freshTerms[_selectedPickupIndex]!;
 
         final newRemaining = currentRemaining - _selectedPortions;
-        final pickupToken = newRemaining == 0 ? _createToken() : null;
-         
-          transaction.update(docRef, {
-            'status': newRemaining == 0 ? 'rezervirano' : 'naRazpolago',
-            'reservedByUid': userUid,              // ← vedno shrani, ne samo če == 0
-            'remainingPortions': newRemaining,
-            'reservedPortions': _selectedPortions,
+        // Always create a pickup token for the reservation so we can send a QR link
+        // to the reserver even if there are still portions left.
+        final pickupToken = _createToken();
+
+        transaction.update(docRef, {
+          'status': newRemaining == 0 ? 'rezervirano' : 'naRazpolago',
+          'reservedByUid': userUid, // always save who reserved
+          'remainingPortions': newRemaining,
+          'reservedPortions': _selectedPortions,
           'chosenTermin': Timestamp.fromDate(selectedTerm),
           'reservedAt': FieldValue.serverTimestamp(),
           'offerPending': false,
           'offerExpiresAt': FieldValue.delete(),
-          if (pickupToken != null) 'pickupToken': pickupToken,
+          'pickupToken': pickupToken,
         });
 
         // Shrani vrednosti za uporabo po transakciji
@@ -221,8 +223,8 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         finalPickupToken = pickupToken;
       });
 
-      // Po uspešni transakciji: pošlji e-mail (best-effort)
-      if (finalNewRemaining == 0 && finalSelectedTerm != null) {
+      // Po uspešni transakciji: pošlji e-mail z QR kodo (best-effort)
+      if (finalSelectedTerm != null && finalPickupToken != null) {
         try {
           final userDoc = await FirebaseFirestore.instance.collection('users').doc(userUid).get();
           final email = userDoc.data()?['email'] as String?;
@@ -243,7 +245,12 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Oglas rezerviran! ✓')),
+          SnackBar(
+            content: Text(finalPickupToken != null
+                ? 'Oglas rezerviran! ✓ Poglej na mail, poslana QR koda.'
+                : 'Oglas rezerviran! ✓'),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } catch (e) {

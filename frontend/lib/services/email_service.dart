@@ -220,4 +220,79 @@ class EmailService {
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
   }
+
+  static Future<void> sendPickupConfirmedEmail({
+    required String to,
+    required String title,
+    required String confirmationCode,
+  }) async {
+    final isWeb = kIsWeb;
+    final subject = 'Prevzem potrjen: $title';
+    final bodyText = 'Prevzem za "$title" je potrjen.\n\nKoda: $confirmationCode\n\nHvala.';
+    final html = '''
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#1f2937">
+        <h2 style="margin:0 0 12px">Prevzem potrjen</h2>
+        <p>Prevzem za oglas <strong>${_escapeHtml(title)}</strong> je bil potrjen.</p>
+        <p style="font-size:20px;font-weight:700;">Koda: ${_escapeHtml(confirmationCode)}</p>
+        <p>Hvala, ker uporabljate FoodWasteZero.</p>
+      </div>
+    ''';
+
+    if (isWeb) {
+      final proxyUrl = dotenv.maybeGet('EMAIL_PROXY_URL');
+      if (proxyUrl == null || proxyUrl.isEmpty) {
+        throw StateError('EMAIL_PROXY_URL is missing from .env for web');
+      }
+
+      final resp = await http.post(
+        Uri.parse('$proxyUrl/send-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'to': to,
+          'subject': subject,
+          'text': bodyText,
+          'html': html,
+        }),
+      );
+
+      debugPrint('Pickup confirmed email (web): status=${resp.statusCode} body=${resp.body}');
+
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        throw StateError('Email proxy failed: ${resp.statusCode} ${resp.body}');
+      }
+      return;
+    }
+
+    final apiKey = dotenv.maybeGet('EMAIL_API_KEY');
+    if (apiKey == null || apiKey.isEmpty) {
+      throw StateError('EMAIL_API_KEY is missing from .env for mobile');
+    }
+    final fromAddress = dotenv.maybeGet('EMAIL_FROM_ADDRESS')?.trim().isNotEmpty == true
+        ? dotenv.maybeGet('EMAIL_FROM_ADDRESS')!.trim()
+        : 'onboarding@resend.dev';
+
+    final payload = jsonEncode({
+      'from': fromAddress,
+      'to': to,
+      'subject': subject,
+      'text': bodyText,
+      'html': html,
+    });
+
+    final resp = await http.post(
+      Uri.parse(_resendUrl),
+      headers: {
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      },
+      body: payload,
+    );
+
+    debugPrint('Pickup confirmed email: status=${resp.statusCode} body=${resp.body}');
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw StateError('Email API failed: ${resp.statusCode} ${resp.body}');
+    }
+    debugPrint('Pickup confirmed email sent to $to');
+  }
 }
