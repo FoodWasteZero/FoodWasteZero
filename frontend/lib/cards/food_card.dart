@@ -130,7 +130,7 @@ class FoodCard extends StatelessWidget {
                                   ),
                                   const Icon(
                                     Icons.verified_rounded,
-                                    color: Color(0xFF1DA1F2),
+                                    color: Color(0xFF029624),
                                     size: 22,
                                   ),
                                 ],
