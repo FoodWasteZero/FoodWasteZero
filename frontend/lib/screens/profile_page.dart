@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -1074,6 +1075,19 @@ class _UporabnikStatsRow extends StatelessWidget {
           .where('reservedByUid', isEqualTo: uid)
           .snapshots(),
       builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Center(child: CircularProgressIndicator(color: kGreenMid, strokeWidth: 2)),
+          );
+        }
+        if (snap.hasError) {
+          return const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Text('Napaka pri nalaganju analitike.',
+                style: TextStyle(color: kTextLight, fontSize: 12)),
+          );
+        }
         final docs = snap.data?.docs ?? [];
         final prevzetoDocs = docs.where((d) => (d.data() as Map)['status'] == 'prevzeto').toList();
         final rezerviranoDocs = docs.where((d) => (d.data() as Map)['status'] == 'rezervirano').toList();
@@ -1380,6 +1394,7 @@ class _DavateljOglasCard extends StatelessWidget {
     final title = d['title'] as String? ?? '—';
     final category = d['category'] as String? ?? '';
     final location = d['location'] as String? ?? '';
+    final imageBase64 = d['imageBase64'] as String?;
     final statusStr = d['status'] as String? ?? 'naRazpolago';
     final reservedByUid = d['reservedByUid'] as String?;
     final waitlistRaw = d['waitlist'];
@@ -1456,7 +1471,12 @@ class _DavateljOglasCard extends StatelessWidget {
                             height: 46,
                             decoration: BoxDecoration(
                                 color: bgColor, borderRadius: kRadius12),
-                            child: Icon(icon, color: kGreenMid, size: 22),
+                            child: ClipRRect(
+                              borderRadius: kRadius12,
+                              child: imageBase64 != null
+                                  ? _ProfileBase64Image(base64: imageBase64)
+                                  : Icon(icon, color: kGreenMid, size: 22),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -1651,6 +1671,7 @@ class _UporabnikOglasCard extends StatelessWidget {
     final location = d['location'] as String? ?? '';
     final username = d['username'] as String?;
     final statusStr = d['status'] as String? ?? 'naRazpolago';
+    final imageBase64 = d['imageBase64'] as String?;
 
     OglasStatus status;
     switch (statusStr) {
@@ -1719,14 +1740,18 @@ class _UporabnikOglasCard extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Row(children: [
-                      // Ikona kategorije
+                      // Slika ali ikona kategorije
                       Container(
                         width: 50,
                         height: 50,
                         decoration: BoxDecoration(
                             color: bgColor, borderRadius: kRadius12),
-                        child:
-                            Icon(icon, color: kGreenMid, size: 24),
+                        child: ClipRRect(
+                          borderRadius: kRadius12,
+                          child: imageBase64 != null
+                              ? _ProfileBase64Image(base64: imageBase64)
+                              : Icon(icon, color: kGreenMid, size: 24),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       // Podatki
@@ -1970,5 +1995,21 @@ class _EditField extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ── Base64 slika za profile kartice ───────────────────────────────────────────
+class _ProfileBase64Image extends StatelessWidget {
+  final String base64;
+  const _ProfileBase64Image({required this.base64});
+
+  @override
+  Widget build(BuildContext context) {
+    try {
+      final bytes = base64Decode(base64);
+      return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
   }
 }
