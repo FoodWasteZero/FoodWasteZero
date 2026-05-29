@@ -633,8 +633,13 @@ class _ProfilePageState extends State<ProfilePage>
 
         final totalObjav = allDocs.length;
         final steviloPrevzetih = arhiv.length;
-        final steviloRezerviranih = aktivni
-            .where((d) => (d.data() as Map)['status'] == 'rezervirano')
+        final steviloRezerviranih = allDocs
+            .where((d) {
+              final s = (d.data() as Map)['status'] as String? ?? '';
+              return s == 'rezervirano' ||
+                  (s == 'naRazpolago' &&
+                      ((d.data() as Map)['reservedByUid'] as String?)?.isNotEmpty == true);
+            })
             .length;
 
         // Izračunaj grame in CO₂ iz vseh prevzetih objav organizacije
@@ -744,7 +749,12 @@ class _ProfilePageState extends State<ProfilePage>
               'Napaka pri nalaganju', Icons.error_outline_rounded);
         }
         final docs = (snap.data?.docs ?? []).where((doc) {
-          return (doc.data() as Map)['status'] == 'rezervirano';
+          final d = doc.data() as Map;
+          final status = d['status'] as String? ?? '';
+          // Prikaži rezervacije: polne (status == 'rezervirano') ali delne
+          // (status == 'naRazpolago' ampak reservedByUid je nastavljen)
+          return status == 'rezervirano' ||
+              (status == 'naRazpolago' && (d['reservedByUid'] as String?)?.isNotEmpty == true);
         }).toList();
         if (docs.isEmpty) {
           return _buildEmptyState(
@@ -1090,7 +1100,12 @@ class _UporabnikStatsRow extends StatelessWidget {
         }
         final docs = snap.data?.docs ?? [];
         final prevzetoDocs = docs.where((d) => (d.data() as Map)['status'] == 'prevzeto').toList();
-        final rezerviranoDocs = docs.where((d) => (d.data() as Map)['status'] == 'rezervirano').toList();
+        final rezerviranoDocs = docs.where((d) {
+          final s = (d.data() as Map)['status'] as String? ?? '';
+          // Štej polne rezervacije in delne (naRazpolago z nastavljenim reservedByUid)
+          return s == 'rezervirano' ||
+              (s == 'naRazpolago' && ((d.data() as Map)['reservedByUid'] as String?)?.isNotEmpty == true);
+        }).toList();
 
         int totalGrams = 0;
         int totalPorcij = 0;
