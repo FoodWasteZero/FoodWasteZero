@@ -582,10 +582,11 @@ class _ProfilePageState extends State<ProfilePage>
               _buildInlineEmpty('Ni aktivnih objav',
                   'Kliknite + za dodajanje novega oglasa.'),
             ...aktivni.map((doc) => _DavateljOglasCard(
-                  doc: doc,
-                  showMarkPrevzeto: true,
-                  onTap: () => FoodDetailSheet.show(
-                      context, _docToOglasProfile(doc)),
+              doc: doc,
+              // Do not show the inline "Prevzeto" button in the org profile list
+              showMarkPrevzeto: false,
+              onTap: () => FoodDetailSheet.show(
+                  context, _docToOglasProfile(doc)),
                 )),
             if (arhiv.isNotEmpty) ...[
               const SizedBox(height: 16),

@@ -201,6 +201,7 @@ class _MojeScreenState extends State<MineScreen> {
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => AddOglasSheet(
+        showPriceField: true,
         onSaved: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Oglas uspešno objavljen! 🎉'),
@@ -347,14 +348,12 @@ class _MojeScreenState extends State<MineScreen> {
                 title: const Text('Moje objave',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
                 actions: [
-                  // Dodajanje samo za ne-davatelje (davatelji imajo FAB na home)
-                  if (!_isDavatelj)
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: ElevatedButton.icon(
                       onPressed: _showAddOglas,
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Dodaj'),
+                      label: const Text('Dodaj objavo'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: kGreenMid,

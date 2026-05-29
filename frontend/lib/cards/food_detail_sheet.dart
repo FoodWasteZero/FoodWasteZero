@@ -975,6 +975,9 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     // Če so vse porcije zasedene (remainingPortions == 0), pokaži čakalno vrsto
     final remaining = oglas.remainingPortions ?? oglas.portions ?? 1;
     if (remaining <= 0) {
+      if (_userTypeLoaded && _isDavatelj) {
+        return Row(children: [navBtn]);
+        }
       if (semVVrsti) {
         return Row(children: [
           Expanded(
@@ -1032,26 +1035,14 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     ]);
   }
 
-  if (oglas.status == OglasStatus.rezervirano) {
-    // Vlasnik oglasa vidi "Označi kot prevzeto"
+    if (oglas.status == OglasStatus.rezervirano) {
+    // Owners should not see the inline "Označi kot prevzeto" action here;
+    // show only navigation for owners.
     if (jeVlasnik) {
-      return Row(children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => _oznaci(oglas),
-            icon: const Icon(Icons.check_circle_rounded, size: 16),
-            label: const Text('Označi kot prevzeto'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: kGreenMid,
-              side: const BorderSide(color: kGreenMid, width: 1.5),
-              shape: const RoundedRectangleBorder(borderRadius: kRadius12),
-              padding: const EdgeInsets.symmetric(vertical: 13),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        navBtn,
-      ]);
+      return Row(children: [navBtn]);
+    }
+    if (_userTypeLoaded && _isDavatelj) {
+      return Row(children: [navBtn]);
     }
 
     if (jeMojaRezervacija) {
