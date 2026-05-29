@@ -876,12 +876,24 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
 
       // Preveri ali je uporabnik davatelj
       bool isDavatelj = false;
+      String? authorName;
       if (user != null) {
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
         isDavatelj = userDoc.data()?['userType'] == 'davatelj';
+        
+        // Formira ime avtorja glede na tip
+        if (isDavatelj) {
+          authorName = userDoc.data()?['organizationName'] as String?;
+        } else {
+          final firstName = userDoc.data()?['firstName'] as String? ?? '';
+          final surname = userDoc.data()?['surname'] as String? ?? '';
+          if (firstName.isNotEmpty || surname.isNotEmpty) {
+            authorName = '$firstName $surname'.trim();
+          }
+        }
       }
 
       // Geocodiranje adrese (ako još nije urađeno ili se promijenila)
@@ -949,7 +961,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           'price': double.tryParse(_priceCtrl.text.trim().replaceAll(',', '.')) ?? 0.0,
           'status': 'naRazpolago',
           'uid': user?.uid,
-          'username': user?.displayName != null ? '@${user!.displayName}' : null,
+          'username': authorName,
           'isDavatelj': isDavatelj,
           'createdAt': FieldValue.serverTimestamp(),
           'expiringSoon': false,

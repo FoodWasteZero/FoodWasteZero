@@ -35,10 +35,11 @@ class _AuthScreenState extends State<AuthScreen>
   // Register inline error
   String? _regError;
 
-  final _regNameCtrl  = TextEditingController();
-  final _regEmailCtrl = TextEditingController();
-  final _regPassCtrl  = TextEditingController();
-  final _regPass2Ctrl = TextEditingController();
+  final _regNameCtrl    = TextEditingController();
+  final _regSurnameCtrl = TextEditingController();
+  final _regEmailCtrl   = TextEditingController();
+  final _regPassCtrl    = TextEditingController();
+  final _regPass2Ctrl   = TextEditingController();
   bool _regPassVisible = false;
   String _userType = 'uporabnik';
 
@@ -85,6 +86,7 @@ class _AuthScreenState extends State<AuthScreen>
     _loginEmailCtrl.dispose();
     _loginPassCtrl.dispose();
     _regNameCtrl.dispose();
+    _regSurnameCtrl.dispose();
     _regEmailCtrl.dispose();
     _regPassCtrl.dispose();
     _regPass2Ctrl.dispose();
@@ -133,15 +135,26 @@ class _AuthScreenState extends State<AuthScreen>
 
   // ── Register ───────────────────────────────────────────────────────────────
   Future<void> _register() async {
-    final name  = _regNameCtrl.text.trim();
-    final email = _regEmailCtrl.text.trim();
-    final pass  = _regPassCtrl.text.trim();
-    final pass2 = _regPass2Ctrl.text.trim();
+    final firstName = _regNameCtrl.text.trim();
+    final surname   = _regSurnameCtrl.text.trim();
+    final email     = _regEmailCtrl.text.trim();
+    final pass      = _regPassCtrl.text.trim();
+    final pass2     = _regPass2Ctrl.text.trim();
 
-    if (name.isEmpty || email.isEmpty || pass.isEmpty) {
-      setState(() => _regError = 'Izpolnite vsa polja.');
-      return;
+    // Validation za uporabnike: prvo ime + priimek
+    // Validation za organizacije: samo ime
+    if (_userType == 'uporabnik') {
+      if (firstName.isEmpty || surname.isEmpty || email.isEmpty || pass.isEmpty) {
+        setState(() => _regError = 'Izpolnite vsa polja.');
+        return;
+      }
+    } else {
+      if (firstName.isEmpty || email.isEmpty || pass.isEmpty) {
+        setState(() => _regError = 'Izpolnite vsa polja.');
+        return;
+      }
     }
+    
     if (pass != pass2) {
       setState(() => _regError = 'Gesli se ne ujemata.');
       return;
@@ -157,18 +170,33 @@ class _AuthScreenState extends State<AuthScreen>
       final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email, password: pass);
 
+      // Za uporabnike: shrani firstName in surname
+      // Za organizacije: shrani organizationName
+      final userData = {
+        'uid':       cred.user!.uid,
+        'email':     email,
+        'userType':  _userType,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+      
+      if (_userType == 'uporabnik') {
+        userData['firstName'] = firstName;
+        userData['surname'] = surname;
+        userData['ime'] = '$firstName $surname'; // Backwards compatibility
+      } else {
+        userData['organizationName'] = firstName;
+        userData['ime'] = firstName;
+      }
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(cred.user!.uid)
-          .set({
-            'uid':       cred.user!.uid,
-            'ime':       name,
-            'email':     email,
-            'userType':  _userType,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+          .set(userData);
 
-      await cred.user!.updateDisplayName(name);
+      final displayName = _userType == 'uporabnik' 
+          ? '$firstName $surname' 
+          : firstName;
+      await cred.user!.updateDisplayName(displayName);
       await FirebaseAuth.instance.signOut();
 
       if (!mounted) return;
@@ -182,6 +210,7 @@ class _AuthScreenState extends State<AuthScreen>
         ),
       );
       _regNameCtrl.clear();
+      _regSurnameCtrl.clear();
       _regEmailCtrl.clear();
       _regPassCtrl.clear();
       _regPass2Ctrl.clear();
@@ -459,11 +488,19 @@ class _AuthScreenState extends State<AuthScreen>
           const SizedBox(height: 20),
 
           _InputField(
-            label: 'Ime in priimek',
+            label: _userType == 'uporabnik' ? 'Ime' : 'Ime organizacije',
             icon: Icons.person_outline_rounded,
             controller: _regNameCtrl,
           ),
           const SizedBox(height: 12),
+          if (_userType == 'uporabnik') ...[
+            _InputField(
+              label: 'Priimek',
+              icon: Icons.person_outline_rounded,
+              controller: _regSurnameCtrl,
+            ),
+            const SizedBox(height: 12),
+          ],
           _InputField(
             label: 'E-mail',
             icon: Icons.email_outlined,

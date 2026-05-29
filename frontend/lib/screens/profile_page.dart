@@ -29,7 +29,7 @@ class _ProfilePageState extends State<ProfilePage>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this);
     _loadUserData();
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
@@ -65,9 +65,27 @@ class _ProfilePageState extends State<ProfilePage>
           .doc(user.uid)
           .get();
       if (doc.exists && mounted) {
+        final data = doc.data();
+        final userType = data?['userType'] ?? 'uporabnik';
+        
+        // Za uporabnike: firstName + surname, za organizacije: organizationName
+        String displayName = _displayName;
+        if (userType == 'uporabnik') {
+          final firstName = data?['firstName'] as String? ?? '';
+          final surname = data?['surname'] as String? ?? '';
+          if (firstName.isNotEmpty || surname.isNotEmpty) {
+            displayName = '$firstName $surname'.trim();
+          }
+        } else {
+          final orgName = data?['organizationName'] as String?;
+          if (orgName != null && orgName.isNotEmpty) {
+            displayName = orgName;
+          }
+        }
+        
         setState(() {
-          _displayName = doc.data()?['ime'] ?? _displayName;
-          _userType = doc.data()?['userType'] ?? 'uporabnik';
+          _displayName = displayName;
+          _userType = userType;
           _loadingUser = false;
         });
       } else {
@@ -102,7 +120,33 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   Future<void> _showEditProfile() async {
-    final nameCtrl = TextEditingController(text: _displayName);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Učita korisnikove podatke iz Firestora
+    String firstName = '';
+    String surname = '';
+    String organizationName = '';
+    
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (doc.exists) {
+        final data = doc.data();
+        if (_userType == 'davatelj') {
+          organizationName = data?['organizationName'] as String? ?? '';
+        } else {
+          firstName = data?['firstName'] as String? ?? '';
+          surname = data?['surname'] as String? ?? '';
+        }
+      }
+    } catch (_) {}
+
+    final firstNameCtrl = TextEditingController(text: firstName);
+    final surnameCtrl = TextEditingController(text: surname);
+    final orgNameCtrl = TextEditingController(text: organizationName);
     final emailCtrl = TextEditingController(text: _email);
     final pwCtrl = TextEditingController();
     final pw2Ctrl = TextEditingController();
@@ -144,10 +188,22 @@ class _ProfilePageState extends State<ProfilePage>
                   ],
                 ),
                 const SizedBox(height: 20),
-                _EditField(
-                    ctrl: nameCtrl,
-                    label: 'Ime',
-                    icon: Icons.person_outline_rounded),
+                if (_userType == 'davatelj') ...[
+                  _EditField(
+                      ctrl: orgNameCtrl,
+                      label: 'Ime organizacije',
+                      icon: Icons.store_rounded),
+                ] else ...[
+                  _EditField(
+                      ctrl: firstNameCtrl,
+                      label: 'Prvo ime',
+                      icon: Icons.person_outline_rounded),
+                  const SizedBox(height: 12),
+                  _EditField(
+                      ctrl: surnameCtrl,
+                      label: 'Priimek',
+                      icon: Icons.person_outline_rounded),
+                ],
                 const SizedBox(height: 12),
                 _EditField(
                     ctrl: emailCtrl,
@@ -201,10 +257,13 @@ class _ProfilePageState extends State<ProfilePage>
                     onPressed: saving
                         ? null
                         : () async {
-                            final newName = nameCtrl.text.trim();
+                            final newFirstName = firstNameCtrl.text.trim();
+                            final newSurname = surnameCtrl.text.trim();
+                            final newOrgName = orgNameCtrl.text.trim();
                             final newEmail = emailCtrl.text.trim();
                             final newPw = pwCtrl.text.trim();
                             final newPw2 = pw2Ctrl.text.trim();
+                            
                             if (newPw.isNotEmpty && newPw != newPw2) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -217,24 +276,47 @@ class _ProfilePageState extends State<ProfilePage>
                             try {
                               final user =
                                   FirebaseAuth.instance.currentUser!;
-                              if (newName != _displayName) {
-                                await user.updateDisplayName(newName);
-                                await FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(user.uid)
-                                    .update({'ime': newName});
+                              
+                              // Update imena
+                              String displayNameToSave = '';
+                              final updateData = <String, dynamic>{};
+                              
+                              if (_userType == 'davatelj') {
+                                if (newOrgName != organizationName) {
+                                  displayNameToSave = newOrgName;
+                                  updateData['organizationName'] = newOrgName;
+                                  updateData['ime'] = newOrgName;
+                                }
+                              } else {
+                                if (newFirstName != firstName || newSurname != surname) {
+                                  displayNameToSave = '$newFirstName $newSurname'.trim();
+                                  updateData['firstName'] = newFirstName;
+                                  updateData['surname'] = newSurname;
+                                  updateData['ime'] = displayNameToSave;
+                                }
                               }
-                              if (newEmail != _email &&
-                                  newEmail.isNotEmpty) {
-                                await user
-                                    .verifyBeforeUpdateEmail(newEmail);
+                              
+                              if (displayNameToSave.isNotEmpty) {
+                                await user.updateDisplayName(displayNameToSave);
+                                updateData.forEach((key, value) async {
+                                  await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(user.uid)
+                                      .update({key: value});
+                                });
+                              }
+                              
+                              if (newEmail != _email && newEmail.isNotEmpty) {
+                                await user.verifyBeforeUpdateEmail(newEmail);
                               }
                               if (newPw.isNotEmpty) {
                                 await user.updatePassword(newPw);
                               }
                               if (mounted) {
                                 setState(() {
-                                  _displayName = newName;
+                                  _displayName = displayNameToSave.isNotEmpty
+                                      ? displayNameToSave
+                                      : _displayName;
                                   _email = newEmail;
                                 });
                                 Navigator.pop(ctx);
@@ -397,6 +479,7 @@ class _ProfilePageState extends State<ProfilePage>
                 children: [
                   _buildRezervacijeTab(user.uid),
                   _buildPrevzetoTab(user.uid),
+                  _buildAccountTab(),
                 ],
               ),
             ),
@@ -461,6 +544,16 @@ class _ProfilePageState extends State<ProfilePage>
               ],
             ),
           ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.person_rounded, size: 15),
+                SizedBox(width: 5),
+                Text('Račun'),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -477,11 +570,26 @@ class _ProfilePageState extends State<ProfilePage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildProfileHeader(),
-            Expanded(child: _buildDavateljContent(user.uid)),
+            _buildTabBar(),
+            const SizedBox(height: 4),
+            Expanded(
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  _buildDavateljOglasi(user.uid),
+                  const SizedBox.shrink(), // Placeholder za drugi tab
+                  _buildAccountTab(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildDavateljOglasi(String uid) {
+    return _buildDavateljContent(uid);
   }
 
   Widget _buildDavateljContent(String uid) {
@@ -763,12 +871,6 @@ class _ProfilePageState extends State<ProfilePage>
                         color: Colors.white,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text(_email,
-                    style: const TextStyle(
-                        color: Colors.white60, fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -809,6 +911,67 @@ class _ProfilePageState extends State<ProfilePage>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAccountTab() {
+    final user = FirebaseAuth.instance.currentUser;
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: kRadius16,
+            border: Border.all(color: const Color(0xFFE0E0E0), width: 0.8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Podatki računa',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: kTextDark)),
+              const SizedBox(height: 20),
+              _AccountInfoRow('E-mail', user?.email ?? ''),
+              const SizedBox(height: 16),
+              _AccountInfoRow('Tip računa',
+                  _userType == 'davatelj' ? 'Organizacija' : 'Uporabnik'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _AccountInfoRow(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: kTextMid,
+                letterSpacing: 0.3)),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F5),
+            borderRadius: kRadius8,
+            border: Border.all(color: const Color(0xFFE8E8E8), width: 0.8),
+          ),
+          child: Text(value,
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: kTextDark)),
+        ),
+      ],
     );
   }
 

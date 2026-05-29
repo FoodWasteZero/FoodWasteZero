@@ -588,86 +588,130 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                              color: kGreenPale, borderRadius: kRadiusFull),
+                              color: kGreenMid.withOpacity(0.1), 
+                              borderRadius: kRadiusFull,
+                              border: Border.all(color: kGreenMid.withOpacity(0.3), width: 0.8)),
                           child: Text(oglas.category,
                               style: const TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600, color: kGreenMid)),
+                                  fontSize: 12, fontWeight: FontWeight.w600, color: kGreenMid, letterSpacing: 0.3)),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
+                        
+                        // ── Naslov ──────────────────────────────────────
                         Text(oglas.title,
                             style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark)),
-                        const SizedBox(height: 4),
-                        if (oglas.username != null)
-                          Text('Objavljeno od ${oglas.username}',
-                              style: kCaption.copyWith(
-                                  color: kGreenMid, fontWeight: FontWeight.w600)),
-
-                        const SizedBox(height: 10),
-
-                        // ── Cena ──────────────────────────────────────────
-                        if (oglas.price != null && oglas.price! > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF5C6BC0).withOpacity(0.08),
-                              borderRadius: kRadius8,
-                              border: Border.all(color: const Color(0xFF5C6BC0).withOpacity(0.3)),
-                            ),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              const Icon(Icons.euro_rounded, size: 15, color: Color(0xFF5C6BC0)),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Cena: ${oglas.price!.toStringAsFixed(2)} €',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF5C6BC0),
-                                ),
-                              ),
-                            ]),
-                          )
-                        else
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: kGreenPale,
-                              borderRadius: kRadius8,
-                              border: Border.all(color: kGreenMid.withOpacity(0.3)),
-                            ),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              const Icon(Icons.volunteer_activism_rounded, size: 15, color: kGreenMid),
-                              const SizedBox(width: 6),
-                              const Text(
-                                'Brezplačno',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: kGreenMid,
-                                ),
-                              ),
-                            ]),
+                                fontSize: 22, fontWeight: FontWeight.w900, color: kTextDark, height: 1.2)),
+                        const SizedBox(height: 12),
+                        // ── Avtor, datum i cena ─────────────────────────
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: kGreenMid.withOpacity(0.05),
+                            borderRadius: kRadius12,
+                            border: Border.all(color: kGreenMid.withOpacity(0.15), width: 0.8),
                           ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: kGreenMid.withOpacity(0.12),
+                                  borderRadius: kRadius8,
+                                ),
+                                child: const Icon(Icons.store_rounded, size: 14, color: kGreenMid),
+                              ),
+                              const SizedBox(width: 10),
+                              if (oglas.username != null) ...[
+                                Text(oglas.username!,
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: kTextDark)),
+                                const SizedBox(width: 16),
+                                Container(width: 1, height: 14, color: kBorder.withOpacity(0.3)),
+                                const SizedBox(width: 16),
+                              ],
+                              
+                              const Spacer(),
+                              // ── Cena na desno ──────────────────────────
+                              if (oglas.price != null && oglas.price! > 0)
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF5C6BC0).withOpacity(0.12),
+                                      borderRadius: kRadius8,
+                                    ),
+                                    child: const Icon(Icons.euro_rounded, size: 12, color: Color(0xFF5C6BC0)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${oglas.price!.toStringAsFixed(2)} €',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF5C6BC0),
+                                    ),
+                                  ),
+                                ])
+                              else
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: kGreenMid.withOpacity(0.12),
+                                      borderRadius: kRadius8,
+                                    ),
+                                    child: const Icon(Icons.volunteer_activism_rounded, size: 12, color: kGreenMid),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Brezplačno',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: kGreenMid,
+                                    ),
+                                  ),
+                                ]),
+                            ],
+                          ),
+                        ),
 
                         const SizedBox(height: 16),
 
+                        // ── Opis oglasa ────────────────────────────────
                         if (oglas.description.isNotEmpty) ...[
-                          Text(oglas.description, style: kBody.copyWith(height: 1.5)),
-                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+                          ),
+                          const Text('Opis',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: kTextDark)),
+                          const SizedBox(height: 10),
+                          Text(oglas.description, style: kBody.copyWith(height: 1.6, color: kTextMid, fontSize: 14)),
+                          const SizedBox(height: 20),
                         ],
 
                         if (pickupTerms.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+                          ),
                           const Text(
                             'Termini prevzema',
                             style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
                               color: kTextDark,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -678,22 +722,30 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                     setState(() => _selectedPickupIndex = i);
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                     decoration: BoxDecoration(
                                       color: _selectedPickupIndex == i
                                           ? kGreenMid.withOpacity(0.12)
                                           : kSurface,
-                                      borderRadius: kRadius8,
+                                      borderRadius: kRadius12,
                                       border: Border.all(
                                         color: _selectedPickupIndex == i
-                                            ? kGreenMid.withOpacity(0.8)
+                                            ? kGreenMid.withOpacity(0.6)
                                             : kBorder,
+                                        width: _selectedPickupIndex == i ? 1.2 : 0.8,
                                       ),
                                     ),
                                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      Icon(Icons.schedule_rounded, size: 13, color: kGreenMid),
-                                      const SizedBox(width: 6),
-                                      Text('Termin ${i + 1}: ${_formatPickupTerm(pickupTerms[i]!)}',
+                                      Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: kGreenMid.withOpacity(0.12),
+                                          borderRadius: kRadius6,
+                                        ),
+                                        child: const Icon(Icons.schedule_rounded, size: 13, color: kGreenMid),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text('${_formatPickupTerm(pickupTerms[i]!)}',
                                           style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
@@ -703,10 +755,17 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 20),
                         ],
 
                         // ── Izbor števila porcij ───────────────────────────
+                        if (oglas.status == OglasStatus.naRazpolago) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+                          ),
+                        ],
+
                         if (oglas.status == OglasStatus.naRazpolago &&
                             !(user != null && oglas.uid != null && oglas.uid == user.uid) &&
                             !(_userTypeLoaded && _isDavatelj) &&
@@ -714,9 +773,9 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                             !jeMojaRezervacija) ...[
                           const Text(
                             'Število porcij',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kTextDark),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           () {
                             final maxPortions = oglas.remainingPortions ?? oglas.portions ?? 1;
                             return Container(
@@ -787,6 +846,18 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                           const SizedBox(height: 16),
                         ],
 
+                        // ── Lokacija i informacije ──────────────────
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+                        ),
+
+                        const Text(
+                          'Lokacija in rok uporabe',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark),
+                        ),
+                        const SizedBox(height: 12),
+
                         Wrap(
                           spacing: 8, runSpacing: 8,
                           children: [
@@ -798,12 +869,12 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                               _InfoChip(
                                 Icons.event_outlined,
                                 'Rok: ${_formatDate(oglas.expiryDate!)}',
-                                color: oglas.isExpiringSoon ? kOrange : null,
+                                color: oglas.isExpiringSoon ? kOrange : kYellow,
                               ),
                           ],
                         ),
 
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 20),
 
                         if (_isDavatelj && !_userTypeLoaded)
                           const Padding(
@@ -861,6 +932,21 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                           ),
 
                         const SizedBox(height: 16),
+
+                        // ── Vrijeme objave — desni donji kut ────────────
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: Text(
+                            oglas.time,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: kTextLight,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -869,13 +955,13 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
             ),
           ),
 
-          // Gumbi — pritrjeni na dno
+          // ── Gumbi — pritrjeni na dno ──────────────────────────────────
           Container(
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: kBorder, width: 1)),
+              border: Border(top: BorderSide(color: kBorder, width: 0.8)),
             ),
-            padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomInset),
+            padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + bottomInset),
             child: SafeArea(
               top: false,
               child: _loading
@@ -1154,12 +1240,12 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withOpacity(0.08),
         borderRadius: kRadiusFull,
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Text(statusLabel(status),
-          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700)),
+          style: TextStyle(color: color.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -1185,20 +1271,27 @@ class _InfoBox extends StatelessWidget {
   const _InfoBox({required this.icon, required this.color, required this.text});
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: kRadius8,
-          border: Border.all(color: color.withOpacity(0.3)),
+          color: color.withOpacity(0.12),
+          borderRadius: kRadius12,
+          border: Border.all(color: color.withOpacity(0.4), width: 0.8),
         ),
         child: Row(children: [
-          Icon(icon, size: 15, color: color),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.18),
+              borderRadius: kRadius8,
+            ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(text,
                 style: TextStyle(
-                    fontSize: 14, color: color, fontWeight: FontWeight.w500)),
+                    fontSize: 13, color: color, fontWeight: FontWeight.w500, height: 1.4)),
           ),
         ]),
       );
@@ -1211,21 +1304,28 @@ class _InfoChip extends StatelessWidget {
   const _InfoChip(this.icon, this.label, {this.color});
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: color != null ? color!.withOpacity(0.08) : kSurface,
-          borderRadius: kRadius8,
+          color: color != null ? color!.withOpacity(0.12) : kSurface,
+          borderRadius: kRadius12,
           border: Border.all(
-              color: color != null ? color!.withOpacity(0.25) : kBorder),
+              color: color != null ? color!.withOpacity(0.35) : kBorder, width: 0.8),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 13, color: color ?? kTextMid),
-          const SizedBox(width: 5),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: (color ?? kTextMid).withOpacity(0.18),
+              borderRadius: kRadius6,
+            ),
+            child: Icon(icon, size: 12, color: color ?? kTextMid),
+          ),
+          const SizedBox(width: 8),
           Text(label,
               style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   color: color ?? kTextMid,
-                  fontWeight: FontWeight.w500)),
+                  fontWeight: FontWeight.w600)),
         ]),
       );
 }

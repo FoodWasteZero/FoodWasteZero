@@ -8,6 +8,9 @@ const kGreenLight  = Color(0xFF4CAF50);
 const kGreenPale   = Color(0xFFE8F5E9);
 const kGreenAccent = Color(0xFF00C853);
 
+const kYellow      = Color(0xFFFBC02D);
+const kYellowPale  = Color(0xFFFFF9C4);
+
 const kOrange      = Color(0xFFFF6F00);
 const kOrangePale  = Color(0xFFFFF8E1);
 
@@ -93,6 +96,7 @@ const kSmallCaption = TextStyle(
 );
 
 // ── Border radius ─────────────────────────────────────────────────────────────
+const kRadius6  = BorderRadius.all(Radius.circular(6));
 const kRadius8  = BorderRadius.all(Radius.circular(8));
 const kRadius12 = BorderRadius.all(Radius.circular(12));
 const kRadius16 = BorderRadius.all(Radius.circular(16));

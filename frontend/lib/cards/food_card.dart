@@ -140,14 +140,16 @@ class FoodCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(oglas.title,
-                          style: kBodyBold.copyWith(fontSize: 13),
+                          style: kBodyBold.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 8),
                       _InfoRow(Icons.location_on_outlined, oglas.location),
                       const SizedBox(height: 3),
-                      _InfoRow(Icons.access_time_outlined, oglas.time),
-                      const SizedBox(height: 3),
+                      if (oglas.username != null) ...[
+                        _InfoRow(Icons.store_rounded, oglas.username!),
+                        const SizedBox(height: 3),
+                      ],
                       _InfoRow(Icons.near_me_outlined,
                           '${oglas.distanceKm.toStringAsFixed(1)} km stran'),
                       const SizedBox(height: 10),
@@ -215,11 +217,11 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 12, color: kTextLight),
-        const SizedBox(width: 4),
+        Icon(icon, size: 14, color: kTextLight),
+        const SizedBox(width: 5),
         Flexible(
           child: Text(text,
-              style: kCaption.copyWith(fontSize: 13),
+              style: kCaption.copyWith(fontSize: 14, color: kTextMid, fontWeight: FontWeight.w500),
               overflow: TextOverflow.ellipsis),
         ),
       ],
@@ -237,14 +239,14 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withOpacity(0.08),
         borderRadius: kRadiusFull,
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Text(
         statusLabel(status),
         style: TextStyle(
-          color: color,
+          color: color.withOpacity(0.7),
           fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
