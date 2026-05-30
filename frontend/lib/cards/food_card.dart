@@ -7,8 +7,14 @@ import '../models/models.dart';
 class FoodCard extends StatelessWidget {
   final FoodOglas oglas;
   final VoidCallback? onTap;
+  final VoidCallback? onAuthorTap;
 
-  const FoodCard({super.key, required this.oglas, this.onTap});
+  const FoodCard({
+    super.key,
+    required this.oglas,
+    this.onTap,
+    this.onAuthorTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +153,17 @@ class FoodCard extends StatelessWidget {
                       _InfoRow(Icons.location_on_outlined, oglas.location),
                       const SizedBox(height: 3),
                       if (oglas.username != null) ...[
-                        _InfoRow(Icons.store_rounded, oglas.username!),
+                        onAuthorTap != null
+                            ? GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: onAuthorTap,
+                                child: _InfoRow(
+                                  Icons.store_rounded,
+                                  oglas.username!,
+                                  highlight: true,
+                                ),
+                              )
+                            : _InfoRow(Icons.store_rounded, oglas.username!),
                         const SizedBox(height: 3),
                       ],
                       _InfoRow(Icons.near_me_outlined,
@@ -211,17 +227,22 @@ class _Base64Image extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
-  const _InfoRow(this.icon, this.text);
+  final bool highlight;
+  const _InfoRow(this.icon, this.text, {this.highlight = false});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: kTextLight),
+        Icon(icon, size: 14, color: highlight ? kGreenMid : kTextLight),
         const SizedBox(width: 5),
         Flexible(
           child: Text(text,
-              style: kCaption.copyWith(fontSize: 14, color: kTextMid, fontWeight: FontWeight.w500),
+              style: kCaption.copyWith(
+                  fontSize: 14,
+                  color: highlight ? kGreenMid : kTextMid,
+                  fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
+                  decoration: highlight ? TextDecoration.underline : null),
               overflow: TextOverflow.ellipsis),
         ),
       ],

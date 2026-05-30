@@ -6,4 +6,11 @@ class UIStateService {
 
   /// True when a detail / reservation sheet is currently open.
   final ValueNotifier<bool> isDetailOpen = ValueNotifier<bool>(false);
+
+  /// Ko je nastavljen, HomeScreen preklopi na ta zavihek (npr. Moje objave).
+  final ValueNotifier<int?> requestedNavIndex = ValueNotifier<int?>(null);
+
+  void requestMineTab() {
+    requestedNavIndex.value = -1; // sentinel: HomeScreen izračuna indeks
+  }
 }

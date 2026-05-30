@@ -19,7 +19,9 @@ import 'mine_screen.dart';
 import 'auth_screen.dart';
 import 'recipe_page.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/notifications_sheet.dart';
 import '../services/ui_state_service.dart';
+import '../common/publisher_navigation.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Firestore doc → FoodOglas
@@ -131,6 +133,9 @@ class _HomeScreenState extends State<HomeScreen>
   String _mesto = 'Lokacija...';
   final TextEditingController _searchCtrl = TextEditingController();
   StreamSubscription<User?>? _authSub;
+  VoidCallback? _navIndexListener;
+
+  int get _mineNavIndex => _isDavatelj ? 1 : 2;
 
   // Za scroll-to-oglas iz heatmape
   final ScrollController _listScrollCtrl = ScrollController();
@@ -171,6 +176,14 @@ class _HomeScreenState extends State<HomeScreen>
         _loadUserType();
       }
     });
+    _navIndexListener = () {
+      final req = UIStateService.instance.requestedNavIndex.value;
+      if (req == null || !mounted) return;
+      UIStateService.instance.requestedNavIndex.value = null;
+      setState(() => _navIndex = req == -1 ? _mineNavIndex : req);
+    };
+    UIStateService.instance.requestedNavIndex
+        .addListener(_navIndexListener!);
   }
 
   // ── Tiho pridobi lokacijo ob zagonu (samo prosi za dovoljenje + GPS) ─────
@@ -352,6 +365,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    if (_navIndexListener != null) {
+      UIStateService.instance.requestedNavIndex
+          .removeListener(_navIndexListener!);
+    }
     _authSub?.cancel();
     _searchCtrl.dispose();
     _themeAnim.dispose();
@@ -632,6 +649,8 @@ class _HomeScreenState extends State<HomeScreen>
                 (_, i) => FoodCard(
                   oglas: filtered[i],
                   onTap: () => FoodDetailSheet.show(context, filtered[i]),
+                  onAuthorTap: () =>
+                      openPublisherProfile(context, filtered[i]),
                 ),
                 childCount: filtered.length,
               )),
@@ -1183,18 +1202,8 @@ class _HomeScreenState extends State<HomeScreen>
       centerTitle: false,
       actions: [
         Padding(padding: const EdgeInsets.only(right: 8),
-          child: GestureDetector(
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ni novih obvestil'))),
-            child: Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.18),
-                borderRadius: kRadius12,
-                border: Border.all(color: Colors.white.withOpacity(0.3)),
-              ),
-              child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
-            ),
+          child: NotificationBellButton(
+            onTap: () => showNotificationsSheet(context),
           )),
         Padding(padding: const EdgeInsets.only(right: 12),
           child: GestureDetector(
@@ -1282,8 +1291,9 @@ class _HomeScreenState extends State<HomeScreen>
       centerTitle: false,
       actions: [
         Padding(padding: const EdgeInsets.only(right: 8),
-          child: _NotifButton(onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Ni novih obvestil'))))),
+          child: NotificationBellButton(
+            onTap: () => showNotificationsSheet(context),
+          )),
         Padding(padding: const EdgeInsets.only(right: 12),
           child: _HamburgerButton(onTap: () => showAppDrawer(context))),
       ],

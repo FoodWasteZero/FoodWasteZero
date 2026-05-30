@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,8 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import '../common/theme.dart';
 import '../models/models.dart';
-import '../cards/food_card.dart';
-import '../cards/food_detail_sheet.dart';
+import '../services/notification_service.dart';
+import '../widgets/user_listings_view.dart';
 
 // ── Nominatim geocoding helper ────────────────────────────────────────────────
 // Vrača (lat, lng) za dani naslov/ulicu, ili null ako ne najde.
@@ -50,102 +49,6 @@ Future<({double lat, double lng})?> _geocodeAddress(String address) async {
   } catch (_) {
     return null;
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper: Firestore doc → FoodOglas
-// ─────────────────────────────────────────────────────────────────────────────
-FoodOglas _docToOglasMoje(DocumentSnapshot doc) {
-  final d = doc.data() as Map<String, dynamic>;
-  final statusStr = d['status'] as String? ?? 'naRazpolago';
-  final status = statusStr == 'rezervirano'
-      ? OglasStatus.rezervirano
-      : statusStr == 'prevzeto'
-          ? OglasStatus.prevzeto
-          : OglasStatus.naRazpolago;
-
-  final category = d['category'] as String? ?? 'Sestavine';
-  final IconData icon;
-  final Color color;
-  switch (category) {
-    case 'Kuhano':
-      icon = Icons.soup_kitchen_rounded; color = const Color(0xFFFFE0B2); break;
-    case 'Peka':
-      icon = Icons.bakery_dining_rounded; color = const Color(0xFFEFEBE9); break;
-    case 'Sadje & zelenjava':
-      icon = Icons.apple_rounded; color = const Color(0xFFE8F5E9); break;
-    case 'Ostalo':
-      icon = Icons.more_horiz_rounded; color = const Color(0xFFE8EAF6); break;
-    default:
-      icon = Icons.grass_rounded; color = const Color(0xFFF1F8E9);
-  }
-
-  double distKm = 1.0;
-  final lat = (d['lat'] as num?)?.toDouble();
-  final lng = (d['lng'] as num?)?.toDouble();
-  if (lat != null && lng != null) {
-    const refLat = 46.5547; const refLng = 15.6459;
-    final dLat = (lat - refLat) * 111.0;
-    final dLng = (lng - refLng) * 111.0 * cos(refLat * pi / 180);
-    distKm = sqrt(dLat * dLat + dLng * dLng);
-  }
-
-  final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
-  final expiryDate = (d['expiryDate'] as Timestamp?)?.toDate();
-
-  bool expiringSoon = d['expiringSoon'] as bool? ?? false;
-  if (expiryDate != null) {
-    final hoursLeft = expiryDate.difference(DateTime.now()).inHours;
-    if (hoursLeft <= 24 && hoursLeft >= 0) expiringSoon = true;
-  }
-
-  final waitlistRaw = d['waitlist'];
-  final waitlist = (waitlistRaw is List)
-      ? waitlistRaw.map((e) => e.toString()).toList()
-      : <String>[];
-
-  return FoodOglas(
-    id: doc.id,
-    uid: d['uid'] as String?,
-    title: d['title'] as String? ?? '',
-    description: d['description'] as String? ?? '',
-    location: d['location'] as String? ?? '',
-    time: _timeAgoMoje(createdAt),
-    status: status,
-    username: d['username'] as String?,
-    imageColor: color,
-    category: category,
-    isFree: d['isFree'] as bool? ?? true,
-    isExpiringSoon: expiringSoon,
-    distanceKm: distKm,
-    icon: icon,
-    latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
-    imageBase64: d['imageBase64'] as String?,
-    reservedByUid: d['reservedByUid'] as String?,
-    expiryDate: expiryDate,
-    termin1: (d['termin1'] as Timestamp?)?.toDate(),
-    termin2: (d['termin2'] as Timestamp?)?.toDate(),
-    termin3: (d['termin3'] as Timestamp?)?.toDate(),
-    termin4: (d['termin4'] as Timestamp?)?.toDate(),
-    chosenTermin: (d['chosenTermin'] as Timestamp?)?.toDate(),
-    offerPending: d['offerPending'] as bool? ?? false,
-    offerExpiresAt: (d['offerExpiresAt'] as Timestamp?)?.toDate(),
-    offerToken: d['offerToken'] as String?,
-    waitlist: waitlist,
-    portions: (d['portions'] as num?)?.toInt(),
-    remainingPortions: (d['remainingPortions'] as num?)?.toInt(),
-    price: (d['price'] as num?)?.toDouble(),
-    isDavatelj: d['isDavatelj'] as bool? ?? false,
-  );
-}
-
-String _timeAgoMoje(DateTime? dt) {
-  if (dt == null) return 'Pravkar';
-  final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 1) return 'Pravkar';
-  if (diff.inMinutes < 60) return 'Pred ${diff.inMinutes} min';
-  if (diff.inHours < 24) return 'Pred ${diff.inHours} ur';
-  return 'Pred ${diff.inDays} dni';
 }
 
 String _formatDate(DateTime dt) => '${dt.day}. ${dt.month}. ${dt.year}';
@@ -313,236 +216,12 @@ class _MojeScreenState extends State<MineScreen> {
 
     return Scaffold(
       backgroundColor: kSurface,
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('oglasi')
-            .where('uid', isEqualTo: user.uid)
-            .snapshots(),
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-            return const Center(child: CircularProgressIndicator(color: kGreenMid));
-          }
-          if (snap.hasError) {
-            return _buildStreamError(snap.error.toString());
-          }
-
-          final docs = List<QueryDocumentSnapshot>.from(snap.data?.docs ?? [])
-            ..sort((a, b) {
-              final ta = (a.data() as Map<String, dynamic>?)?['createdAt'];
-              final tb = (b.data() as Map<String, dynamic>?)?['createdAt'];
-              final ma = ta is Timestamp ? ta.millisecondsSinceEpoch : 0;
-              final mb = tb is Timestamp ? tb.millisecondsSinceEpoch : 0;
-              return mb.compareTo(ma);
-            });
-          final moji = docs.map(_docToOglasMoje).toList();
-
-          if (moji.isEmpty) {
-            return _buildEmpty();
-          }
-
-          return CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: const Color(0xFF2E7D32),
-                title: const Text('Moje objave',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                actions: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: ElevatedButton.icon(
-                      onPressed: _showAddOglas,
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Dodaj objavo'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: kGreenMid,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                        shape: RoundedRectangleBorder(borderRadius: kRadius8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (_, i) => _OglasCard(
-                      oglas: moji[i],
-                      onTap: () => FoodDetailSheet.show(context, moji[i]),
-                      onEdit: () => _showEditOglas(docs[i]),
-                      onDelete: () => _deleteOglas(docs[i].id),
-                    ),
-                    childCount: moji.length,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildStreamError(String message) {
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar(
-          pinned: true,
-          backgroundColor: const Color(0xFF2E7D32),
-          title: const Text('Moje objave',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-        ),
-        SliverFillRemaining(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline_rounded, size: 48, color: kOrange),
-                  const SizedBox(height: 12),
-                  const Text('Napaka pri nalaganju', style: kHeading2),
-                  const SizedBox(height: 8),
-                  Text(message, style: kBody, textAlign: TextAlign.center),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmpty() {
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar(
-          pinned: true,
-          backgroundColor: const Color(0xFF2E7D32),
-          title: const Text('Moje objave',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-        ),
-        SliverFillRemaining(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(40),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
-                    child: const Icon(Icons.inbox_outlined, size: 48, color: kGreenMid),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text('Moje objave', style: kHeading2),
-                  const SizedBox(height: 8),
-                  const Text('Še niste objavili nobenega oglasa.',
-                      style: kBody, textAlign: TextAlign.center),
-                  const SizedBox(height: 28),
-                  GestureDetector(
-                    onTap: _showAddOglas,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
-                        ),
-                        borderRadius: kRadiusFull,
-                        boxShadow: [
-                          BoxShadow(color: kGreenMid.withOpacity(0.3),
-                              blurRadius: 16, offset: const Offset(0, 6)),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                          SizedBox(width: 8),
-                          Text('Dodaj prvi oglas',
-                              style: TextStyle(color: Colors.white,
-                                  fontWeight: FontWeight.w800, fontSize: 15)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// _OglasCard
-// ─────────────────────────────────────────────────────────────────────────────
-class _OglasCard extends StatelessWidget {
-  final FoodOglas oglas;
-  final VoidCallback onTap;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const _OglasCard({
-    required this.oglas,
-    required this.onTap,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Stack(
-        children: [
-          FoodCard(oglas: oglas, onTap: onTap),
-          Positioned(
-            top: 8, right: 8,
-            child: Row(children: [
-              _ActionChip(icon: Icons.edit_rounded, color: kGreenMid,
-                  onTap: onEdit, tooltip: 'Uredi'),
-              const SizedBox(width: 6),
-              _ActionChip(icon: Icons.delete_outline_rounded, color: Colors.red,
-                  onTap: onDelete, tooltip: 'Izbriši'),
-            ]),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionChip extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  const _ActionChip({required this.icon, required this.color,
-      required this.onTap, required this.tooltip});
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 32, height: 32,
-          decoration: BoxDecoration(
-            color: Colors.white, borderRadius: kRadius8,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12),
-                blurRadius: 8, offset: const Offset(0, 2))],
-          ),
-          child: Icon(icon, color: color, size: 16),
-        ),
+      body: UserListingsView(
+        profileUid: user.uid,
+        isOwner: true,
+        onAdd: _showAddOglas,
+        onEdit: _showEditOglas,
+        onDelete: _deleteOglas,
       ),
     );
   }
@@ -950,8 +629,9 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
       } else {
         final docRef = FirebaseFirestore.instance.collection('oglasi').doc();
         final portions = int.tryParse(_portionsCtrl.text.trim()) ?? 1;
+        final title = _titleCtrl.text.trim();
         await docRef.set({
-          'title': _titleCtrl.text.trim(),
+          'title': title,
           'description': _descCtrl.text.trim(),
           'grams': int.tryParse(_gramsCtrl.text.trim()) ?? 0,
           'portions': portions,
@@ -975,6 +655,14 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           if (lat != null) 'lat': lat,
           if (lng != null) 'lng': lng,
         });
+        if (user != null) {
+          await NotificationService.instance.notifyFollowersOfNewListing(
+            authorUid: user.uid,
+            authorUsername: authorName ?? 'Uporabnik',
+            oglasId: docRef.id,
+            title: title,
+          );
+        }
       }
 
       if (mounted) {
