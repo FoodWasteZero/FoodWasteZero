@@ -10,6 +10,7 @@ import '../models/models.dart';
 import '../screens/auth_screen.dart';
 import '../common/firestore_error.dart';
 import '../common/auth_helpers.dart';
+import '../common/publisher_navigation.dart';
 import '../services/email_service.dart';
 import '../services/offer_promotion_service.dart';
 import '../services/ui_state_service.dart';
@@ -650,11 +651,19 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                               ),
                               const SizedBox(width: 10),
                               if (oglas.username != null) ...[
-                                Text(oglas.username!,
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: kTextDark)),
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    openPublisherProfile(context, oglas);
+                                  },
+                                  child: Text(oglas.username!,
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: kGreenMid,
+                                          decoration: TextDecoration.underline)),
+                                ),
                                 const SizedBox(width: 16),
                                 Container(width: 1, height: 14, color: kBorder.withOpacity(0.3)),
                                 const SizedBox(width: 16),
