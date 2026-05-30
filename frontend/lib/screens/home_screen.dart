@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import '../cards/org_stat_sheet.dart';
 import '../common/theme.dart';
 import '../common/firestore_error.dart';
 import '../common/auth_helpers.dart';
@@ -911,7 +912,7 @@ class _HomeScreenState extends State<HomeScreen>
           else
             ...show.map((p) => _UpcomingPickupTile(
               pickup: p,
-              onTap: () => FoodDetailSheet.show(context, p.oglas),
+              onTap: () => OrgStatSheet.show(context, p.oglas),
             )),
         ],
       ),
@@ -1810,7 +1811,7 @@ class _UpcomingPickupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final oglas = pickup.oglas;
-    final hasPrice = !(oglas.isFree) && (oglas.price ?? 0) > 0;
+    final hasPrice = (oglas.price ?? 0) > 0;
 
     return GestureDetector(
       onTap: onTap,
