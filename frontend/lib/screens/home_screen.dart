@@ -521,10 +521,7 @@ class _HomeScreenState extends State<HomeScreen>
         return Scaffold(
           backgroundColor: Color.lerp(kSurface, const Color(0xFFE8F5E9), t * 0.5)!,
           body: _buildBody(),
-          floatingActionButton: _navIndex == 0 && _isDavatelj &&
-              FirebaseAuth.instance.currentUser != null
-              ? _buildFAB(t)
-              : null,
+          floatingActionButton: null,
           bottomNavigationBar: _buildBottomNav(
             navBg: navBg,
             navIndicator: navIndicator,
@@ -744,25 +741,378 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildOrgHomeContent(
     List<FoodOglas> filtered, int available, int expiring, int reserved) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+
     return CustomScrollView(slivers: [
       _buildOrgSliverAppBar(),
-      SliverToBoxAdapter(child: _buildSearchBar()),
-      SliverToBoxAdapter(child: _buildOrgQuickActions()),
-      SliverToBoxAdapter(child: _buildListingsHeader(filtered.length)),
-      SliverToBoxAdapter(child: _buildTabRow()),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 100),
-        sliver: filtered.isEmpty
-            ? const SliverToBoxAdapter(child: _EmptyState())
-            : SliverList(delegate: SliverChildBuilderDelegate(
-                (_, i) => FoodCard(
-                  oglas: filtered[i],
-                  onTap: () => FoodDetailSheet.show(context, filtered[i]),
-                ),
-                childCount: filtered.length,
-              )),
-      ),
+
+      // ── Zgornji del: današnje statistike ──────────────────────────────────
+      SliverToBoxAdapter(child: _buildDavateljTodayStats(currentUser?.uid)),
+
+      // ── Sredina: prihodnji prevzemi + gumb ────────────────────────────────
+      SliverToBoxAdapter(child: _buildUpcomingPickups(filtered, currentUser?.uid)),
+
+      // ── Spodnji del: 7-dnevni graf ────────────────────────────────────────
+      SliverToBoxAdapter(child: _buildWeeklyChart(currentUser?.uid)),
+
+      const SliverToBoxAdapter(child: SizedBox(height: 100)),
     ]);
+  }
+
+  // ── Današnje statistike (prihodki, prevzemi, rešeni obroki) ───────────────
+  Widget _buildDavateljTodayStats(String? uid) {
+    if (uid == null) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('oglasi')
+          .where('uid', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snap) {
+        final now = DateTime.now();
+        final todayStart = DateTime(now.year, now.month, now.day);
+        final docs = snap.data?.docs ?? [];
+
+        // Filtriraj samo današnje prevzete oglase
+        final todayPrevzeti = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          if (data['status'] != 'prevzeto') return false;
+          final ts = data['chosenTermin'] as Timestamp? ??
+              data['updatedAt'] as Timestamp? ??
+              data['createdAt'] as Timestamp?;
+          if (ts == null) return false;
+          return ts.toDate().isAfter(todayStart);
+        }).toList();
+
+        // Prihodki danes (seštej cene prevzetih)
+        double todayRevenue = 0;
+        for (final d in todayPrevzeti) {
+          final data = d.data() as Map<String, dynamic>;
+          final price = (data['price'] as num?)?.toDouble() ?? 0.0;
+          final portions = (data['reservedPortions'] as num?)?.toInt() ?? 1;
+          todayRevenue += price * portions;
+        }
+
+        // Prevzemi danes
+        final todayPrevzemiCount = todayPrevzeti.length;
+
+        // Rešeni obroki danes (remainingPortions, ki so bile rezervirane)
+        int reseniObroki = 0;
+        for (final d in todayPrevzeti) {
+          final data = d.data() as Map<String, dynamic>;
+          reseniObroki += (data['reservedPortions'] as num?)?.toInt() ?? 1;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.today_rounded, size: 17, color: kGreenMid),
+                const SizedBox(width: 6),
+                Text(
+                  'Danes, ${_formatDate(now)}',
+                  style: kHeading3.copyWith(fontSize: 15),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: _DavateljStatCard(
+                  icon: Icons.euro_rounded,
+                  value: todayRevenue == 0
+                      ? '—'
+                      : '${todayRevenue.toStringAsFixed(2)} €',
+                  label: 'Današnji prihodki',
+                  color: const Color(0xFF00897B),
+                  bgColor: const Color(0xFFE0F2F1),
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: _DavateljStatCard(
+                  icon: Icons.shopping_bag_rounded,
+                  value: '$todayPrevzemiCount',
+                  label: 'Današnji prevzemi',
+                  color: const Color(0xFF1E88E5),
+                  bgColor: const Color(0xFFE3F2FD),
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: _DavateljStatCard(
+                  icon: Icons.volunteer_activism_rounded,
+                  value: '$reseniObroki',
+                  label: 'Rešeni obroki',
+                  color: kGreenMid,
+                  bgColor: kGreenPale,
+                )),
+              ]),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Prihodnji prevzemi ─────────────────────────────
+  Widget _buildUpcomingPickups(List<FoodOglas> allOglasi, String? uid) {
+    final now = DateTime.now();
+
+    // Filtriraj oglase tega davatelja z bodočimi termini
+    final myOglasi = uid == null
+        ? allOglasi
+        : allOglasi.where((o) => o.uid == uid).toList();
+
+    // Zgradi seznam prihodnjih prevzemov iz terminov
+    final List<_UpcomingPickup> upcoming = [];
+    for (final oglas in myOglasi) {
+      if (oglas.status == OglasStatus.prevzeto) continue;
+      final termini = [oglas.termin1, oglas.termin2, oglas.termin3, oglas.termin4]
+          .where((t) => t != null && t.isAfter(now))
+          .cast<DateTime>()
+          .toList()
+        ..sort();
+      for (final t in termini) {
+        upcoming.add(_UpcomingPickup(oglas: oglas, termin: t));
+        break; // samo najbližji termin za vsak oglas
+      }
+    }
+    upcoming.sort((a, b) => a.termin.compareTo(b.termin));
+    final show = upcoming.take(5).toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.schedule_rounded, size: 17, color: kGreenMid),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('Prihodnji prevzemi', style: kHeading3.copyWith(fontSize: 15)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (show.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: kRadius12,
+                border: Border.all(color: kBorder),
+              ),
+              child: const Center(
+                child: Column(children: [
+                  Icon(Icons.event_available_rounded, color: kTextLight, size: 32),
+                  SizedBox(height: 8),
+                  Text('Ni prihodnjih prevzemov',
+                      style: TextStyle(color: kTextLight, fontSize: 14)),
+                ]),
+              ),
+            )
+          else
+            ...show.map((p) => _UpcomingPickupTile(
+              pickup: p,
+              onTap: () => FoodDetailSheet.show(context, p.oglas),
+            )),
+        ],
+      ),
+    );
+  }
+
+  // ── 7-dnevni graf uspešnosti ───────────────────────────────────────────────
+  Widget _buildWeeklyChart(String? uid) {
+    if (uid == null) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('oglasi')
+          .where('uid', isEqualTo: uid)
+          .where('status', isEqualTo: 'prevzeto')
+          .snapshots(),
+      builder: (context, snap) {
+        final now = DateTime.now();
+        // Zadnjih 7 dni (vključno z danes)
+        final days = List.generate(7, (i) {
+          final d = now.subtract(Duration(days: 6 - i));
+          return DateTime(d.year, d.month, d.day);
+        });
+
+        // Štej prevzeme po dnevu
+        final Map<DateTime, int> counts = {for (final d in days) d: 0};
+        final Map<DateTime, double> revenues = {for (final d in days) d: 0.0};
+
+        for (final doc in snap.data?.docs ?? []) {
+          final data = doc.data() as Map<String, dynamic>;
+          final ts = data['chosenTermin'] as Timestamp? ??
+              data['updatedAt'] as Timestamp? ??
+              data['createdAt'] as Timestamp?;
+          if (ts == null) continue;
+          final dt = ts.toDate();
+          final key = DateTime(dt.year, dt.month, dt.day);
+          if (counts.containsKey(key)) {
+            counts[key] = (counts[key] ?? 0) + 1;
+            final price = (data['price'] as num?)?.toDouble() ?? 0.0;
+            final portions = (data['reservedPortions'] as num?)?.toInt() ?? 1;
+            revenues[key] = (revenues[key] ?? 0) + price * portions;
+          }
+        }
+
+        final maxCount = counts.values.fold(0, max).toDouble();
+        final dayLabels = ['Pon', 'Tor', 'Sre', 'Čet', 'Pet', 'Sob', 'Ned'];
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.bar_chart_rounded, size: 17, color: kGreenMid),
+                const SizedBox(width: 6),
+                Text('7-dnevna uspešnost', style: kHeading3.copyWith(fontSize: 15)),
+              ]),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: kRadius16,
+                  border: Border.all(color: kBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Graf stolpcev
+                    SizedBox(
+                      height: 110,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: List.generate(7, (i) {
+                          final day = days[i];
+                          final count = counts[day] ?? 0;
+                          final rev = revenues[day] ?? 0.0;
+                          final isToday = day == DateTime(now.year, now.month, now.day);
+                          final frac = maxCount == 0 ? 0.0 : count / maxCount;
+                          return Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (count > 0)
+                                    Text(
+                                      '$count',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isToday ? kGreenMid : kTextMid,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 3),
+                                  Tooltip(
+                                    message: count == 0
+                                        ? 'Ni prevzemov'
+                                        : '$count prevzem${count == 1 ? '' : 'ov'}'
+                                            '${rev > 0 ? '\n${rev.toStringAsFixed(2)} €' : ''}',
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 400),
+                                      curve: Curves.easeOut,
+                                      height: frac == 0 ? 4 : (frac * 85).clamp(8, 85),
+                                      decoration: BoxDecoration(
+                                        color: isToday
+                                            ? kGreenMid
+                                            : count == 0
+                                                ? kBorder
+                                                : kGreenMid.withOpacity(0.4),
+                                        borderRadius: const BorderRadius.vertical(
+                                          top: Radius.circular(6),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Oznake dni
+                    Row(
+                      children: List.generate(7, (i) {
+                        final day = days[i];
+                        final isToday = day == DateTime(now.year, now.month, now.day);
+                        final weekday = day.weekday - 1; // 0=pon
+                        return Expanded(
+                          child: Text(
+                            dayLabels[weekday],
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                              color: isToday ? kGreenMid : kTextLight,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 14),
+                    // Skupaj v 7 dneh
+                    const Divider(height: 1, color: kBorder),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _WeekSummaryItem(
+                          icon: Icons.shopping_bag_outlined,
+                          value: '${counts.values.fold(0, (a, b) => a + b)}',
+                          label: 'Prevzemi',
+                          color: const Color(0xFF1E88E5),
+                        ),
+                        Container(width: 1, height: 32, color: kBorder),
+                        _WeekSummaryItem(
+                          icon: Icons.euro_rounded,
+                          value: () {
+                            final total = revenues.values.fold(0.0, (a, b) => a + b);
+                            return total == 0 ? '—' : '${total.toStringAsFixed(2)} €';
+                          }(),
+                          label: 'Prihodki',
+                          color: const Color(0xFF00897B),
+                        ),
+                        Container(width: 1, height: 32, color: kBorder),
+                        _WeekSummaryItem(
+                          icon: Icons.volunteer_activism_rounded,
+                          value: () {
+                            int total = 0;
+                            for (final doc in snap.data?.docs ?? []) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              total += (data['reservedPortions'] as num?)?.toInt() ?? 1;
+                            }
+                            return '$total';
+                          }(),
+                          label: 'Rešeni obroki',
+                          color: kGreenMid,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = dt.month.toString().padLeft(2, '0');
+    return '$day. $month. ${dt.year}';
   }
 
   Widget _buildOrgSliverAppBar() {
@@ -1358,6 +1708,258 @@ class _HomeScreenState extends State<HomeScreen>
       ]),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Davatelj dashboard pomožni razredi
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Model za prihodnji prevzem
+class _UpcomingPickup {
+  final FoodOglas oglas;
+  final DateTime termin;
+  const _UpcomingPickup({required this.oglas, required this.termin});
+}
+
+/// Kartica z današnjo statistiko za davatelja
+class _DavateljStatCard extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+  final Color bgColor;
+
+  const _DavateljStatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+    required this.bgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: kRadius12,
+        border: Border.all(color: color.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: kRadius8,
+            ),
+            child: Icon(icon, size: 17, color: color),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: kTextLight, height: 1.3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Vrstica prihodnjega prevzema v seznamu
+class _UpcomingPickupTile extends StatelessWidget {
+  final _UpcomingPickup pickup;
+  final VoidCallback onTap;
+
+  const _UpcomingPickupTile({required this.pickup, required this.onTap});
+
+  String _formatTermin(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final day = DateTime(dt.year, dt.month, dt.day);
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    final timeStr = '$hour:$min';
+
+    if (day == today) return 'Danes ob $timeStr';
+    if (day == tomorrow) return 'Jutri ob $timeStr';
+    return '${dt.day}.${dt.month}. ob $timeStr';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final oglas = pickup.oglas;
+    final hasPrice = !(oglas.isFree) && (oglas.price ?? 0) > 0;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: kRadius12,
+          border: Border.all(color: kBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Ikona kategorije
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: oglas.imageColor,
+                borderRadius: kRadius8,
+              ),
+              child: Icon(oglas.icon, color: kGreenMid, size: 20),
+            ),
+            const SizedBox(width: 12),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    oglas.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: kTextDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    const Icon(Icons.schedule_rounded,
+                        size: 12, color: kTextLight),
+                    const SizedBox(width: 3),
+                    Text(
+                      _formatTermin(pickup.termin),
+                      style: const TextStyle(fontSize: 12, color: kTextLight),
+                    ),
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Cena / brezplačno + status
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: hasPrice
+                        ? const Color(0xFFE0F2F1)
+                        : kGreenPale,
+                    borderRadius: kRadiusFull,
+                  ),
+                  child: Text(
+                    hasPrice
+                        ? '${oglas.price!.toStringAsFixed(2)} €'
+                        : 'Brezplačno',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: hasPrice
+                          ? const Color(0xFF00897B)
+                          : kGreenMid,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (oglas.status == OglasStatus.rezervirano)
+                  const Text(
+                    'Rezervirano',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: kOrange,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else
+                  const Text(
+                    'Na voljo',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: kGreenMid,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: kTextLight, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Skupna vrednost v tedenskem grafu
+class _WeekSummaryItem extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _WeekSummaryItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Icon(icon, size: 18, color: color),
+      const SizedBox(height: 4),
+      Text(
+        value,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
+      ),
+      const SizedBox(height: 2),
+      Text(
+        label,
+        style: const TextStyle(fontSize: 11, color: kTextLight),
+      ),
+    ]);
   }
 }
 
