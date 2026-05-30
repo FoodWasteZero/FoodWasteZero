@@ -282,8 +282,21 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       if (oglas.expiryDate != null && oglas.expiryDate!.difference(now) < const Duration(hours: 24)) {
         if (mounted) {
           setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Rezervacije ni mogoče preklicati manj kot 24 ur pred rokom.'), backgroundColor: Colors.red),
+          showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: const RoundedRectangleBorder(borderRadius: kRadius16),
+              icon: const Icon(Icons.lock_clock_rounded, color: Colors.red, size: 32),
+              title: const Text('Preklic ni možen', style: TextStyle(fontWeight: FontWeight.w800)),
+              content: const Text('Rezervacije ni mogoče preklicati manj kot 24 ur pred rokom.'), // oz. "...terminom."
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(backgroundColor: kGreenMid, foregroundColor: Colors.white),
+                  child: const Text('Razumem'),
+                ),
+              ],
+            ),
           );
         }
         return;
@@ -291,8 +304,21 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       if (oglas.chosenTermin != null && oglas.chosenTermin!.difference(now) < const Duration(hours: 24)) {
         if (mounted) {
           setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Rezervacije ni mogoče preklicati manj kot 24 ur pred izbranim terminom.'), backgroundColor: Colors.red),
+          showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: const RoundedRectangleBorder(borderRadius: kRadius16),
+              icon: const Icon(Icons.lock_clock_rounded, color: Colors.red, size: 32),
+              title: const Text('Preklic ni možen', style: TextStyle(fontWeight: FontWeight.w800)),
+              content: const Text('Rezervacije ni mogoče preklicati manj kot 24 ur pred rokom.'), // oz. "...terminom."
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(backgroundColor: kGreenMid, foregroundColor: Colors.white),
+                  child: const Text('Razumem'),
+                ),
+              ],
+            ),
           );
         }
         return;
@@ -637,25 +663,40 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                               const Spacer(),
                               // ── Cena na desno ──────────────────────────
                               if (oglas.price != null && oglas.price! > 0)
-                                Row(mainAxisSize: MainAxisSize.min, children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF5C6BC0).withOpacity(0.12),
-                                      borderRadius: kRadius8,
-                                    ),
-                                    child: const Icon(Icons.euro_rounded, size: 12, color: Color(0xFF5C6BC0)),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF5C6BC0).withOpacity(0.12),
+                                    borderRadius: kRadius8,
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${oglas.price!.toStringAsFixed(2)} €',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF5C6BC0),
+                                  child: const Icon(Icons.euro_rounded, size: 12, color: Color(0xFF5C6BC0)),
+                                ),
+                                const SizedBox(width: 6),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${(oglas.price! * _selectedPortions).toStringAsFixed(2)} €',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF5C6BC0),
+                                      ),
                                     ),
-                                  ),
-                                ])
+                                    if (_selectedPortions > 1)
+                                      Text(
+                                        '${oglas.price!.toStringAsFixed(2)} € / porcija',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF5C6BC0),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ])
                               else
                                 Row(mainAxisSize: MainAxisSize.min, children: [
                                   Container(
