@@ -518,23 +518,30 @@ class _ProfilePageState extends State<ProfilePage>
         labelColor: Colors.white,
         unselectedLabelColor: kTextMid,
         labelStyle:
-            const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         unselectedLabelStyle:
-            const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         dividerColor: Colors.transparent,
         splashFactory: NoSplash.splashFactory,
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         tabs: [
           Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.bookmark_rounded, size: 15),
-                SizedBox(width: 5),
-                Text('Rezervirano'),
-              ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.bookmark_rounded, size: 15),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                'Rezervirano',
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
           Tab(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -571,17 +578,9 @@ class _ProfilePageState extends State<ProfilePage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildProfileHeader(),
-            _buildTabBar(),
             const SizedBox(height: 4),
             Expanded(
-              child: TabBarView(
-                controller: _tabCtrl,
-                children: [
-                  _buildDavateljOglasi(user.uid),
-                  const SizedBox.shrink(), // Placeholder za drugi tab
-                  _buildAccountTab(),
-                ],
-              ),
+              child: _buildDavateljOglasi(user.uid),
             ),
           ],
         ),
