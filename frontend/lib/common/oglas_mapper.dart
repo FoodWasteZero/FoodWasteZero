@@ -12,6 +12,7 @@ String timeAgoFromDate(DateTime? dt) {
   return 'Pred ${diff.inDays} dni';
 }
 
+// ── Oglas mapper ──────────────────────────────────────────────────────────────
 FoodOglas docToFoodOglas(DocumentSnapshot doc, {double defaultDistKm = 1.0}) {
   final d = doc.data() as Map<String, dynamic>;
   final statusStr = d['status'] as String? ?? 'naRazpolago';
@@ -88,21 +89,35 @@ FoodOglas docToFoodOglas(DocumentSnapshot doc, {double defaultDistKm = 1.0}) {
     icon: icon,
     latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
     imageBase64: d['imageBase64'] as String?,
-    reservedByUid: d['reservedByUid'] as String?,
     expiryDate: expiryDate,
     termin1: (d['termin1'] as Timestamp?)?.toDate(),
     termin2: (d['termin2'] as Timestamp?)?.toDate(),
     termin3: (d['termin3'] as Timestamp?)?.toDate(),
     termin4: (d['termin4'] as Timestamp?)?.toDate(),
-    chosenTermin: (d['chosenTermin'] as Timestamp?)?.toDate(),
-    offerPending: d['offerPending'] as bool? ?? false,
-    offerExpiresAt: (d['offerExpiresAt'] as Timestamp?)?.toDate(),
-    offerToken: d['offerToken'] as String?,
     waitlist: waitlist,
     portions: (d['portions'] as num?)?.toInt(),
     remainingPortions: (d['remainingPortions'] as num?)?.toInt(),
     price: (d['price'] as num?)?.toDouble(),
     isDavatelj: d['isDavatelj'] as bool? ?? false,
+  );
+}
+
+// ── Rezervacija mapper ────────────────────────────────────────────────────────
+Rezervacija docToRezervacija(DocumentSnapshot doc) {
+  final d = doc.data() as Map<String, dynamic>;
+  return Rezervacija(
+    id: doc.id,
+    oglasId: d['oglasId'] as String? ?? '',
+    userId: d['userId'] as String? ?? '',
+    kolicinaPorcij: (d['kolicinaPorcij'] as num?)?.toInt() ?? 1,
+    status: rezervacijaStatusFromString(d['status'] as String? ?? 'na_voljo'),
+    createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    chosenTermin: (d['chosenTermin'] as Timestamp?)?.toDate(),
+    offerPending: d['offerPending'] as bool? ?? false,
+    offerExpiresAt: (d['offerExpiresAt'] as Timestamp?)?.toDate(),
+    offerToken: d['offerToken'] as String?,
+    pickupToken: d['pickupToken'] as String?,
+    waitlistPosition: (d['waitlistPosition'] as num?)?.toInt(),
   );
 }
 

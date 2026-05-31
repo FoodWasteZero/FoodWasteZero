@@ -24,34 +24,34 @@ class OrgStatSheet extends StatefulWidget {
 }
 
 class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
-  // Sveži podatki iz Firestorea (za username rezervatorja)
-  String? _reserverName;
-  bool _loadingReserver = false;
+  List<Map<String, dynamic>> _rezervacije = [];
+  bool _loadingRez = true;
 
   FoodOglas get oglas => widget.oglas;
 
   @override
   void initState() {
     super.initState();
-    _fetchReserverName();
+    _fetchRezervacije();
   }
 
-  Future<void> _fetchReserverName() async {
-    final uid = oglas.reservedByUid;
-    if (uid == null) return;
-    setState(() => _loadingReserver = true);
+  Future<void> _fetchRezervacije() async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final snap = await FirebaseFirestore.instance
+          .collection('rezervacije')
+          .where('oglasId', isEqualTo: oglas.id)
+          .where('status', whereIn: ['rezervirano', 'na_voljo'])
+          .get();
       if (mounted) {
         setState(() {
-          _reserverName = doc.data()?['username'] as String? ??
-              doc.data()?['displayName'] as String? ??
-              'Neznan uporabnik';
-          _loadingReserver = false;
+          _rezervacije = snap.docs
+              .map((d) => d.data() as Map<String, dynamic>)
+              .toList();
+          _loadingRez = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingReserver = false);
+      if (mounted) setState(() => _loadingRez = false);
     }
   }
 
@@ -74,9 +74,18 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final total = oglas.portions ?? 1;
     final remaining = oglas.remainingPortions ?? total;
-    final reserved = oglas.reservedPortions ?? (total - remaining);
+    // Count reserved portions from loaded rezervacije
+    final reserved = _rezervacije.fold<int>(
+        0, (sum, r) => sum + ((r['kolicinaPorcij'] as num?)?.toInt() ?? 1));
     final hasPrice = (oglas.price ?? 0) > 0;
     final totalPrice = hasPrice ? oglas.price! * reserved : 0.0;
+
+    // Pick the first chosenTermin from any active reservation
+    final chosenTermin = _rezervacije
+        .map((r) => (r['chosenTermin'] as Timestamp?)?.toDate())
+        .whereType<DateTime>()
+        .cast<DateTime?>()
+        .firstOrNull;
 
     // Termini
     final termini = <DateTime?>[
@@ -248,14 +257,14 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                     ),
                   ]),
 
-                  // ── Rezervator ──────────────────────────────────────────
-                  if (oglas.reservedByUid != null) ...[
+                  // ── Rezervacije ─────────────────────────────────────────
+                  if (_rezervacije.isNotEmpty) ...[
                     const SizedBox(height: 20),
                     const Divider(height: 1, color: kBorder),
                     const SizedBox(height: 20),
                     _SectionTitle(
-                      icon: Icons.person_rounded,
-                      label: 'Rezervator',
+                      icon: Icons.people_rounded,
+                      label: 'Aktivne rezervacije',
                     ),
                     const SizedBox(height: 10),
                     Container(
@@ -268,15 +277,13 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                       child: Row(children: [
                         Container(
                           width: 40, height: 40,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: kGreenPale,
                             shape: BoxShape.circle,
                           ),
                           child: Center(
                             child: Text(
-                              _loadingReserver
-                                  ? '?'
-                                  : (_reserverName ?? '?')[0].toUpperCase(),
+                              '${_rezervacije.length}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
@@ -287,14 +294,14 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _loadingReserver
+                          child: _loadingRez
                               ? const Text('Nalagam...',
                                   style: TextStyle(color: kTextLight))
                               : Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      _reserverName ?? '—',
+                                      '${_rezervacije.length} ${_rezervacije.length == 1 ? 'rezervacija' : 'rezervacij'} aktivnih',
                                       style: const TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
@@ -317,7 +324,7 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                   ],
 
                   // ── Izbrani termin ───────────────────────────────────────
-                  if (oglas.chosenTermin != null) ...[
+                  if (chosenTermin != null) ...[
                     const SizedBox(height: 20),
                     const Divider(height: 1, color: kBorder),
                     const SizedBox(height: 20),
@@ -338,7 +345,7 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                             color: kGreenMid, size: 22),
                         const SizedBox(width: 10),
                         Text(
-                          _formatTermin(oglas.chosenTermin!),
+                          _formatTermin(chosenTermin!),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -360,8 +367,8 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                     ),
                     const SizedBox(height: 10),
                     ...termini.map((t) {
-                      final isChosen = oglas.chosenTermin != null &&
-                          t.isAtSameMomentAs(oglas.chosenTermin!);
+                      final isChosen = chosenTermin != null &&
+                          t.isAtSameMomentAs(chosenTermin);
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(

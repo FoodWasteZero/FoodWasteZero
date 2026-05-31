@@ -86,20 +86,14 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     icon: icon,
     latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
     imageBase64: d['imageBase64'] as String?,
-    reservedByUid: d['reservedByUid'] as String?,
     expiryDate: expiryDate,
     termin1: (d['termin1'] as Timestamp?)?.toDate(),
     termin2: (d['termin2'] as Timestamp?)?.toDate(),
     termin3: (d['termin3'] as Timestamp?)?.toDate(),
     termin4: (d['termin4'] as Timestamp?)?.toDate(),
-    chosenTermin: (d['chosenTermin'] as Timestamp?)?.toDate(),
-    offerPending: d['offerPending'] as bool? ?? false,
-    offerExpiresAt: (d['offerExpiresAt'] as Timestamp?)?.toDate(),
-    offerToken: d['offerToken'] as String?,
     waitlist: waitlist,
     portions: (d['portions'] as num?)?.toInt(),
     remainingPortions: (d['remainingPortions'] as num?)?.toInt(),
-    reservedPortions: (d['reservedPortions'] as num?)?.toInt(),
     price: (d['price'] as num?)?.toDouble(),
     isDavatelj: d['isDavatelj'] as bool? ?? false,
   );
@@ -620,22 +614,12 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     final currentUser = FirebaseAuth.instance.currentUser;
-    final pendingOffers = currentUser == null
-        ? <FoodOglas>[]
-        : all.where((o) => o.reservedByUid == currentUser.uid && o.offerPending).toList();
 
     return CustomScrollView(controller: _listScrollCtrl, slivers: [
       _buildSliverAppBar(),
       if (_isGuest) SliverToBoxAdapter(child: _buildGuestBanner()),
-      if (pendingOffers.isNotEmpty)
-        SliverToBoxAdapter(
-          child: ValueListenableBuilder<bool>(
-            valueListenable: UIStateService.instance.isDetailOpen,
-            builder: (_, isDetailOpen, __) {
-              return isDetailOpen ? const SizedBox.shrink() : _buildPendingOfferBanner(pendingOffers.first);
-            },
-          ),
-        ),
+      if (currentUser != null && !currentUser.isAnonymous)
+        SliverToBoxAdapter(child: _PendingOfferBannerStream(uid: currentUser.uid)),
       SliverToBoxAdapter(child: _buildSearchBar()),
       SliverToBoxAdapter(child: _buildQuickActionsRow()),
       SliverToBoxAdapter(child: _buildHeatmapSection(filtered)),
@@ -658,106 +642,6 @@ class _HomeScreenState extends State<HomeScreen>
     ]);
   }
 
-  Widget _buildPendingOfferBanner(FoodOglas oglas) {
-    final expiresAt = oglas.offerExpiresAt;
-    final remaining = expiresAt == null ? null : expiresAt.difference(DateTime.now());
-    final remainingText = remaining == null
-        ? 'Rok potrditve ni znan'
-        : remaining.isNegative
-            ? 'Potrditev je potekla'
-            : 'Še ${remaining.inHours} h ${remaining.inMinutes.remainder(60)} min';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF8E1),
-          borderRadius: kRadius16,
-          border: Border.all(color: const Color(0xFFFFB300).withOpacity(0.35)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.mark_email_read_rounded, color: Color(0xFFE65100)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Rezervacija čaka na potrditev',
-                    style: kHeading3.copyWith(color: kTextDark),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${oglas.title}\n$remainingText',
-              style: const TextStyle(fontSize: 13.5, height: 1.35, color: kTextDark),
-            ),
-            if (oglas.chosenTermin != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Izbran termin: ${_formatTerm(oglas.chosenTermin!)}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kGreenMid),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: oglas.offerToken == null
-                      ? null
-                      : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => OfferClaimPage(
-                                adId: oglas.id,
-                                expectedUid: oglas.reservedByUid ?? '',
-                                token: oglas.offerToken!,
-                              ),
-                            ),
-                          );
-                        },
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-                  label: const Text('Odpri potrditev'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kGreenMid,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Povezava iz e-pošte odpre isto potrditveno stran v aplikaciji ali spletnem brskalniku.',
-              style: TextStyle(fontSize: 11.5, color: kTextLight, height: 1.3),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatTerm(DateTime dt) {
-    final day = dt.day.toString().padLeft(2, '0');
-    final month = dt.month.toString().padLeft(2, '0');
-    final hour = dt.hour.toString().padLeft(2, '0');
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '$day.$month.${dt.year} $hour:$minute';
-  }
 
   Widget _buildOrgHomeContent(
     List<FoodOglas> filtered, int available, int expiring, int reserved) {
@@ -808,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen>
         for (final d in todayPrevzeti) {
           final data = d.data() as Map<String, dynamic>;
           final price = (data['price'] as num?)?.toDouble() ?? 0.0;
-          final portions = (data['reservedPortions'] as num?)?.toInt() ?? 1;
+          final portions = (data['portions'] as num?)?.toInt() ?? 1;
           todayRevenue += price * portions;
         }
 
@@ -819,7 +703,7 @@ class _HomeScreenState extends State<HomeScreen>
         int reseniObroki = 0;
         for (final d in todayPrevzeti) {
           final data = d.data() as Map<String, dynamic>;
-          reseniObroki += (data['reservedPortions'] as num?)?.toInt() ?? 1;
+          reseniObroki += (data['portions'] as num?)?.toInt() ?? 1;
         }
 
         return Padding(
@@ -970,7 +854,7 @@ class _HomeScreenState extends State<HomeScreen>
           if (counts.containsKey(key)) {
             counts[key] = (counts[key] ?? 0) + 1;
             final price = (data['price'] as num?)?.toDouble() ?? 0.0;
-            final portions = (data['reservedPortions'] as num?)?.toInt() ?? 1;
+            final portions = (data['portions'] as num?)?.toInt() ?? 1;
             revenues[key] = (revenues[key] ?? 0) + price * portions;
           }
         }
@@ -1110,7 +994,7 @@ class _HomeScreenState extends State<HomeScreen>
                             int total = 0;
                             for (final doc in snap.data?.docs ?? []) {
                               final data = doc.data() as Map<String, dynamic>;
-                              total += (data['reservedPortions'] as num?)?.toInt() ?? 1;
+                              total += (data['portions'] as num?)?.toInt() ?? 1;
                             }
                             return '$total';
                           }(),
@@ -3376,6 +3260,151 @@ class _HotspotPopup extends StatelessWidget {
     );
   }
 }
+
+// ── Pending offer banner — reads from 'rezervacije' collection ────────────────
+class _PendingOfferBannerStream extends StatelessWidget {
+  final String uid;
+  const _PendingOfferBannerStream({required this.uid});
+
+  String _formatTerm(DateTime dt) {
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = dt.month.toString().padLeft(2, '0');
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$day.$month.${dt.year} $hour:$minute';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('rezervacije')
+          .where('userId', isEqualTo: uid)
+          .where('offerPending', isEqualTo: true)
+          .limit(1)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData || snap.data!.docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final rezDoc = snap.data!.docs.first;
+        final rezData = rezDoc.data() as Map<String, dynamic>;
+        final expiresTs = rezData['offerExpiresAt'] as Timestamp?;
+        final expiresAt = expiresTs?.toDate();
+        final remaining = expiresAt == null ? null : expiresAt.difference(DateTime.now());
+        final remainingText = remaining == null
+            ? 'Rok potrditve ni znan'
+            : remaining.isNegative
+                ? 'Potrditev je potekla'
+                : 'Še ${remaining.inHours} h ${remaining.inMinutes.remainder(60)} min';
+
+        final chosenTermin = (rezData['chosenTermin'] as Timestamp?)?.toDate();
+        final offerToken = rezData['offerToken'] as String?;
+        final oglasId = rezData['oglasId'] as String? ?? '';
+        final rezervacijaId = rezDoc.id;
+
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('oglasi').doc(oglasId).get(),
+          builder: (context, oglasSnap) {
+            final title = oglasSnap.hasData && oglasSnap.data!.exists
+                ? (oglasSnap.data!.data() as Map)['title'] as String? ?? 'Rezervacija'
+                : 'Rezervacija';
+
+            return ValueListenableBuilder<bool>(
+              valueListenable: UIStateService.instance.isDetailOpen,
+              builder: (_, isDetailOpen, __) {
+                if (isDetailOpen) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8E1),
+                      borderRadius: kRadius16,
+                      border: Border.all(color: const Color(0xFFFFB300).withOpacity(0.35)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          const Icon(Icons.mark_email_read_rounded,
+                              color: Color(0xFFE65100)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('Rezervacija čaka na potrditev',
+                                style: kHeading3.copyWith(color: kTextDark)),
+                          ),
+                        ]),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$title\n$remainingText',
+                          style: const TextStyle(
+                              fontSize: 13.5, height: 1.35, color: kTextDark),
+                        ),
+                        if (chosenTermin != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Izbran termin: ${_formatTerm(chosenTermin)}',
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: kGreenMid),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: offerToken == null
+                                  ? null
+                                  : () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => OfferClaimPage(
+                                            adId: oglasId,
+                                            rezervacijaId: rezervacijaId,
+                                            expectedUid: uid,
+                                            token: offerToken,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                              icon: const Icon(Icons.check_circle_outline_rounded,
+                                  size: 16),
+                              label: const Text('Odpri potrditev'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: kGreenMid,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                                shape: const RoundedRectangleBorder(
+                                    borderRadius: kRadius12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 
 // ── UI helpers ─────────────────────────────────────────────────────────────────
 class _HeatStat extends StatelessWidget {

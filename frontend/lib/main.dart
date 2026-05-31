@@ -144,15 +144,26 @@ class _AuthGateState extends State<_AuthGate> {
     if (_loading) return const _SplashScreen();
     final uri = Uri.base;
     final adId = uri.queryParameters['claim'];
+    final rezId = uri.queryParameters['rez'];
     final uid = uri.queryParameters['uid'];
     final token = uri.queryParameters['token'];
     final pickupAdId = uri.queryParameters['pickup'];
+    final pickupRezId = uri.queryParameters['rez'];
     final pickupToken = uri.queryParameters['token'];
-    if (adId != null && uid != null && token != null) {
-      return OfferClaimPage(adId: adId, expectedUid: uid, token: token);
+    if (adId != null && rezId != null && uid != null && token != null) {
+      return OfferClaimPage(
+        adId: adId,
+        rezervacijaId: rezId,
+        expectedUid: uid,
+        token: token,
+      );
     }
-    if (pickupAdId != null && pickupToken != null) {
-      return PickupConfirmPage(adId: pickupAdId, token: pickupToken);
+    if (pickupAdId != null && pickupRezId != null && pickupToken != null) {
+      return PickupConfirmPage(
+        adId: pickupAdId,
+        rezervacijaId: pickupRezId,
+        token: pickupToken,
+      );
     }
     if (_showOnboarding) {
       return OnboardingScreen(onDone: _onOnboardingDone);

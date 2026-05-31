@@ -635,9 +635,7 @@ class _ProfilePageState extends State<ProfilePage>
         final steviloRezerviranih = allDocs
             .where((d) {
               final s = (d.data() as Map)['status'] as String? ?? '';
-              return s == 'rezervirano' ||
-                  (s == 'naRazpolago' &&
-                      ((d.data() as Map)['reservedByUid'] as String?)?.isNotEmpty == true);
+              return s == 'rezervirano';
             })
             .length;
 
@@ -734,28 +732,22 @@ class _ProfilePageState extends State<ProfilePage>
   Widget _buildRezervacijeTab(String uid) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('oglasi')
-          .where('reservedByUid', isEqualTo: uid)
+          .collection('rezervacije')
+          .where('userId', isEqualTo: uid)
+          .where('status', whereIn: ['rezervirano', 'na_voljo'])
           .snapshots(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting &&
-            !snap.hasData) {
+      builder: (context, rezSnap) {
+        if (rezSnap.connectionState == ConnectionState.waiting &&
+            !rezSnap.hasData) {
           return const Center(
               child: CircularProgressIndicator(color: kGreenMid));
         }
-        if (snap.hasError) {
+        if (rezSnap.hasError) {
           return _buildEmptyState(
               'Napaka pri nalaganju', Icons.error_outline_rounded);
         }
-        final docs = (snap.data?.docs ?? []).where((doc) {
-          final d = doc.data() as Map;
-          final status = d['status'] as String? ?? '';
-          // Prikaži rezervacije: polne (status == 'rezervirano') ali delne
-          // (status == 'naRazpolago' ampak reservedByUid je nastavljen)
-          return status == 'rezervirano' ||
-              (status == 'naRazpolago' && (d['reservedByUid'] as String?)?.isNotEmpty == true);
-        }).toList();
-        if (docs.isEmpty) {
+        final rezDocs = rezSnap.data?.docs ?? [];
+        if (rezDocs.isEmpty) {
           return _buildEmptyState(
             'Ni aktivnih rezervacij',
             Icons.bookmark_outline_rounded,
@@ -763,14 +755,40 @@ class _ProfilePageState extends State<ProfilePage>
                 'Ko si rezervirate oglas na domači strani, se bo prikazal tukaj.',
           );
         }
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
-          itemCount: docs.length,
-          itemBuilder: (_, i) => _UporabnikOglasCard(
-            doc: docs[i],
-            onTap: () => FoodDetailSheet.show(
-                context, _docToOglasProfile(docs[i])),
+        final oglasIds = rezDocs
+            .map((d) => (d.data() as Map)['oglasId'] as String? ?? '')
+            .toSet()
+            .toList();
+        return FutureBuilder<List<DocumentSnapshot>>(
+          future: Future.wait(
+            oglasIds.map((id) =>
+                FirebaseFirestore.instance.collection('oglasi').doc(id).get()),
           ),
+          builder: (context, oglasSnap) {
+            final oglasMap = <String, DocumentSnapshot>{};
+            if (oglasSnap.hasData) {
+              for (final doc in oglasSnap.data!) {
+                if (doc.exists) oglasMap[doc.id] = doc;
+              }
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
+              itemCount: rezDocs.length,
+              itemBuilder: (_, i) {
+                final rezData = rezDocs[i].data() as Map<String, dynamic>;
+                final oglasId = rezData['oglasId'] as String? ?? '';
+                final oglasDoc = oglasMap[oglasId];
+                return _RezervacijaCard(
+                  rezData: rezData,
+                  oglasDoc: oglasDoc,
+                  onTap: oglasDoc == null
+                      ? null
+                      : () => FoodDetailSheet.show(
+                          context, _docToOglasProfile(oglasDoc)),
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -779,23 +797,22 @@ class _ProfilePageState extends State<ProfilePage>
   Widget _buildPrevzetoTab(String uid) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('oglasi')
-          .where('reservedByUid', isEqualTo: uid)
+          .collection('rezervacije')
+          .where('userId', isEqualTo: uid)
+          .where('status', isEqualTo: 'prevzeto')
           .snapshots(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting &&
-            !snap.hasData) {
+      builder: (context, rezSnap) {
+        if (rezSnap.connectionState == ConnectionState.waiting &&
+            !rezSnap.hasData) {
           return const Center(
               child: CircularProgressIndicator(color: kGreenMid));
         }
-        if (snap.hasError) {
+        if (rezSnap.hasError) {
           return _buildEmptyState(
               'Napaka pri nalaganju', Icons.error_outline_rounded);
         }
-        final docs = (snap.data?.docs ?? []).where((doc) {
-          return (doc.data() as Map)['status'] == 'prevzeto';
-        }).toList();
-        if (docs.isEmpty) {
+        final rezDocs = rezSnap.data?.docs ?? [];
+        if (rezDocs.isEmpty) {
           return _buildEmptyState(
             'Ni prevzetih obrokov',
             Icons.check_circle_outline_rounded,
@@ -803,13 +820,37 @@ class _ProfilePageState extends State<ProfilePage>
                 'Tukaj se bodo prikazali oglasi, ki ste jih že prevzeli.',
           );
         }
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
-          itemCount: docs.length,
-          itemBuilder: (_, i) => _UporabnikOglasCard(
-            doc: docs[i],
-            isPrevzeto: true,
+        final oglasIds = rezDocs
+            .map((d) => (d.data() as Map)['oglasId'] as String? ?? '')
+            .toSet()
+            .toList();
+        return FutureBuilder<List<DocumentSnapshot>>(
+          future: Future.wait(
+            oglasIds.map((id) =>
+                FirebaseFirestore.instance.collection('oglasi').doc(id).get()),
           ),
+          builder: (context, oglasSnap) {
+            final oglasMap = <String, DocumentSnapshot>{};
+            if (oglasSnap.hasData) {
+              for (final doc in oglasSnap.data!) {
+                if (doc.exists) oglasMap[doc.id] = doc;
+              }
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
+              itemCount: rezDocs.length,
+              itemBuilder: (_, i) {
+                final rezData = rezDocs[i].data() as Map<String, dynamic>;
+                final oglasId = rezData['oglasId'] as String? ?? '';
+                final oglasDoc = oglasMap[oglasId];
+                return _RezervacijaCard(
+                  rezData: rezData,
+                  oglasDoc: oglasDoc,
+                  isPrevzeto: true,
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -1080,8 +1121,8 @@ class _UporabnikStatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('oglasi')
-          .where('reservedByUid', isEqualTo: uid)
+          .collection('rezervacije')
+          .where('userId', isEqualTo: uid)
           .snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
@@ -1101,9 +1142,7 @@ class _UporabnikStatsRow extends StatelessWidget {
         final prevzetoDocs = docs.where((d) => (d.data() as Map)['status'] == 'prevzeto').toList();
         final rezerviranoDocs = docs.where((d) {
           final s = (d.data() as Map)['status'] as String? ?? '';
-          // Štej polne rezervacije in delne (naRazpolago z nastavljenim reservedByUid)
-          return s == 'rezervirano' ||
-              (s == 'naRazpolago' && ((d.data() as Map)['reservedByUid'] as String?)?.isNotEmpty == true);
+          return s == 'rezervirano' || s == 'na_voljo';
         }).toList();
 
         int totalGrams = 0;
@@ -1112,10 +1151,10 @@ class _UporabnikStatsRow extends StatelessWidget {
 
         for (final doc in prevzetoDocs) {
           final d = doc.data() as Map<String, dynamic>;
-          final cat = d['category'] as String? ?? 'Ostalo';
-          final portions = (d['portions'] as num?)?.toInt() ?? 1;
-          totalGrams += _gramsForCategoryA(cat, portions);
+          final portions = (d['kolicinaPorcij'] as num?)?.toInt() ?? 1;
           totalPorcij += portions;
+          // Use a fixed estimate per portion for CO2/grams since category is on the oglas
+          totalGrams += 350 * portions;
           final createdAt = (d['createdAt'] as Timestamp?)?.toDate();
           if (createdAt != null) prevzetoDates.add(createdAt);
         }
@@ -1194,7 +1233,6 @@ class _UporabnikStatsRow extends StatelessWidget {
     );
   }
 }
-
 class _AnalyticCard extends StatelessWidget {
   final String value;
   final String label;
@@ -1410,7 +1448,6 @@ class _DavateljOglasCard extends StatelessWidget {
     final location = d['location'] as String? ?? '';
     final imageBase64 = d['imageBase64'] as String?;
     final statusStr = d['status'] as String? ?? 'naRazpolago';
-    final reservedByUid = d['reservedByUid'] as String?;
     final waitlistRaw = d['waitlist'];
     final waitlistLen =
         (waitlistRaw is List) ? waitlistRaw.length : 0;
@@ -1550,9 +1587,7 @@ class _DavateljOglasCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 8),
                           child: Row(children: [
-                            if (reservedByUid != null &&
-                                status ==
-                                    OglasStatus.rezervirano) ...[
+                            if (status == OglasStatus.rezervirano) ...[
                               const Icon(
                                   Icons.person_outline_rounded,
                                   size: 13,
@@ -1653,6 +1688,188 @@ class _DavateljOglasCard extends StatelessWidget {
                         ),
                       ],
                     ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── REZERVACIJA CARD (za uporabnikove rezervacije iz kolekcije 'rezervacije') ──
+
+class _RezervacijaCard extends StatelessWidget {
+  final Map<String, dynamic> rezData;
+  final DocumentSnapshot? oglasDoc;
+  final VoidCallback? onTap;
+  final bool isPrevzeto;
+
+  const _RezervacijaCard({
+    required this.rezData,
+    required this.oglasDoc,
+    this.onTap,
+    this.isPrevzeto = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final oglasData = oglasDoc?.data() as Map<String, dynamic>?;
+    final title = oglasData?['title'] as String? ?? '—';
+    final category = oglasData?['category'] as String? ?? '';
+    final location = oglasData?['location'] as String? ?? '';
+    final username = oglasData?['username'] as String?;
+    final imageBase64 = oglasData?['imageBase64'] as String?;
+    final expiryDate = (oglasData?['expiryDate'] as Timestamp?)?.toDate();
+    final chosenTermin = (rezData['chosenTermin'] as Timestamp?)?.toDate();
+    final kolicina = (rezData['kolicinaPorcij'] as num?)?.toInt() ?? 1;
+    final createdAt = (rezData['createdAt'] as Timestamp?)?.toDate();
+    final statusStr = rezData['status'] as String? ?? 'rezervirano';
+
+    final OglasStatus status;
+    switch (statusStr) {
+      case 'prevzeto':
+        status = OglasStatus.prevzeto;
+        break;
+      case 'rezervirano':
+        status = OglasStatus.rezervirano;
+        break;
+      default:
+        status = OglasStatus.naRazpolago;
+    }
+    final statusClr = isPrevzeto ? kGreenMid.withOpacity(0.5) : statusColor(status);
+
+    final IconData icon;
+    final Color bgColor;
+    switch (category) {
+      case 'Kuhano':
+        icon = Icons.soup_kitchen_rounded; bgColor = const Color(0xFFFFE0B2); break;
+      case 'Peka':
+        icon = Icons.bakery_dining_rounded; bgColor = const Color(0xFFEFEBE9); break;
+      case 'Sadje & zelenjava':
+        icon = Icons.apple_rounded; bgColor = const Color(0xFFE8F5E9); break;
+      case 'Ostalo':
+        icon = Icons.more_horiz_rounded; bgColor = const Color(0xFFE8EAF6); break;
+      default:
+        icon = Icons.grass_rounded; bgColor = const Color(0xFFF1F8E9);
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: kRadius12,
+          boxShadow: kCardShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: kRadius12,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(width: 4, color: statusClr),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(children: [
+                      Container(
+                        width: 50, height: 50,
+                        decoration: BoxDecoration(color: bgColor, borderRadius: kRadius12),
+                        child: ClipRRect(
+                          borderRadius: kRadius12,
+                          child: imageBase64 != null
+                              ? _ProfileBase64Image(base64: imageBase64)
+                              : Icon(icon, color: kGreenMid, size: 24),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title,
+                                style: kBodyBold.copyWith(fontSize: 14),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            if (username != null) ...[
+                              const SizedBox(height: 2),
+                              Text('od $username',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
+                            ],
+                            const SizedBox(height: 4),
+                            Row(children: [
+                              Icon(Icons.restaurant_rounded, size: 12, color: kTextLight),
+                              const SizedBox(width: 3),
+                              Text(
+                                '$kolicina ${kolicina == 1 ? 'porcija' : kolicina < 5 ? 'porcije' : 'porcij'}',
+                                style: kCaption,
+                              ),
+                            ]),
+                            const SizedBox(height: 3),
+                            Row(children: [
+                              Icon(Icons.location_on_outlined, size: 12, color: kTextLight),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                  child: Text(location,
+                                      style: kCaption,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis)),
+                            ]),
+                            if (chosenTermin != null) ...[
+                              const SizedBox(height: 3),
+                              Row(children: [
+                                Icon(Icons.event_available_rounded, size: 12, color: kGreenMid),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${chosenTermin.day}.${chosenTermin.month}.${chosenTermin.year} '
+                                  '${chosenTermin.hour.toString().padLeft(2, '0')}:${chosenTermin.minute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600),
+                                ),
+                              ]),
+                            ] else if (!isPrevzeto && expiryDate != null) ...[
+                              const SizedBox(height: 3),
+                              Row(children: [
+                                Icon(Icons.event_outlined, size: 12, color: kTextLight),
+                                const SizedBox(width: 3),
+                                Text('Rok: ${expiryDate.day}. ${expiryDate.month}. ${expiryDate.year}',
+                                    style: const TextStyle(fontSize: 12, color: kTextLight)),
+                              ]),
+                            ],
+                            const SizedBox(height: 4),
+                            Text(_timeAgo(createdAt),
+                                style: const TextStyle(fontSize: 11, color: kTextLight)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: statusClr.withOpacity(0.1),
+                              borderRadius: kRadiusFull,
+                              border: Border.all(color: statusClr.withOpacity(0.3)),
+                            ),
+                            child: Text(
+                              isPrevzeto ? 'PREVZETO' : statusLabel(status),
+                              style: TextStyle(
+                                  fontSize: 10, fontWeight: FontWeight.w800, color: statusClr),
+                            ),
+                          ),
+                          if (!isPrevzeto) ...[
+                            const SizedBox(height: 8),
+                            Icon(Icons.chevron_right_rounded, size: 20, color: kTextLight),
+                          ],
+                        ],
+                      ),
+                    ]),
                   ),
                 ),
               ],
@@ -1955,16 +2172,11 @@ FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
     icon: icon,
     latLng: (lat != null && lng != null) ? LatLng(lat, lng) : null,
     imageBase64: d['imageBase64'] as String?,
-    reservedByUid: d['reservedByUid'] as String?,
     expiryDate: expiryDate,
     termin1: (d['termin1'] as Timestamp?)?.toDate(),
     termin2: (d['termin2'] as Timestamp?)?.toDate(),
     termin3: (d['termin3'] as Timestamp?)?.toDate(),
     termin4: (d['termin4'] as Timestamp?)?.toDate(),
-    chosenTermin: (d['chosenTermin'] as Timestamp?)?.toDate(),
-    offerPending: d['offerPending'] as bool? ?? false,
-    offerExpiresAt: (d['offerExpiresAt'] as Timestamp?)?.toDate(),
-    offerToken: d['offerToken'] as String?,
     waitlist: waitlist,
   );
 }

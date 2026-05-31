@@ -3,15 +3,15 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../models/models.dart';
 import 'email_service.dart';
+import 'reservation_service.dart';
 
-/// Lightweight client-driven promotion service.
+/// Prenovljeni OfferPromotionService.
 ///
-/// Listens for documents with `offerPending == true` and, when the
-/// `offerExpiresAt` timestamp passes, runs a transaction to either
-/// assign the reservation to the next user in `waitlist` or mark the
-/// ad as available again. This allows a 3-hour offer window without
-/// Cloud Functions (best-effort: requires at least one active client).
+/// Posluša kolekcijo 'rezervacije' (ne več 'oglasi') za dokumente z
+/// offerPending == true. Ko offerExpiresAt poteče, označi rezervacijo kot
+/// preklicano in promovira naslednjega iz waitliste oglasa ali sprosti porcije.
 class OfferPromotionService {
   OfferPromotionService._();
   static final OfferPromotionService instance = OfferPromotionService._();
@@ -23,7 +23,7 @@ class OfferPromotionService {
     if (_running) return;
     _running = true;
     _sub = FirebaseFirestore.instance
-        .collection('oglasi')
+        .collection('rezervacije')
         .where('offerPending', isEqualTo: true)
         .snapshots()
         .listen(_handleSnapshot, onError: (_) {});
@@ -41,46 +41,73 @@ class OfferPromotionService {
       try {
         final data = doc.data() as Map<String, dynamic>?;
         if (data == null) continue;
-        final offerExpiresTs = data['offerExpiresAt'] as Timestamp?;
-        if (offerExpiresTs == null) continue;
-        final offerExpires = offerExpiresTs.toDate();
-        if (offerExpires.isAfter(now)) continue;
+        final expiresTs = data['offerExpiresAt'] as Timestamp?;
+        if (expiresTs == null) continue;
+        if (expiresTs.toDate().isAfter(now)) continue;
 
-        final waitRaw = data['waitlist'] as List<dynamic>? ?? [];
+        final oglasId = data['oglasId'] as String? ?? '';
+        final kolicinaPorcij = (data['kolicinaPorcij'] as num?)?.toInt() ?? 1;
+
+        // Označi to rezervacijo kot preklicano
+        await doc.reference.update({
+          'status': 'preklicano',
+          'offerPending': false,
+          'offerExpiresAt': FieldValue.delete(),
+          'offerToken': FieldValue.delete(),
+        });
+
+        // Preveri čakalno vrsto in stanje oglasa
+        final oglasSnap = await FirebaseFirestore.instance
+            .collection('oglasi')
+            .doc(oglasId)
+            .get();
+        if (!oglasSnap.exists) continue;
+        final oglasData = oglasSnap.data()!;
+
+        final waitRaw = oglasData['waitlist'] as List<dynamic>? ?? [];
         final waitlist = waitRaw.map((e) => e.toString()).toList();
+
         if (waitlist.isNotEmpty) {
           await promoteNextUser(
-            docId: doc.reference.id,
+            docId: oglasId,
             nextUid: waitlist.first,
             remainingWaitlist: waitlist.skip(1).toList(),
-            title: data['title'] as String? ?? '',
-            termin1: data['termin1'] as Timestamp?,
-            termin2: data['termin2'] as Timestamp?,
-            termin3: data['termin3'] as Timestamp?,
-            termin4: data['termin4'] as Timestamp?,
+            kolicinaPorcij: kolicinaPorcij,
+            title: oglasData['title'] as String? ?? '',
+            termin1: oglasData['termin1'] as Timestamp?,
+            termin2: oglasData['termin2'] as Timestamp?,
+            termin3: oglasData['termin3'] as Timestamp?,
+            termin4: oglasData['termin4'] as Timestamp?,
           );
         } else {
-          await doc.reference.update({
+          // Ni čakalne vrste — vrni porcije oglasu
+          final totalPortions = (oglasData['portions'] as num?)?.toInt() ?? 1;
+          final currentRemaining =
+              (oglasData['remainingPortions'] as num?)?.toInt() ?? 0;
+          final restored =
+              (currentRemaining + kolicinaPorcij).clamp(0, totalPortions);
+          await FirebaseFirestore.instance
+              .collection('oglasi')
+              .doc(oglasId)
+              .update({
+            'remainingPortions': restored,
             'status': 'naRazpolago',
-            'reservedByUid': FieldValue.delete(),
-            'offerPending': false,
-            'offerExpiresAt': FieldValue.delete(),
-            'offeredUid': FieldValue.delete(),
-            'offerToken': FieldValue.delete(),
-            'chosenTermin': FieldValue.delete(),
-              'pickupToken': FieldValue.delete(),
+            'waitlist': [],
           });
         }
-      } catch (_) {
-        // Best-effort; ignore transient failures.
+      } catch (e) {
+        debugPrint('OfferPromotion: error processing doc ${doc.id}: $e');
       }
     }
   }
 
+  /// Ustvari novo rezervacijo za naslednjega v čakalni vrsti z offerPending = true
+  /// in posodobi waitlist na oglasu.
   Future<void> promoteNextUser({
     required String docId,
     required String nextUid,
     required List<String> remainingWaitlist,
+    required int kolicinaPorcij,
     required String title,
     required Timestamp? termin1,
     required Timestamp? termin2,
@@ -88,59 +115,85 @@ class OfferPromotionService {
     required Timestamp? termin4,
   }) async {
     final offerToken = _createToken();
-    debugPrint('OfferPromotion: promoteNextUser doc=$docId nextUid=$nextUid token=$offerToken');
-    final ref = FirebaseFirestore.instance.collection('oglasi').doc(docId);
+    final oglasRef =
+        FirebaseFirestore.instance.collection('oglasi').doc(docId);
+    final rezervacijeRef =
+        FirebaseFirestore.instance.collection('rezervacije');
+
+    late String novRezId;
+
     await FirebaseFirestore.instance.runTransaction((tx) async {
-      final snapDoc = await tx.get(ref);
-      final d = snapDoc.data() as Map<String, dynamic>?;
-      if (d == null) return;
-      tx.update(ref, {
+      final oglasSnap = await tx.get(oglasRef);
+      if (!oglasSnap.exists) return;
+
+      // Posodobi waitlist na oglasu
+      tx.update(oglasRef, {'waitlist': remainingWaitlist});
+
+      // Ustvari novo rezervacijo za naslednjega
+      final novRezRef = rezervacijeRef.doc();
+      novRezId = novRezRef.id;
+      tx.set(novRezRef, {
+        'oglasId': docId,
+        'userId': nextUid,
+        'kolicinaPorcij': kolicinaPorcij,
         'status': 'rezervirano',
-        'reservedByUid': nextUid,
-        'waitlist': remainingWaitlist,
+        'createdAt': FieldValue.serverTimestamp(),
         'offerPending': true,
-        'offeredUid': nextUid,
-        'offerExpiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 3))),
+        'offerExpiresAt': Timestamp.fromDate(
+          DateTime.now().add(const Duration(hours: 3)),
+        ),
         'offerToken': offerToken,
-        'offerNotifiedAt': FieldValue.delete(),
-        'chosenTermin': FieldValue.delete(),
-        'pickupToken': FieldValue.delete(),
-        'reservedAt': FieldValue.serverTimestamp(),
       });
     });
 
-    // Schedule sending the offer email asynchronously so callers (e.g. the
-    // cancelling user) don't have to wait for the external HTTP request to
-    // complete. The transaction above is the important part and completes
-    // before we return.
-    _sendOfferEmail(docId, nextUid, title, offerToken, termin1, termin2, termin3, termin4)
-      .catchError((e) => debugPrint('OfferPromotion: async email send failed: $e'));
-    debugPrint('OfferPromotion: email send scheduled (async) for doc=$docId');
+    debugPrint(
+        'OfferPromotion: promoteNextUser doc=$docId nextUid=$nextUid rezId=$novRezId');
+
+    // Pošlji email asinhrono
+    _sendOfferEmail(
+      docId: docId,
+      rezId: novRezId,
+      uid: nextUid,
+      title: title,
+      offerToken: offerToken,
+      termin1: termin1,
+      termin2: termin2,
+      termin3: termin3,
+      termin4: termin4,
+    ).catchError(
+        (e) => debugPrint('OfferPromotion: async email send failed: $e'));
   }
 
-  Future<void> _sendOfferEmail(
-    String docId,
-    String uid,
-    String title,
-    String offerToken,
-    Timestamp? termin1,
-    Timestamp? termin2,
-    Timestamp? termin3,
-    Timestamp? termin4,
-  ) async {
+  Future<void> _sendOfferEmail({
+    required String docId,
+    required String rezId,
+    required String uid,
+    required String title,
+    required String offerToken,
+    required Timestamp? termin1,
+    required Timestamp? termin2,
+    required Timestamp? termin3,
+    required Timestamp? termin4,
+  }) async {
     try {
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
       final email = userDoc.data()?['email'] as String?;
       if (email == null || email.isEmpty) return;
-      debugPrint('OfferPromotion: preparing to send offer email to $email for doc $docId');
-      final baseUrl = _baseUrl();
-      final claimUrl = '$baseUrl/?claim=$docId&uid=$uid&token=$offerToken';
 
-      final selectedTerm = [termin1, termin2, termin3, termin4]
+      final baseUrl = ReservationService.instance.baseUrl();
+      // Claim URL vsebuje rezervacijaId za direkten dostop
+      final claimUrl =
+          '$baseUrl/?claim=$docId&rez=$rezId&uid=$uid&token=$offerToken';
+
+      final terms = [termin1, termin2, termin3, termin4]
           .whereType<Timestamp>()
           .map((t) => t.toDate())
           .toList();
-      final termLabel = selectedTerm.isNotEmpty ? _formatDateTime(selectedTerm.first) : null;
+      final termLabel =
+          terms.isNotEmpty ? _formatDateTime(terms.first) : null;
 
       await EmailService.sendClaimEmail(
         to: email,
@@ -149,38 +202,24 @@ class OfferPromotionService {
         selectedTermLabel: termLabel,
       );
 
-      await FirebaseFirestore.instance.collection('oglasi').doc(docId).update({
-        'offerNotifiedAt': FieldValue.serverTimestamp(),
-        'offerEmailTo': email,
-      });
+      debugPrint(
+          'OfferPromotion: offer email sent to $email for doc=$docId rez=$rezId');
     } catch (e) {
-      debugPrint('Failed to send offer email: $e');
+      debugPrint('OfferPromotion: Failed to send offer email: $e');
     }
   }
 
   String _createToken() {
     final rnd = Random.secure();
     final bytes = List<int>.generate(24, (_) => rnd.nextInt(256));
-    return bytes.map((value) => value.toRadixString(16).padLeft(2, '0')).join();
-  }
-
-  String _baseUrl() {
-    final custom = dotenv.maybeGet('WEB_BASE_URL');
-    if (custom != null && custom.trim().isNotEmpty) {
-      return custom.trim().replaceAll(RegExp(r'/$'), '');
-    }
-    final base = Uri.base;
-    if (base.scheme == 'http' || base.scheme == 'https') {
-      return base.origin;
-    }
-    return 'https://foodwastezero.web.app';
+    return bytes.map((v) => v.toRadixString(16).padLeft(2, '0')).join();
   }
 
   String _formatDateTime(DateTime dt) {
-    final day = dt.day.toString().padLeft(2, '0');
-    final month = dt.month.toString().padLeft(2, '0');
-    final hour = dt.hour.toString().padLeft(2, '0');
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '$day.$month.${dt.year} $hour:$minute';
+    final d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '$d.$m.${dt.year} $h:$min';
   }
 }

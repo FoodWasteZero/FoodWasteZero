@@ -5,14 +5,20 @@ import '../common/auth_helpers.dart';
 import '../common/theme.dart';
 import 'auth_screen.dart';
 
+/// Stran za potrditev rezervacije iz čakalne vrste.
+///
+/// URL parametri: claim=<oglasId>&rez=<rezervacijaId>&uid=<userId>&token=<offerToken>
+/// Bere iz kolekcije 'rezervacije' (ne več iz 'oglasi').
 class OfferClaimPage extends StatefulWidget {
-  final String adId;
+  final String adId;          // oglasId
+  final String rezervacijaId; // id dokumenta v 'rezervacije'
   final String expectedUid;
   final String token;
 
   const OfferClaimPage({
     super.key,
     required this.adId,
+    required this.rezervacijaId,
     required this.expectedUid,
     required this.token,
   });
@@ -25,27 +31,52 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
-  Map<String, dynamic>? _data;
+  Map<String, dynamic>? _rezData;   // rezervacija dokument
+  Map<String, dynamic>? _oglasData; // oglas dokument (za termine)
   DateTime? _selectedTerm;
 
   @override
   void initState() {
     super.initState();
-    _loadOffer();
+    _loadData();
   }
 
-  Future<void> _loadOffer() async {
+  Future<void> _loadData() async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('oglasi').doc(widget.adId).get();
-      if (!doc.exists) {
+      // Naloži rezervacijo
+      final rezDoc = await FirebaseFirestore.instance
+          .collection('rezervacije')
+          .doc(widget.rezervacijaId)
+          .get();
+      if (!rezDoc.exists) {
         setState(() {
-          _error = 'Ponudba ne obstaja več.';
+          _error = 'Rezervacija ne obstaja več.';
           _loading = false;
         });
         return;
       }
+      final rezData = rezDoc.data() as Map<String, dynamic>;
+
+      // Preveri da rezervacija pripada temu oglasu
+      if ((rezData['oglasId'] as String?) != widget.adId) {
+        setState(() {
+          _error = 'Neveljavna povezava.';
+          _loading = false;
+        });
+        return;
+      }
+
+      // Naloži oglas za termine
+      final oglasDoc = await FirebaseFirestore.instance
+          .collection('oglasi')
+          .doc(widget.adId)
+          .get();
+
       setState(() {
-        _data = doc.data() as Map<String, dynamic>;
+        _rezData = rezData;
+        _oglasData = oglasDoc.exists
+            ? oglasDoc.data() as Map<String, dynamic>
+            : null;
         _loading = false;
       });
     } catch (e) {
@@ -62,17 +93,17 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AuthScreen(isModal: true),
-    ).then((_) => _loadOffer());
+    ).then((_) => _loadData());
   }
 
   List<DateTime> get _terms {
-    final data = _data;
-    if (data == null) return const [];
+    final oglas = _oglasData;
+    if (oglas == null) return const [];
     return [
-      (data['termin1'] as Timestamp?)?.toDate(),
-      (data['termin2'] as Timestamp?)?.toDate(),
-      (data['termin3'] as Timestamp?)?.toDate(),
-      (data['termin4'] as Timestamp?)?.toDate(),
+      (oglas['termin1'] as Timestamp?)?.toDate(),
+      (oglas['termin2'] as Timestamp?)?.toDate(),
+      (oglas['termin3'] as Timestamp?)?.toDate(),
+      (oglas['termin4'] as Timestamp?)?.toDate(),
     ].whereType<DateTime>().toList();
   }
 
@@ -86,18 +117,31 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
       setState(() => _error = 'Ta povezava ni namenjena temu uporabniku.');
       return;
     }
-    final data = _data;
-    if (data == null) return;
-    final token = data['offerToken'] as String?;
+
+    final rezData = _rezData;
+    if (rezData == null) return;
+
+    // Preveri token
+    final token = rezData['offerToken'] as String?;
     if (token != widget.token) {
       setState(() => _error = 'Povezava je neveljavna ali je potekla.');
       return;
     }
-    final pending = data['offerPending'] as bool? ?? false;
+
+    // Preveri da je ponudba še aktivna
+    final pending = rezData['offerPending'] as bool? ?? false;
     if (!pending) {
       setState(() => _error = 'Ponudba je že bila potrjena ali preusmerjena.');
       return;
     }
+
+    // Preveri status rezervacije
+    final status = rezData['status'] as String? ?? '';
+    if (status == 'preklicano') {
+      setState(() => _error = 'Ponudba je potekla ali bila preklicana.');
+      return;
+    }
+
     if (_selectedTerm == null) {
       setState(() => _error = 'Najprej izberite termin.');
       return;
@@ -109,18 +153,23 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
     });
 
     try {
-      final ref = FirebaseFirestore.instance.collection('oglasi').doc(widget.adId);
+      final rezRef = FirebaseFirestore.instance
+          .collection('rezervacije')
+          .doc(widget.rezervacijaId);
+
       await FirebaseFirestore.instance.runTransaction((tx) async {
-        final snap = await tx.get(ref);
+        final snap = await tx.get(rezRef);
         final fresh = snap.data() as Map<String, dynamic>?;
-        if (fresh == null) throw StateError('Ponudba ne obstaja več.');
+        if (fresh == null) throw StateError('Rezervacija ne obstaja več.');
+
         if ((fresh['offerToken'] as String?) != widget.token) {
           throw StateError('Povezava je neveljavna ali je potekla.');
         }
         if ((fresh['offerPending'] as bool? ?? false) == false) {
           throw StateError('Ponudba je že bila potrjena ali preusmerjena.');
         }
-        tx.update(ref, {
+
+        tx.update(rezRef, {
           'offerPending': false,
           'offerConfirmedAt': FieldValue.serverTimestamp(),
           'chosenTermin': Timestamp.fromDate(_selectedTerm!),
@@ -136,7 +185,8 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _error = e.toString().replaceFirst('StateError: ', ''));
+        setState(
+            () => _error = e.toString().replaceFirst('StateError: ', ''));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -146,9 +196,10 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final title = (_data?['title'] as String?) ?? 'Rezervacija';
-    final reservedByUid = _data?['reservedByUid'] as String?;
-    final canConfirm = user != null && user.uid == widget.expectedUid && reservedByUid == widget.expectedUid;
+    final title = (_oglasData?['title'] as String?) ?? 'Rezervacija';
+    final kolicina =
+        (_rezData?['kolicinaPorcij'] as num?)?.toInt() ?? 1;
+    final canConfirm = user != null && user.uid == widget.expectedUid;
 
     return Scaffold(
       backgroundColor: kSurface,
@@ -164,12 +215,20 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
                     Text(title, style: kHeading2),
                     const SizedBox(height: 8),
                     Text(
+                      'Rezervirano: $kolicina '
+                      '${kolicina == 1 ? 'porcija' : kolicina < 5 ? 'porcije' : 'porcij'}',
+                      style: kBody.copyWith(
+                          fontWeight: FontWeight.w700, color: kTextDark),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
                       'V 3 urah izberite termin in potrdite rezervacijo prek te strani.',
                       style: kBody.copyWith(color: kTextMid),
                     ),
                     const SizedBox(height: 16),
                     if (_terms.isEmpty)
-                      const Text('Za ta oglas ni nastavljenih terminov prevzema.')
+                      const Text(
+                          'Za ta oglas ni nastavljenih terminov prevzema.')
                     else
                       Wrap(
                         spacing: 8,
@@ -180,13 +239,15 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
                               label: Text(_formatTerm(term)),
                               selected: _selectedTerm == term,
                               selectedColor: kGreenPale,
-                              onSelected: (_) => setState(() => _selectedTerm = term),
+                              onSelected: (_) =>
+                                  setState(() => _selectedTerm = term),
                             ),
                         ],
                       ),
                     const Spacer(),
                     if (_error != null) ...[
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                      Text(_error!,
+                          style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 12),
                     ],
                     if (user == null || user.isAnonymous)
@@ -201,12 +262,15 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: canConfirm && !_saving ? _confirm : null,
+                          onPressed:
+                              canConfirm && !_saving ? _confirm : null,
                           child: _saving
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white),
                                 )
                               : const Text('Potrdi rezervacijo'),
                         ),
@@ -214,7 +278,8 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
                     const SizedBox(height: 12),
                     const Text(
                       'Če ne potrdite v 3 urah, bo rezervacija prešla naslednjemu v čakalni vrsti.',
-                      style: TextStyle(fontSize: 12, color: kTextLight),
+                      style:
+                          TextStyle(fontSize: 12, color: kTextLight),
                     ),
                   ],
                 ),
