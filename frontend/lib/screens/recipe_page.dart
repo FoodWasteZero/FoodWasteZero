@@ -159,7 +159,7 @@ class _RecipePageState extends State<RecipePage>
             'X-Title': 'FoodWasteZero',
           },
           body: jsonEncode({
-            'model': 'google/gemini-2.0-flash-001',
+            'model': 'google/gemini-2.0-flash-lite-001',
             'messages': [{'role': 'user', 'content': prompt}],
             'max_tokens': 2500,
           }),
@@ -252,7 +252,7 @@ class _RecipePageState extends State<RecipePage>
           'X-Title': 'FoodWasteZero',
         },
         body: jsonEncode({
-          'model': 'google/gemini-2.0-flash-001',
+          'model': 'google/gemini-2.0-flash-lite-001',
           'messages': messages,
           'max_tokens': 400,
         }),
