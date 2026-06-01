@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,14 +5,22 @@ import '../common/auth_helpers.dart';
 import '../common/theme.dart';
 import 'auth_screen.dart';
 import '../services/email_service.dart';
+import '../services/reservation_service.dart';
 
+/// Stran za potrditev prevzema (QR koda).
+///
+/// URL parametri: pickup=<oglasId>&rez=<rezervacijaId>&token=<pickupToken>
+/// Bere iz kolekcije 'rezervacije' (ne več iz 'oglasi').
+/// Samo lastnik oglasa (davatelj) potrdi prevzem.
 class PickupConfirmPage extends StatefulWidget {
-  final String adId;
-  final String token;
+  final String adId;          // oglasId
+  final String rezervacijaId; // id dokumenta v 'rezervacije'
+  final String token;         // pickupToken
 
   const PickupConfirmPage({
     super.key,
     required this.adId,
+    required this.rezervacijaId,
     required this.token,
   });
 
@@ -27,18 +33,37 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
   bool _saving = false;
   bool _errorVisible = false;
   String? _error;
-  Map<String, dynamic>? _data;
+  Map<String, dynamic>? _rezData;
+  Map<String, dynamic>? _oglasData;
 
   @override
   void initState() {
     super.initState();
-    _loadAd();
+    _loadData();
   }
 
-  Future<void> _loadAd() async {
+  Future<void> _loadData() async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('oglasi').doc(widget.adId).get();
-      if (!doc.exists) {
+      // Naloži rezervacijo
+      final rezDoc = await FirebaseFirestore.instance
+          .collection('rezervacije')
+          .doc(widget.rezervacijaId)
+          .get();
+      if (!rezDoc.exists) {
+        setState(() {
+          _error = 'Rezervacija ne obstaja več.';
+          _loading = false;
+          _errorVisible = true;
+        });
+        return;
+      }
+
+      // Naloži oglas (za lastnika in naslov)
+      final oglasDoc = await FirebaseFirestore.instance
+          .collection('oglasi')
+          .doc(widget.adId)
+          .get();
+      if (!oglasDoc.exists) {
         setState(() {
           _error = 'Oglas ne obstaja več.';
           _loading = false;
@@ -46,8 +71,10 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
         });
         return;
       }
+
       setState(() {
-        _data = doc.data() as Map<String, dynamic>;
+        _rezData = rezDoc.data() as Map<String, dynamic>;
+        _oglasData = oglasDoc.data() as Map<String, dynamic>;
         _loading = false;
       });
     } catch (e) {
@@ -65,7 +92,7 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AuthScreen(isModal: true),
-    ).then((_) => _loadAd());
+    ).then((_) => _loadData());
   }
 
   Future<void> _confirmPickup() async {
@@ -75,10 +102,12 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
       return;
     }
 
-    final data = _data;
-    if (data == null) return;
+    final rezData = _rezData;
+    final oglasData = _oglasData;
+    if (rezData == null || oglasData == null) return;
 
-    final token = data['pickupToken'] as String?;
+    // Preveri pickupToken
+    final token = rezData['pickupToken'] as String?;
     if (token != widget.token) {
       setState(() {
         _error = 'QR koda ni več veljavna.';
@@ -87,10 +116,21 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
       return;
     }
 
-    final ownerUid = data['uid'] as String?;
+    // Samo lastnik oglasa (davatelj) potrdi prevzem
+    final ownerUid = oglasData['uid'] as String?;
     if (ownerUid == null || user == null || user.uid != ownerUid) {
       setState(() {
-        _error = 'Ta potrditvena stran je namenjena organizaciji, ki je objavo ustvarila.';
+        _error =
+            'Ta potrditvena stran je namenjena organizaciji, ki je objavo ustvarila.';
+        _errorVisible = true;
+      });
+      return;
+    }
+
+    // Preveri da rezervacija ni že prevzeta
+    if ((rezData['status'] as String?) == 'prevzeto') {
+      setState(() {
+        _error = 'Ta prevzem je že bil potrjen.';
         _errorVisible = true;
       });
       return;
@@ -103,26 +143,27 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
     });
 
     try {
-      // Generate a short confirmation code to send to the reserver
-      final confirmationCode = (100000 + Random().nextInt(900000)).toString();
+      final confirmationCode = await ReservationService.instance.potrdiPrevzem(
+        rezervacijaId: widget.rezervacijaId,
+        oglasId: widget.adId,
+        pickupToken: widget.token,
+        ownerUid: ownerUid,
+        currentUserUid: user.uid,
+      );
 
-      await FirebaseFirestore.instance.collection('oglasi').doc(widget.adId).update({
-        'status': 'prevzeto',
-        'pickupConfirmedAt': FieldValue.serverTimestamp(),
-        'pickupToken': FieldValue.delete(),
-        'pickupConfirmationCode': confirmationCode,
-      });
-
-      // Notify the reserver by email (best-effort)
+      // Pošlji email prevzemniku (best-effort)
       try {
-        final reservedUid = _data?['reservedByUid'] as String?;
+        final reservedUid = rezData['userId'] as String?;
         if (reservedUid != null && reservedUid.isNotEmpty) {
-          final userDoc = await FirebaseFirestore.instance.collection('users').doc(reservedUid).get();
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(reservedUid)
+              .get();
           final email = userDoc.data()?['email'] as String?;
           if (email != null && email.isNotEmpty) {
             await EmailService.sendPickupConfirmedEmail(
               to: email,
-              title: (_data?['title'] as String?) ?? 'Prevzem',
+              title: (oglasData['title'] as String?) ?? 'Prevzem',
               confirmationCode: confirmationCode,
             );
           }
@@ -135,11 +176,13 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Prevzem potrjen ✓')),
         );
+        // Osveži podatke
+        await _loadData();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Napaka: $e';
+          _error = e.toString().replaceFirst('Exception: ', '');
           _errorVisible = true;
         });
       }
@@ -150,14 +193,18 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
 
   @override
   Widget build(BuildContext context) {
-    final title = (_data?['title'] as String?) ?? 'Prevzem';
-    final currentStatus = (_data?['status'] as String?) ?? 'naRazpolago';
+    final title = (_oglasData?['title'] as String?) ?? 'Prevzem';
+    final currentStatus =
+        (_rezData?['status'] as String?) ?? 'rezervirano';
+    final kolicina =
+        (_rezData?['kolicinaPorcij'] as num?)?.toInt() ?? 1;
 
     return Scaffold(
       backgroundColor: kSurface,
       appBar: AppBar(title: const Text('Potrditev prevzema')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: kGreenMid))
+          ? const Center(
+              child: CircularProgressIndicator(color: kGreenMid))
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -167,42 +214,80 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
                     Text(title, style: kHeading2),
                     const SizedBox(height: 8),
                     Text(
+                      'Količina: $kolicina '
+                      '${kolicina == 1 ? 'porcija' : kolicina < 5 ? 'porcije' : 'porcij'}',
+                      style: kBody.copyWith(
+                          fontWeight: FontWeight.w700, color: kTextDark),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
                       'Sken QR kode odpre to stran. Organizacija potrdi prevzem s spodnjim gumbom.',
                       style: kBody.copyWith(color: kTextMid),
                     ),
                     const SizedBox(height: 16),
-                    Text('Trenutni status: ${currentStatus.toUpperCase()}'),
+                    Text(
+                        'Trenutni status: ${currentStatus.toUpperCase()}'),
                     const Spacer(),
                     if (_errorVisible && _error != null) ...[
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                      Text(_error!,
+                          style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 12),
                     ],
-                    if (FirebaseAuth.instance.currentUser == null || FirebaseAuth.instance.currentUser!.isAnonymous)
+                    if (currentStatus == 'prevzeto')
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: kGreenMid.withOpacity(0.1),
+                          borderRadius: kRadius12,
+                          border: Border.all(
+                              color: kGreenMid.withOpacity(0.3)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.check_circle_rounded,
+                                color: kGreenMid),
+                            SizedBox(width: 10),
+                            Text('Prevzem je bil potrjen.',
+                                style: TextStyle(
+                                    color: kGreenMid,
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      )
+                    else if (FirebaseAuth.instance.currentUser == null ||
+                        FirebaseAuth
+                            .instance.currentUser!.isAnonymous)
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _showAuth,
-                          child: const Text('Prijavi se kot organizacija'),
+                          child: const Text(
+                              'Prijavi se kot organizacija'),
                         ),
                       )
                     else
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _saving ? null : _confirmPickup,
+                          onPressed:
+                              _saving ? null : _confirmPickup,
                           child: _saving
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white),
                                 )
                               : const Text('Potrdi prevzem'),
                         ),
                       ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Po potrditvi se oglas označi kot prevzet.',
-                      style: TextStyle(fontSize: 12, color: kTextLight),
+                      'Po potrditvi se rezervacija označi kot prevzeta.',
+                      style: TextStyle(
+                          fontSize: 12, color: kTextLight),
                     ),
                   ],
                 ),
