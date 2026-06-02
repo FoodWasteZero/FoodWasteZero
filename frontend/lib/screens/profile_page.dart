@@ -2174,9 +2174,6 @@ FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
     imageBase64: d['imageBase64'] as String?,
     expiryDate: expiryDate,
     termin1: (d['termin1'] as Timestamp?)?.toDate(),
-    termin2: (d['termin2'] as Timestamp?)?.toDate(),
-    termin3: (d['termin3'] as Timestamp?)?.toDate(),
-    termin4: (d['termin4'] as Timestamp?)?.toDate(),
     waitlist: waitlist,
   );
 }

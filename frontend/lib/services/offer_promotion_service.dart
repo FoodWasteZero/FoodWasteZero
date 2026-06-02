@@ -75,9 +75,6 @@ class OfferPromotionService {
             kolicinaPorcij: kolicinaPorcij,
             title: oglasData['title'] as String? ?? '',
             termin1: oglasData['termin1'] as Timestamp?,
-            termin2: oglasData['termin2'] as Timestamp?,
-            termin3: oglasData['termin3'] as Timestamp?,
-            termin4: oglasData['termin4'] as Timestamp?,
           );
         } else {
           // Ni čakalne vrste — vrni porcije oglasu
@@ -110,9 +107,6 @@ class OfferPromotionService {
     required int kolicinaPorcij,
     required String title,
     required Timestamp? termin1,
-    required Timestamp? termin2,
-    required Timestamp? termin3,
-    required Timestamp? termin4,
   }) async {
     final offerToken = _createToken();
     final oglasRef =
@@ -157,11 +151,7 @@ class OfferPromotionService {
       title: title,
       offerToken: offerToken,
       termin1: termin1,
-      termin2: termin2,
-      termin3: termin3,
-      termin4: termin4,
-    ).catchError(
-        (e) => debugPrint('OfferPromotion: async email send failed: $e'));
+    ).catchError((e) => debugPrint('OfferPromotion: async email send failed: $e'));
   }
 
   Future<void> _sendOfferEmail({
@@ -171,9 +161,6 @@ class OfferPromotionService {
     required String title,
     required String offerToken,
     required Timestamp? termin1,
-    required Timestamp? termin2,
-    required Timestamp? termin3,
-    required Timestamp? termin4,
   }) async {
     try {
       final userDoc = await FirebaseFirestore.instance
@@ -188,12 +175,11 @@ class OfferPromotionService {
       final claimUrl =
           '$baseUrl/?claim=$docId&rez=$rezId&uid=$uid&token=$offerToken';
 
-      final terms = [termin1, termin2, termin3, termin4]
+        final terms = [termin1]
           .whereType<Timestamp>()
           .map((t) => t.toDate())
           .toList();
-      final termLabel =
-          terms.isNotEmpty ? _formatDateTime(terms.first) : null;
+        final termLabel = terms.isNotEmpty ? _formatDateTime(terms.first) : null;
 
       await EmailService.sendClaimEmail(
         to: email,

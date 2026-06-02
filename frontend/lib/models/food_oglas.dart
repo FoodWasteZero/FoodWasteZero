@@ -33,9 +33,6 @@ class FoodOglas {
   final String? imageBase64;
   final DateTime? expiryDate;
   final DateTime? termin1;
-  final DateTime? termin2;
-  final DateTime? termin3;
-  final DateTime? termin4;
   final int? portions;           // skupno število porcij
   final int? remainingPortions;  // preostale porcije (se posodablja ob rezervacijah)
   final double? price;           // cena na porcijo
@@ -62,9 +59,6 @@ class FoodOglas {
     this.imageBase64,
     this.expiryDate,
     this.termin1,
-    this.termin2,
-    this.termin3,
-    this.termin4,
     this.portions,
     this.remainingPortions,
     this.price,
@@ -78,8 +72,7 @@ class FoodOglas {
     imageColor: imageColor, category: category, isFree: isFree,
     isExpiringSoon: isExpiringSoon, distanceKm: km, icon: icon,
     latLng: latLng, imageBase64: imageBase64,
-    expiryDate: expiryDate, termin1: termin1, termin2: termin2,
-    termin3: termin3, termin4: termin4,
+    expiryDate: expiryDate, termin1: termin1,
     portions: portions, remainingPortions: remainingPortions,
     price: price, isDavatelj: isDavatelj, waitlist: waitlist,
   );

@@ -130,9 +130,6 @@ class _MojeScreenState extends State<MineScreen> {
         initialGrams: (d['grams'] as num?)?.toInt(),
         initialPrice: (d['price'] as num?)?.toDouble(),
         initialTermin1: (d['termin1'] as Timestamp?)?.toDate(),
-        initialTermin2: (d['termin2'] as Timestamp?)?.toDate(),
-        initialTermin3: (d['termin3'] as Timestamp?)?.toDate(),
-        initialTermin4: (d['termin4'] as Timestamp?)?.toDate(),
         initialPortions: (d['portions'] as num?)?.toInt(),
         onSaved: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -243,9 +240,6 @@ class AddOglasSheet extends StatefulWidget {
   final int? initialGrams;
   final double? initialPrice;
   final DateTime? initialTermin1;
-  final DateTime? initialTermin2;
-  final DateTime? initialTermin3;
-  final DateTime? initialTermin4;
   final int? initialPortions;
 
   const AddOglasSheet({
@@ -262,9 +256,6 @@ class AddOglasSheet extends StatefulWidget {
     this.initialGrams,
     this.initialPrice,
     this.initialTermin1,
-    this.initialTermin2,
-    this.initialTermin3,
-    this.initialTermin4,
     this.initialPortions,
   });
 
@@ -286,18 +277,11 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
   late final TextEditingController _priceCtrl;
   late final TextEditingController _locationCtrl;
   late final TextEditingController _termin1Ctrl;
-  late final TextEditingController _termin2Ctrl;
-  late final TextEditingController _termin3Ctrl;
-  late final TextEditingController _termin4Ctrl;
   DateTime? _termin1Value;
-  DateTime? _termin2Value;
-  DateTime? _termin3Value;
-  DateTime? _termin4Value;
   bool _titleError = false;
   bool _gramsError = false;
   bool _locationError = false;
   bool _termin1Error = false;
-  bool _termin2Error = false;
 
   Uint8List? _pickedBytes;
   String? _existingBase64;
@@ -325,13 +309,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     );
     _locationCtrl = TextEditingController(text: widget.initialLocation ?? '');
     _termin1Value = widget.initialTermin1;
-    _termin2Value = widget.initialTermin2;
-    _termin3Value = widget.initialTermin3;
-    _termin4Value = widget.initialTermin4;
     _termin1Ctrl = TextEditingController(text: _formatPickupTerm(_termin1Value));
-    _termin2Ctrl = TextEditingController(text: _formatPickupTerm(_termin2Value));
-    _termin3Ctrl = TextEditingController(text: _formatPickupTerm(_termin3Value));
-    _termin4Ctrl = TextEditingController(text: _formatPickupTerm(_termin4Value));
     _existingBase64 = widget.initialImageBase64;
     _expiryDate = widget.initialExpiryDate;
     if (widget.isEditing) _step = 1;
@@ -383,9 +361,6 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     _priceCtrl.dispose();
     _locationCtrl.dispose();
     _termin1Ctrl.dispose();
-    _termin2Ctrl.dispose();
-    _termin3Ctrl.dispose();
-    _termin4Ctrl.dispose();
     super.dispose();
   }
 
@@ -467,36 +442,14 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
   }
 
   Future<void> _pickTermin(int index) async {
-    final current = switch (index) {
-      1 => _termin1Value,
-      2 => _termin2Value,
-      3 => _termin3Value,
-      4 => _termin4Value,
-      _ => null,
-    };
+    if (index != 1) return;
+    final current = _termin1Value;
     final picked = await _pickDateTime(current);
     if (picked == null || !mounted) return;
     setState(() {
-      switch (index) {
-        case 1:
-          _termin1Value = picked;
-          _termin1Ctrl.text = _formatPickupTerm(picked);
-          _termin1Error = false;
-          break;
-        case 2:
-          _termin2Value = picked;
-          _termin2Ctrl.text = _formatPickupTerm(picked);
-          _termin2Error = false;
-          break;
-        case 3:
-          _termin3Value = picked;
-          _termin3Ctrl.text = _formatPickupTerm(picked);
-          break;
-        case 4:
-          _termin4Value = picked;
-          _termin4Ctrl.text = _formatPickupTerm(picked);
-          break;
-      }
+      _termin1Value = picked;
+      _termin1Ctrl.text = _formatPickupTerm(picked);
+      _termin1Error = false;
     });
   }
 
@@ -528,14 +481,12 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
     final gramsEmpty = _gramsCtrl.text.trim().isEmpty;
     final locationEmpty = _locationCtrl.text.trim().isEmpty;
     final termin1Empty = _termin1Value == null;
-    final termin2Empty = _termin2Value == null;
-    if (titleEmpty || gramsEmpty || locationEmpty || termin1Empty || termin2Empty) {
+    if (titleEmpty || gramsEmpty || locationEmpty || termin1Empty) {
       setState(() {
         _titleError = titleEmpty;
         _gramsError = gramsEmpty;
         _locationError = locationEmpty;
         _termin1Error = termin1Empty;
-        _termin2Error = termin2Empty;
       });
       return;
     }
@@ -544,7 +495,6 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
       _gramsError = false;
       _locationError = false;
       _termin1Error = false;
-      _termin2Error = false;
       _loading = true;
     });
 
@@ -614,9 +564,6 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
             'location': _locationCtrl.text.trim(),
             'price': double.tryParse(_priceCtrl.text.trim().replaceAll(',', '.')) ?? 0.0,
             'termin1': Timestamp.fromDate(_termin1Value!),
-            'termin2': Timestamp.fromDate(_termin2Value!),
-            if (_termin3Value != null) 'termin3': Timestamp.fromDate(_termin3Value!),
-            if (_termin4Value != null) 'termin4': Timestamp.fromDate(_termin4Value!),
             'updatedAt': FieldValue.serverTimestamp(),
             if (imageBase64 != null) 'imageBase64': imageBase64,
             'expiryDate': _expiryDate != null
@@ -647,9 +594,6 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           'expiringSoon': false,
           'waitlist': [],
           'termin1': Timestamp.fromDate(_termin1Value!),
-          'termin2': Timestamp.fromDate(_termin2Value!),
-          if (_termin3Value != null) 'termin3': Timestamp.fromDate(_termin3Value!),
-          if (_termin4Value != null) 'termin4': Timestamp.fromDate(_termin4Value!),
           if (imageBase64 != null) 'imageBase64': imageBase64,
           if (_expiryDate != null) 'expiryDate': Timestamp.fromDate(_expiryDate!),
           if (lat != null) 'lat': lat,
@@ -853,7 +797,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 ),
               const SizedBox(height: 12),
 
-              // Termin 1 in 2 (obvezno)
+              // Termin 1 (obvezno)
               _OglasFormField(
                 ctrl: _termin1Ctrl,
                 label: 'Termin 1 *',
@@ -873,47 +817,6 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                         style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
                   ]),
                 ),
-              const SizedBox(height: 12),
-
-              _OglasFormField(
-                ctrl: _termin2Ctrl,
-                label: 'Termin 2 *',
-                hint: 'Izberi datum in uro',
-                icon: Icons.schedule_rounded,
-                hasError: _termin2Error,
-                readOnly: true,
-                onTap: () => _pickTermin(2),
-              ),
-              if (_termin2Error)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6, left: 2),
-                  child: Row(children: [
-                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
-                    const SizedBox(width: 4),
-                    Text('Termin 2 je obvezen.',
-                        style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-              const SizedBox(height: 12),
-
-              _OglasFormField(
-                ctrl: _termin3Ctrl,
-                label: 'Termin 3 (neobvezno)',
-                hint: 'Izberi datum in uro',
-                icon: Icons.schedule_outlined,
-                readOnly: true,
-                onTap: () => _pickTermin(3),
-              ),
-              const SizedBox(height: 12),
-
-              _OglasFormField(
-                ctrl: _termin4Ctrl,
-                label: 'Termin 4 (neobvezno)',
-                hint: 'Izberi datum in uro',
-                icon: Icons.schedule_outlined,
-                readOnly: true,
-                onTap: () => _pickTermin(4),
-              ),
               const SizedBox(height: 12),
 
                 // Število porcij

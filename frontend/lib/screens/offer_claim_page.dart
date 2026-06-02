@@ -101,9 +101,6 @@ class _OfferClaimPageState extends State<OfferClaimPage> {
     if (oglas == null) return const [];
     return [
       (oglas['termin1'] as Timestamp?)?.toDate(),
-      (oglas['termin2'] as Timestamp?)?.toDate(),
-      (oglas['termin3'] as Timestamp?)?.toDate(),
-      (oglas['termin4'] as Timestamp?)?.toDate(),
     ].whereType<DateTime>().toList();
   }
 

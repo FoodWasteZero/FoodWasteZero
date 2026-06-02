@@ -86,9 +86,6 @@ class ReservationService {
         kolicinaPorcij: kolicinaPorcij,
         title: oglas.title,
         termin1: oglas.termin1 != null ? Timestamp.fromDate(oglas.termin1!) : null,
-        termin2: oglas.termin2 != null ? Timestamp.fromDate(oglas.termin2!) : null,
-        termin3: oglas.termin3 != null ? Timestamp.fromDate(oglas.termin3!) : null,
-        termin4: oglas.termin4 != null ? Timestamp.fromDate(oglas.termin4!) : null,
       );
     } else {
       await _db.runTransaction((tx) async {
@@ -230,12 +227,23 @@ class ReservationService {
   }
 
   String baseUrl() {
-    final custom = dotenv.maybeGet('WEB_BASE_URL');
-    if (custom != null && custom.trim().isNotEmpty) {
-      return custom.trim().replaceAll(RegExp(r'/$'), '');
+    final custom = dotenv.maybeGet('WEB_BASE_URL')?.trim();
+    if (custom != null && custom.isNotEmpty) {
+      final customUri = Uri.tryParse(custom);
+      final isLoopback = customUri?.host == 'localhost' ||
+          customUri?.host == '127.0.0.1' ||
+          customUri?.host == '::1';
+      if (!isLoopback || kDebugMode) {
+        return custom.replaceAll(RegExp(r'/$'), '');
+      }
     }
     final base = Uri.base;
-    if (base.scheme == 'http' || base.scheme == 'https') return base.origin;
-    return 'https://foodwastezero.web.app';
+    if (base.scheme == 'http' || base.scheme == 'https') {
+      final isLoopback = base.host == 'localhost' ||
+          base.host == '127.0.0.1' ||
+          base.host == '::1';
+      if (!isLoopback) return base.origin;
+    }
+    return 'https://foodwastezero-528ac.web.app';
   }
 }

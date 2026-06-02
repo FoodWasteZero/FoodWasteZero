@@ -121,9 +121,6 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
   List<DateTime> _getPickupTerms() {
     return <DateTime?>[
       oglas.termin1,
-      oglas.termin2,
-      oglas.termin3,
-      oglas.termin4,
     ].whereType<DateTime>().toList();
   }
 
@@ -222,6 +219,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       // Pridobi pickupToken iz právkar ustvarjene rezervacije
       final rezDoc = await FirebaseFirestore.instance
           .collection('rezervacije').doc(rezervacijaId).get();
+        final reservedPortions = (rezDoc.data()?['kolicinaPorcij'] as num?)?.toInt() ?? 1;
       final pickupToken = rezDoc.data()?['pickupToken'] as String?;
       if (pickupToken == null) return;
 
@@ -232,6 +230,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       await EmailService.sendPickupQrEmail(
         to: email,
         title: oglas.title,
+        reservedPortions: reservedPortions,
         pickupUrl: pickupUrl,
         selectedTermLabel: termLabel,
       );
