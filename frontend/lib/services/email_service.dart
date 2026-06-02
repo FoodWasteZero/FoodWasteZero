@@ -81,6 +81,7 @@ class EmailService {
   static Future<void> sendPickupQrEmail({
     required String to,
     required String title,
+    required int reservedPortions,
     required String pickupUrl,
     required String? selectedTermLabel,
   }) async {
@@ -91,7 +92,12 @@ class EmailService {
         throw StateError('EMAIL_PROXY_URL is missing from .env for web');
       }
 
-      final bodyText = _buildPickupBodyText(title, pickupUrl, selectedTermLabel);
+      final bodyText = _buildPickupBodyText(
+        title,
+        reservedPortions,
+        pickupUrl,
+        selectedTermLabel,
+      );
       final resp = await http.post(
         Uri.parse('$proxyUrl/send-email'),
         headers: {'Content-Type': 'application/json'},
@@ -99,7 +105,7 @@ class EmailService {
           'to': to,
           'subject': 'QR koda za prevzem: $title',
           'text': bodyText,
-          'html': _buildPickupHtml(title, pickupUrl, selectedTermLabel),
+          'html': _buildPickupHtml(title, reservedPortions, pickupUrl, selectedTermLabel),
         }),
       );
 
@@ -120,8 +126,18 @@ class EmailService {
         ? dotenv.maybeGet('EMAIL_FROM_ADDRESS')!.trim()
         : 'onboarding@resend.dev';
 
-    final bodyText = _buildPickupBodyText(title, pickupUrl, selectedTermLabel);
-    final html = _buildPickupHtml(title, pickupUrl, selectedTermLabel);
+    final bodyText = _buildPickupBodyText(
+      title,
+      reservedPortions,
+      pickupUrl,
+      selectedTermLabel,
+    );
+    final html = _buildPickupHtml(
+      title,
+      reservedPortions,
+      pickupUrl,
+      selectedTermLabel,
+    );
     final payload = jsonEncode({
       'from': fromAddress,
       'to': to,
@@ -178,10 +194,16 @@ class EmailService {
     ''';
   }
 
-  static String _buildPickupBodyText(String title, String pickupUrl, String? selectedTermLabel) {
+  static String _buildPickupBodyText(
+    String title,
+    int reservedPortions,
+    String pickupUrl,
+    String? selectedTermLabel,
+  ) {
     final qrUrl = _buildQrImageUrl(pickupUrl);
     final bodyText = StringBuffer()
       ..writeln('QR koda za prevzem za "$title" je pripravljena.')
+      ..writeln('Rezervirali ste ${reservedPortions} ${reservedPortions == 1 ? 'porcijo' : reservedPortions < 5 ? 'porcije' : 'porcij'}.')
       ..writeln()
       ..writeln('Organizacija naj skenira QR kodo ali odpre povezavo za potrditev prevzema:')
       ..writeln(pickupUrl)
@@ -194,12 +216,18 @@ class EmailService {
     return bodyText.toString();
   }
 
-  static String _buildPickupHtml(String title, String pickupUrl, String? selectedTermLabel) {
+  static String _buildPickupHtml(
+    String title,
+    int reservedPortions,
+    String pickupUrl,
+    String? selectedTermLabel,
+  ) {
     final qrUrl = _buildQrImageUrl(pickupUrl);
     return '''
       <div style="font-family:Arial,sans-serif;line-height:1.5;color:#1f2937">
         <h2 style="margin:0 0 12px">QR koda za prevzem</h2>
         <p>Za oglas <strong>${_escapeHtml(title)}</strong> je pripravljena QR koda za potrditev prevzema.</p>
+        <p>Rezervirali ste <strong>$reservedPortions</strong> ${reservedPortions == 1 ? 'porcijo' : reservedPortions < 5 ? 'porcije' : 'porcij'}.</p>
         ${selectedTermLabel != null && selectedTermLabel.isNotEmpty ? '<p>Izbran termin: <strong>${_escapeHtml(selectedTermLabel)}</strong></p>' : ''}
         <p style="margin:20px 0"><img src="$qrUrl" alt="QR koda za prevzem" width="220" height="220" style="display:block;border:8px solid #fff;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.08)" /></p>
         <p>Če QR ne deluje, odprite povezavo:</p>

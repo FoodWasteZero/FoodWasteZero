@@ -88,9 +88,6 @@ FoodOglas _docToOglas(DocumentSnapshot doc) {
     imageBase64: d['imageBase64'] as String?,
     expiryDate: expiryDate,
     termin1: (d['termin1'] as Timestamp?)?.toDate(),
-    termin2: (d['termin2'] as Timestamp?)?.toDate(),
-    termin3: (d['termin3'] as Timestamp?)?.toDate(),
-    termin4: (d['termin4'] as Timestamp?)?.toDate(),
     waitlist: waitlist,
     portions: (d['portions'] as num?)?.toInt(),
     remainingPortions: (d['remainingPortions'] as num?)?.toInt(),
@@ -767,8 +764,8 @@ class _HomeScreenState extends State<HomeScreen>
     final List<_UpcomingPickup> upcoming = [];
     for (final oglas in myOglasi) {
       if (oglas.status == OglasStatus.prevzeto) continue;
-      final termini = [oglas.termin1, oglas.termin2, oglas.termin3, oglas.termin4]
-          .where((t) => t != null && t.isAfter(now))
+      final termini = [oglas.termin1]
+          .where((t) => t != null && t!.isAfter(now))
           .cast<DateTime>()
           .toList()
         ..sort();

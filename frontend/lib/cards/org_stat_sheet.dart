@@ -89,7 +89,7 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
 
     // Termini
     final termini = <DateTime?>[
-      oglas.termin1, oglas.termin2, oglas.termin3, oglas.termin4,
+      oglas.termin1,
     ].where((t) => t != null).cast<DateTime>().toList();
 
     return Container(
