@@ -1,5 +1,15 @@
 import 'package:flutter/material.dart';
 
+// ── Dark mode colours ─────────────────────────────────────────────────────────
+// Accessible via Theme.of(context).extension<AppColors>()
+const kDarkSurface    = Color(0xFF121212);
+const kDarkCard       = Color(0xFF1E1E1E);
+const kDarkCardAlt    = Color(0xFF2C2C2C);
+const kDarkBorder     = Color(0xFF333333);
+const kDarkTextDark   = Color(0xFFF5F5F5);
+const kDarkTextMid    = Color(0xFFAAAAAA);
+const kDarkTextLight  = Color(0xFF666666);
+
 // ── Brand colours ─────────────────────────────────────────────────────────────
 const kGreen       = Color(0xFF1B5E20);
 const kGreenDark   = Color(0xFF1B5E20);
@@ -102,3 +112,95 @@ const kRadius12 = BorderRadius.all(Radius.circular(12));
 const kRadius16 = BorderRadius.all(Radius.circular(16));
 const kRadius24 = BorderRadius.all(Radius.circular(24));
 const kRadiusFull = BorderRadius.all(Radius.circular(100));
+
+// ── AppTheme ──────────────────────────────────────────────────────────────────
+class AppTheme {
+  AppTheme._();
+
+  static ThemeData light() => ThemeData(
+    brightness: Brightness.light,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: kGreenMid,
+      primary: kGreenMid,
+      surface: kSurface,
+    ),
+    useMaterial3: true,
+    fontFamily: 'Roboto',
+    scaffoldBackgroundColor: kSurface,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.white,
+      foregroundColor: kTextDark,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+    ),
+    cardColor: Colors.white,
+    dividerColor: kBorder,
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: kGreenMid,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: kGreenMid,
+        side: const BorderSide(color: kGreenMid),
+        shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+      ),
+    ),
+    inputDecorationTheme: const InputDecorationTheme(border: InputBorder.none),
+    tabBarTheme: const TabBarThemeData(dividerColor: Colors.transparent),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: kGreenMid,
+      contentTextStyle: const TextStyle(color: Colors.white),
+      shape: RoundedRectangleBorder(borderRadius: kRadius12),
+    ),
+  );
+
+  static ThemeData dark() => ThemeData(
+    brightness: Brightness.dark,
+    colorScheme: ColorScheme.fromSeed(
+      brightness: Brightness.dark,
+      seedColor: kGreenMid,
+      primary: kGreenLight,
+      surface: kDarkSurface,
+    ),
+    useMaterial3: true,
+    fontFamily: 'Roboto',
+    scaffoldBackgroundColor: kDarkSurface,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: kDarkCard,
+      foregroundColor: kDarkTextDark,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+    ),
+    cardColor: kDarkCard,
+    dividerColor: kDarkBorder,
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: kGreenMid,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: kGreenLight,
+        side: const BorderSide(color: kGreenLight),
+        shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+      ),
+    ),
+    inputDecorationTheme: const InputDecorationTheme(border: InputBorder.none),
+    tabBarTheme: const TabBarThemeData(dividerColor: Colors.transparent),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: kGreenMid,
+      contentTextStyle: const TextStyle(color: Colors.white),
+      shape: RoundedRectangleBorder(borderRadius: kRadius12),
+    ),
+  );
+}
