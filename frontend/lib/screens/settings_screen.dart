@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../common/theme.dart';
+import '../services/theme_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -9,11 +10,26 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _darkMode = false;
   String _language = 'sl';
   bool _notifications = true;
   bool _locationEnabled = true;
   String _radius = '5';
+
+  bool get _darkMode => ThemeService.instance.isDark;
+
+  @override
+  void initState() {
+    super.initState();
+    ThemeService.instance.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    ThemeService.instance.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() => setState(() {});
 
   void _showLanguagePicker() {
     showModalBottomSheet(
@@ -52,42 +68,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceBg = isDark ? kDarkSurface : kSurface;
+    final cardBg = isDark ? kDarkCard : Colors.white;
+    final appBarBg = isDark ? kDarkCard : Colors.white;
+    final titleColor = isDark ? kDarkTextDark : kTextDark;
+    final sectionColor = isDark ? kDarkTextMid : kTextLight;
+
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: surfaceBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: appBarBg,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: kTextDark, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: titleColor, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Nastavitve',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark)),
+        title: Text('Nastavitve',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: titleColor)),
         centerTitle: false,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _SectionHeader(label: 'Videz'),
-          _SettingsCard(children: [
+          _SectionHeader(label: 'Videz', color: sectionColor),
+          _SettingsCard(color: cardBg, children: [
             _ToggleTile(
               icon: Icons.dark_mode_rounded,
               iconColor: const Color(0xFF37474F),
               title: 'Temni način',
               subtitle: _darkMode ? 'Vklopljeno' : 'Izklopljeno',
               value: _darkMode,
-              onChanged: (v) {
-                setState(() => _darkMode = v);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Temni način bo na voljo v naslednji posodobitvi')),
-                );
+              onChanged: (v) async {
+                await ThemeService.instance.toggle(v);
               },
             ),
           ]),
           const SizedBox(height: 16),
-          _SectionHeader(label: 'Jezik in regija'),
-          _SettingsCard(children: [
+          _SectionHeader(label: 'Jezik in regija', color: sectionColor),
+          _SettingsCard(color: cardBg, children: [
             _TapTile(
               icon: Icons.language_rounded,
               iconColor: const Color(0xFF1565C0),
@@ -95,7 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _languageLabel,
               onTap: _showLanguagePicker,
             ),
-            const _Divider(),
+            _Divider(isDark: isDark),
             _TapTile(
               icon: Icons.radar_rounded,
               iconColor: const Color(0xFF6A1B9A),
@@ -105,8 +125,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ]),
           const SizedBox(height: 16),
-          _SectionHeader(label: 'Obvestila'),
-          _SettingsCard(children: [
+          _SectionHeader(label: 'Obvestila', color: sectionColor),
+          _SettingsCard(color: cardBg, children: [
             _ToggleTile(
               icon: Icons.notifications_rounded,
               iconColor: const Color(0xFFE65100),
@@ -117,8 +137,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ]),
           const SizedBox(height: 16),
-          _SectionHeader(label: 'Lokacija'),
-          _SettingsCard(children: [
+          _SectionHeader(label: 'Lokacija', color: sectionColor),
+          _SettingsCard(color: cardBg, children: [
             _ToggleTile(
               icon: Icons.location_on_rounded,
               iconColor: kGreenMid,
@@ -129,18 +149,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ]),
           const SizedBox(height: 16),
-          _SectionHeader(label: 'O aplikaciji'),
-          _SettingsCard(children: [
+          _SectionHeader(label: 'O aplikaciji', color: sectionColor),
+          _SettingsCard(color: cardBg, children: [
             _InfoTile(
               icon: Icons.info_outline_rounded,
-              iconColor: kTextMid,
+              iconColor: isDark ? kDarkTextMid : kTextMid,
               title: 'Različica',
               value: '1.0.0',
             ),
-            const _Divider(),
+            _Divider(isDark: isDark),
             _InfoTile(
               icon: Icons.school_rounded,
-              iconColor: kTextMid,
+              iconColor: isDark ? kDarkTextMid : kTextMid,
               title: 'Projekt',
               value: 'Praktikum II — FERI',
             ),
@@ -154,43 +174,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 class _SectionHeader extends StatelessWidget {
   final String label;
-  const _SectionHeader({required this.label});
+  final Color color;
+  const _SectionHeader({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(label,
-        style: const TextStyle(
-          fontSize: 12, fontWeight: FontWeight.w700,
-          color: kTextLight, letterSpacing: 0.8,
-        )),
+          style: TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w700,
+            color: color, letterSpacing: 0.8,
+          )),
     );
   }
 }
 
 class _SettingsCard extends StatelessWidget {
   final List<Widget> children;
-  const _SettingsCard({required this.children});
+  final Color color;
+  const _SettingsCard({required this.children, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: kRadius16, boxShadow: kCardShadow),
+          color: color, borderRadius: kRadius16, boxShadow: kCardShadow),
       child: Column(children: children),
     );
   }
 }
 
 class _Divider extends StatelessWidget {
-  const _Divider();
+  final bool isDark;
+  const _Divider({required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 64),
-      child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+      child: Divider(
+        height: 1,
+        color: (isDark ? kDarkBorder : kBorder).withOpacity(0.5),
+      ),
     );
   }
 }
@@ -211,6 +237,10 @@ class _ToggleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? kDarkTextDark : kTextDark;
+    final subtitleColor = isDark ? kDarkTextMid : kTextMid;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -218,7 +248,7 @@ class _ToggleTile extends StatelessWidget {
           Container(
             width: 38, height: 38,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1), borderRadius: kRadius12),
+                color: iconColor.withOpacity(0.1), borderRadius: kRadius12),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 14),
@@ -226,8 +256,8 @@ class _ToggleTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextDark)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextMid)),
+                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: titleColor)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: subtitleColor)),
               ],
             ),
           ),
@@ -252,6 +282,11 @@ class _TapTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? kDarkTextDark : kTextDark;
+    final valueColor = isDark ? kDarkTextMid : kTextMid;
+    final chevronColor = isDark ? kDarkTextLight : kTextLight;
+
     return InkWell(
       borderRadius: kRadius16,
       onTap: onTap,
@@ -262,15 +297,15 @@ class _TapTile extends StatelessWidget {
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1), borderRadius: kRadius12),
+                  color: iconColor.withOpacity(0.1), borderRadius: kRadius12),
               child: Icon(icon, color: iconColor, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(child: Text(title,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextDark))),
-            Text(value, style: const TextStyle(fontSize: 13, color: kTextMid)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: titleColor))),
+            Text(value, style: TextStyle(fontSize: 13, color: valueColor)),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded, color: kTextLight, size: 18),
+            Icon(Icons.chevron_right_rounded, color: chevronColor, size: 18),
           ],
         ),
       ),
@@ -291,6 +326,10 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? kDarkTextDark : kTextDark;
+    final valueColor = isDark ? kDarkTextMid : kTextMid;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -298,13 +337,13 @@ class _InfoTile extends StatelessWidget {
           Container(
             width: 38, height: 38,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.08), borderRadius: kRadius12),
+                color: iconColor.withOpacity(0.08), borderRadius: kRadius12),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(child: Text(title,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextDark))),
-          Text(value, style: const TextStyle(fontSize: 13, color: kTextMid)),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: titleColor))),
+          Text(value, style: TextStyle(fontSize: 13, color: valueColor)),
         ],
       ),
     );
@@ -318,22 +357,26 @@ class _LanguageSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? kDarkCard : Colors.white;
+    final titleColor = isDark ? kDarkTextDark : kTextDark;
+
     final langs = [('sl', 'Slovenščina', '🇸🇮'), ('hr', 'Hrvatski', '🇭🇷'), ('en', 'English', '🇬🇧')];
     return Container(
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: kRadius24),
+      decoration: BoxDecoration(color: sheetBg, borderRadius: kRadius24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text('Jezik aplikacije',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: titleColor)),
           ),
           ...langs.map((l) => ListTile(
             leading: Text(l.$3, style: const TextStyle(fontSize: 24)),
-            title: Text(l.$2, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextDark)),
+            title: Text(l.$2, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: titleColor)),
             trailing: selected == l.$1 ? const Icon(Icons.check_circle_rounded, color: kGreenMid) : null,
             shape: const RoundedRectangleBorder(borderRadius: kRadius12),
             onTap: () => onSelect(l.$1),
@@ -352,31 +395,35 @@ class _RadiusSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? kDarkCard : Colors.white;
+    final titleColor = isDark ? kDarkTextDark : kTextDark;
+
     final radii = ['1', '2', '5', '10', '20', '50'];
     return Container(
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: kRadius24),
+      decoration: BoxDecoration(color: sheetBg, borderRadius: kRadius24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text('Radij iskanja',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: titleColor)),
           ),
           ...radii.map((r) => ListTile(
             leading: Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: selected == r ? kGreenPale : kSurface,
+                color: selected == r ? kGreenPale : (isDark ? kDarkCardAlt : kSurface),
                 borderRadius: kRadius12,
               ),
               child: Icon(Icons.radar_rounded,
-                color: selected == r ? kGreenMid : kTextLight, size: 20),
+                  color: selected == r ? kGreenMid : (isDark ? kDarkTextLight : kTextLight), size: 20),
             ),
             title: Text('$r km',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextDark)),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: titleColor)),
             trailing: selected == r ? const Icon(Icons.check_circle_rounded, color: kGreenMid) : null,
             shape: const RoundedRectangleBorder(borderRadius: kRadius12),
             onTap: () => onSelect(r),

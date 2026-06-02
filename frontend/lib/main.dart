@@ -13,6 +13,7 @@ import 'screens/pickup_confirm_page.dart';
 import 'common/theme.dart';
 import 'common/auth_helpers.dart';
 import 'services/offer_promotion_service.dart';
+import 'services/theme_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +25,7 @@ void main() async {
     debugPrint('Firebase projectId: ${Firebase.app().options.projectId}');
   }
   await ensureFirestoreAccess();
-  // Start client-driven offer promotion service (handles expired 3h offers)
+  await ThemeService.instance.load();
   OfferPromotionService.instance.start();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -33,63 +34,41 @@ void main() async {
   runApp(const FoodWasteZeroApp());
 }
 
-class FoodWasteZeroApp extends StatelessWidget {
+class FoodWasteZeroApp extends StatefulWidget {
   const FoodWasteZeroApp({super.key});
+
+  @override
+  State<FoodWasteZeroApp> createState() => _FoodWasteZeroAppState();
+}
+
+class _FoodWasteZeroAppState extends State<FoodWasteZeroApp> {
+  @override
+  void initState() {
+    super.initState();
+    ThemeService.instance.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    ThemeService.instance.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'FoodWasteZero',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: kGreenMid,
-          primary: kGreenMid,
-          surface: kSurface,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-        scaffoldBackgroundColor: kSurface,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: kTextDark,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: kGreenMid,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: const RoundedRectangleBorder(borderRadius: kRadius12),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: kGreenMid,
-            side: const BorderSide(color: kGreenMid),
-            shape: const RoundedRectangleBorder(borderRadius: kRadius12),
-          ),
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: InputBorder.none,
-        ),
-        tabBarTheme: const TabBarThemeData(
-          dividerColor: Colors.transparent,
-        ),
-        snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: kGreenMid,
-          contentTextStyle: const TextStyle(color: Colors.white),
-          shape: RoundedRectangleBorder(borderRadius: kRadius12),
-        ),
-      ),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeService.instance.themeMode,
       home: const _AuthGate(),
     );
   }
 }
 
-// ── Auth gate ──────────────────────────────────────────────────────────────────
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
