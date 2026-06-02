@@ -15,7 +15,10 @@ jobs:
         with:
           flutter-version: '3.x'  # Adjust version as needed
           channel: 'stable'
+      - run: flutter pub get
+        working-directory: frontend
       - run: flutter build web --release
+        working-directory: frontend
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
