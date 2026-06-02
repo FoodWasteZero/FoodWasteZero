@@ -363,7 +363,7 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                     const SizedBox(height: 20),
                     _SectionTitle(
                       icon: Icons.schedule_rounded,
-                      label: 'Vsi termini prevzema',
+                      label: 'Termin prevzema',
                     ),
                     const SizedBox(height: 10),
                     ...termini.map((t) {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../cards/org_stat_sheet.dart';
 import '../common/theme.dart';
 import '../models/models.dart';
 import '../cards/food_detail_sheet.dart';
@@ -160,17 +161,24 @@ class _ProfilePageState extends State<ProfilePage>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) => Padding(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        builder: (ctx, setModal) {
+          final mq = MediaQuery.of(ctx);
+          final bottomInset = mq.viewInsets.bottom;
+          final safeBottom = mq.padding.bottom;
+          // Ko je tipkovnica odprta, viewInsets.bottom že vključuje prostor zanjo;
+          // ko je zaprta, dodamo safe area (npr. home indicator na iPhoneu).
+          final extraBottom = bottomInset > 0 ? 0.0 : safeBottom;
+          return Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
           child: Container(
             margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.all(Radius.circular(24)),
             ),
-            child: Column(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + extraBottom),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -361,8 +369,10 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
               ],
             ),
+            ),
           ),
-        ),
+        );
+        },
       ),
     );
   }
@@ -464,27 +474,33 @@ class _ProfilePageState extends State<ProfilePage>
     return Scaffold(
       backgroundColor: kSurface,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildProfileHeader(),
-            // ── Analitika za uporabnika ──────────────────────────
-            _UporabnikStatsRow(uid: user.uid),
-            const SizedBox(height: 8),
-            // ── Tab bar ──────────────────────────────────────────
-            _buildTabBar(),
-            const SizedBox(height: 4),
-            Expanded(
-              child: TabBarView(
-                controller: _tabCtrl,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildRezervacijeTab(user.uid),
-                  _buildPrevzetoTab(user.uid),
-                  _buildAccountTab(),
+                  _buildProfileHeader(),
+                  _UporabnikStatsRow(uid: user.uid),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _StickyTabBarDelegate(
+                tabBar: _buildTabBar(),
+              ),
+            ),
           ],
+          body: TabBarView(
+            controller: _tabCtrl,
+            children: [
+              _buildRezervacijeTab(user.uid),
+              _buildPrevzetoTab(user.uid),
+              _buildAccountTab(),
+            ],
+          ),
         ),
       ),
     );
@@ -558,7 +574,7 @@ class _ProfilePageState extends State<ProfilePage>
               children: const [
                 Icon(Icons.person_rounded, size: 15),
                 SizedBox(width: 5),
-                Text('Račun'),
+                Text('Oddaje'),
               ],
             ),
           ),
@@ -967,62 +983,86 @@ class _ProfilePageState extends State<ProfilePage>
 
   Widget _buildAccountTab() {
     final user = FirebaseAuth.instance.currentUser;
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: kRadius16,
-            border: Border.all(color: const Color(0xFFE0E0E0), width: 0.8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Podatki računa',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: kTextDark)),
-              const SizedBox(height: 20),
-              _AccountInfoRow('E-mail', user?.email ?? ''),
-              const SizedBox(height: 16),
-              _AccountInfoRow('Tip računa',
-                  _userType == 'davatelj' ? 'Organizacija' : 'Uporabnik'),
-            ],
-          ),
-        ),
-      ],
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('oglasi').snapshots(),
+      builder: (context, snapshot) {
+        final allOglasi = snapshot.hasData
+            ? snapshot.data!.docs.map(_docToOglasProfile).toList()
+            : <FoodOglas>[];
+        return ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            _buildUpcomingPickups(allOglasi, user?.uid),
+            const SizedBox(height: 24),
+          
+          ],
+        );
+      },
     );
   }
 
-  Widget _AccountInfoRow(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: kTextMid,
-                letterSpacing: 0.3)),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
-            borderRadius: kRadius8,
-            border: Border.all(color: const Color(0xFFE8E8E8), width: 0.8),
+  // ── Prihodnji prevzemi ─────────────────────────────
+  Widget _buildUpcomingPickups(List<FoodOglas> allOglasi, String? uid) {
+    final now = DateTime.now();
+    final myOglasi = uid == null
+        ? allOglasi
+        : allOglasi.where((o) => o.uid == uid).toList();
+    final List<_UpcomingPickup> upcoming = [];
+    for (final oglas in myOglasi) {
+      if (oglas.status == OglasStatus.prevzeto) continue;
+      final termini = [oglas.termin1]
+              .where((t) => t != null && t!.isAfter(now))
+              .cast<DateTime>()
+              .toList()
+            ..sort();
+      for (final t in termini) {
+        upcoming.add(_UpcomingPickup(oglas: oglas, termin: t));
+        break;
+      }
+    }
+    upcoming.sort((a, b) => a.termin.compareTo(b.termin));
+    final show = upcoming.take(5).toList();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.schedule_rounded, size: 17, color: kGreenMid),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('Prihajajoči prevzemi',
+                    style: kHeading3.copyWith(fontSize: 15)),
+              ),
+            ],
           ),
-          child: Text(value,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: kTextDark)),
-        ),
-      ],
+          const SizedBox(height: 12),
+          if (show.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: kRadius12,
+                border: Border.all(color: kBorder),
+              ),
+              child: const Center(
+                child: Column(children: [
+                  Icon(Icons.event_available_rounded,
+                      color: kTextLight, size: 32),
+                  SizedBox(height: 8),
+                  Text('Ni prihodnjih prevzemov',
+                      style: TextStyle(color: kTextLight, fontSize: 14)),
+                ]),
+              ),
+            )
+          else
+            ...show.map((p) => _UpcomingPickupTile(
+                  pickup: p,
+                  onTap: () => OrgStatSheet.show(context, p.oglas),
+                )),
+        ],
+      ),
     );
   }
 
@@ -2073,6 +2113,29 @@ class _UporabnikOglasCard extends StatelessWidget {
   }
 }
 
+// ─── STICKY TAB BAR DELEGATE ────────────────────────────────────────────────
+
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget tabBar;
+  const _StickyTabBarDelegate({required this.tabBar});
+
+  // 4px padding below tab bar + ~52px tab bar height + 4px top gap = ~60
+  @override double get minExtent => 60;
+  @override double get maxExtent => 60;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: kSurface,
+      padding: const EdgeInsets.only(bottom: 4),
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate old) => old.tabBar != tabBar;
+}
+
 // ─── SHARED HELPERS ────────────────────────────────────────────────────────
 
 class _HeaderBtn extends StatelessWidget {
@@ -2176,6 +2239,73 @@ FoodOglas _docToOglasProfile(DocumentSnapshot doc) {
     termin1: (d['termin1'] as Timestamp?)?.toDate(),
     waitlist: waitlist,
   );
+}
+
+// ── Prihodnji prevzemi – model & tile ────────────────────────────────────────
+
+class _UpcomingPickup {
+  final FoodOglas oglas;
+  final DateTime termin;
+  const _UpcomingPickup({required this.oglas, required this.termin});
+}
+
+class _UpcomingPickupTile extends StatelessWidget {
+  final _UpcomingPickup pickup;
+  final VoidCallback onTap;
+  const _UpcomingPickupTile({required this.pickup, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = pickup;
+    final timeStr =
+        '${p.termin.day}. ${p.termin.month}. ${p.termin.year}  ${p.termin.hour.toString().padLeft(2, '0')}:${p.termin.minute.toString().padLeft(2, '0')}';
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: kRadius12,
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                  color: p.oglas.imageColor, borderRadius: kRadius8),
+              child: Icon(p.oglas.icon, size: 18, color: kGreenDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p.oglas.title,
+                      style: kBodyBold.copyWith(fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    const Icon(Icons.schedule_rounded,
+                        size: 12, color: kTextLight),
+                    const SizedBox(width: 4),
+                    Text(timeStr,
+                        style: const TextStyle(
+                            fontSize: 12, color: kTextLight)),
+                  ]),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: kTextLight),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _EditField extends StatelessWidget {
