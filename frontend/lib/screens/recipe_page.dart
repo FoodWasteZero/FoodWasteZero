@@ -144,7 +144,7 @@ class _RecipePageState extends State<RecipePage>
             'Content-Type': 'application/json',
           },
           body: jsonEncode({
-            'model': 'claude-haiku-4-5-20251001',
+            'model': 'nvidia/nemotron-3-super-120b-a12b:free',
             'max_tokens': 1500,
             'messages': [{'role': 'user', 'content': prompt}],
           }),
@@ -159,7 +159,7 @@ class _RecipePageState extends State<RecipePage>
             'X-Title': 'FoodWasteZero',
           },
           body: jsonEncode({
-            'model': 'google/gemini-2.0-flash-lite-001',
+            'model': 'nvidia/nemotron-3-super-120b-a12b:free',
             'messages': [{'role': 'user', 'content': prompt}],
             'max_tokens': 2500,
           }),
@@ -252,7 +252,7 @@ class _RecipePageState extends State<RecipePage>
           'X-Title': 'FoodWasteZero',
         },
         body: jsonEncode({
-          'model': 'google/gemini-2.0-flash-lite-001',
+          'model': 'nvidia/nemotron-3-super-120b-a12b:free',
           'messages': messages,
           'max_tokens': 400,
         }),
