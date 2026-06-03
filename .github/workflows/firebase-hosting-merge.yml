@@ -31,7 +31,7 @@ jobs:
 
       # ---------- WEB ----------
       - name: Build web
-        run: flutter build web --release
+        run: flutter build web --release --dart-define=EMAIL_PROXY_URL=${{ secrets.EMAIL_PROXY_URL }}
         working-directory: frontend
 
       - name: Deploy to Firebase Hosting
