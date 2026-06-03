@@ -31,6 +31,9 @@ jobs:
       - run: flutter build web --release
         working-directory: frontend
 
+      - name: Copy build to root
+        run: cp -r frontend/build/web build/web
+
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
