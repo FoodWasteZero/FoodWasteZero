@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "387798170244",
+    "project_id": "foodwastezero-528ac",
+    "storage_bucket": "foodwastezero-528ac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:387798170244:android:08eb0c73ba3edb89f260d1",
+        "android_client_info": {
+          "package_name": "com.example.praktikum2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDbUhX4RtdfZCWTF-Bq5wgm9nLgJ5ds48"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
