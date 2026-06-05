@@ -1,33 +1,117 @@
-# FoodWasteZero
-Praktikum II 
+<div align="center">
+  <img src="assets/icon.png" alt="FoodWasteZero" width="80"/>
 
-> *Moderni app za zmanjševanje zavržene hrane z uporabo umetne inteligence in napredne geolokacije.*
->
+  # FoodWasteZero 🌱
 
+  **Poveži tiste, ki imajo hrano – s tistimi, ki jo potrebujejo.**
 
-[![Framework](https://img.shields.io/badge/Framework-Flutter-02569B?style=for-the-badge&logo=flutter)](https://flutter.dev)
-[![Backend](https://img.shields.io/badge/Backend-Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com)
+  [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
+  [![Firebase](https://img.shields.io/badge/Firebase-enabled-FFCA28?logo=firebase)](https://firebase.google.com)
+  [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-___
+  [⬇️ Prenesi APK](https://github.com/FoodWasteZero/FoodWasteZero/actions/runs/26882968684/artifacts/7383949409) · [🐛 Prijavi napako](../../issues) · [💬 Kontakt](#ekipa)
 
-## 🎯 Fokus aplikacije
-Aplikacija je optimizirana za hitro kroženje dveh tipov hrane:
-1.  **Sestavine:** Osnovna živila, ki so pred iztekom roka (npr. zelenjava, moka, mleko). Ta del napaja našega **AI Kuharja**, ki pomaga uporabnikom načrtovati obroke.
-2.  **Pripravljena hrana:** Kuhani obroki iz restavracij ali gospodinjstev, pripravljeni na takojšnjo **rezervacijo in osebni prevzem**.
+</div>
 
 ---
-### 📍 Pametna lokacija in logistika
-*   **Real-time Map:** Interaktivni zemljevid z bližnjimi objavami hrane (Google Maps API).
-*   **Heatmap Analytics:** Vizualni prikaz kritičnih točk z največ hrane za optimizacijo prevzemov.
-*   **"Odpelji me" Navigacija:** Takojšnja povezava z Google Maps za najhitrejšo pot do prevzemnega mesta.
 
-### 🆘 Emergency Food Mode
-*   **Nujne objave:** Prioritetni oglasi za hrano s kritično kratkim rokom trajanja.
-*   **Smart Notifications:** Takojšnje obveščanje uporabnikov o novih izdelkih v radiju 500m preko Firebase Cloud Messaging.
+## Kaj je FoodWasteZero?
 
-### 🤖 AI Kitchen Assistant (70/30 UI)
-*   **AI Kuhar:** Pametni panel, ki predlaga recepte na podlagi trenutno razpoložljive hrane v aplikaciji in/ali iz sestavin, ki jih je uporabnik rezerviral/prevzel
-*   **70/30 Layout:** Moderni razpored zaslona, ki omogoča interakcijo z AI brez izgube konteksta vsebine.
+FoodWasteZero je mobilna aplikacija, ki pomaga zmanjšati količino zavržene hrane. Restavracije, pekarne in posamezniki objavijo presežno hrano — drugi jo prevzamejo brezplačno ali po simbolični ceni, preden konča v smeteh.
+
+> Projekt razvit v sklopu **Praktikum II – FERI 2024/25**
+
+---
+
+## Funkcionalnosti
+
+- 📍 **Oglasi v bližini** — prikaže ponudbe hrane glede na tvojo lokacijo
+- 🔔 **Obvestila v realnem času** — takoj izvedi, ko se pojavi nova ponudba
+- 📦 **Rezervacija in prevzem** — rezerviraj, prejmi QR kodo, prevzemi
+- 🌙 **Temni način** — preklopljiv v nastavitvah, shranjen med sejami
+- 👤 **Profil in sledenje** — sledi objavljavcem, pregleduj zgodovino
+- 🗺️ **Zemljevid** — vizualni pregled vseh aktivnih oglasov
+- 🍽️ **Recepti** — predlogi za hrano, ki jo imaš
+
+---
+
+## Prenesi aplikacijo
+
+**Android APK** (najnovejši build):
+
+👉 [Prenesi APK](https://github.com/FoodWasteZero/FoodWasteZero/actions/runs/26882968684/artifacts/7383949409)
+
+> Za namestitev moraš imeti omogočeno **"Namestitev iz neznanih virov"** v nastavitvah naprave.
+
+---
+
+## Tehnologije
+
+| Plast | Tehnologija |
+|-------|-------------|
+| Mobilna aplikacija | Flutter (Dart) |
+| Backend & Auth | Firebase (Firestore, Auth, Storage) |
+| Obvestila | Firebase Cloud Messaging |
+| Zemljevid | Google Maps API |
+| CI/CD | GitHub Actions |
+
+---
+
+## Namestitev za razvoj
+
+### Predpogoji
+- Flutter SDK 3.x
+- Firebase CLI
+- Android Studio / VS Code
+
+### Koraki
+
+```bash
+# 1. Kloniraj repozitorij
+git clone https://github.com/FoodWasteZero/FoodWasteZero.git
+cd FoodWasteZero
+
+# 2. Namesti odvisnosti
+flutter pub get
+
+# 3. Nastavi Firebase
+dart pub global activate flutterfire_cli
+flutterfire configure
+
+# 4. Dodaj .env datoteko (glej .env.example)
+cp .env.example .env
+
+# 5. Zaženi aplikacijo
+flutter run
+```
+
+---
+
+## Ekipa
+
+| Ime | Vloga |
+|-----|-------|
+| Julija Anina Medved | |
+| Tjaša Jekl | |
+| Boris Sajlović | |
+
+---
+
+## Prispevanje
+
+Pull requesti so dobrodošli. Za večje spremembe najprej odpri issue.
+
+```bash
+git checkout -b feature/ime-funkcionalnosti
+git commit -m "feat: opis spremembe"
+git push origin feature/ime-funkcionalnosti
+```
+
+---
+
+<div align="center">
+  <sub>© 2025 FoodWasteZero · FERI Praktikum II</sub>
+</div>*   **70/30 Layout:** Moderni razpored zaslona, ki omogoča interakcijo z AI brez izgube konteksta vsebine.
 
 ### 📊 Eco-Impact Profil
 *   **Statistika:** Pregled rešenih kilogramov hrane in števila obrokov.
