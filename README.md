@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/icon.png" alt="FoodWasteZero" width="80"/>
+  <img src="assets/banner.png" alt="FoodWasteZero" width="100%"/>
 
   # FoodWasteZero 🌱
 
