@@ -1,22 +1,23 @@
 name: Build and Deploy
-
 on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
           channel: stable
-
       - name: Create .env from secrets
         run: |
           cat > frontend/.env <<EOF
@@ -24,16 +25,13 @@ jobs:
           EMAIL_FROM_ADDRESS=${{ secrets.EMAIL_FROM_ADDRESS }}
           EMAIL_API_KEY=${{ secrets.EMAIL_API_KEY }}
           EOF
-
       - name: Install dependencies
         run: flutter pub get
         working-directory: frontend
-
       # ---------- WEB ----------
       - name: Build web
         run: flutter build web --release --dart-define=EMAIL_PROXY_URL=${{ secrets.EMAIL_PROXY_URL }}
         working-directory: frontend
-
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -41,15 +39,12 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_FOODWASTEZERO_528AC }}
           channelId: live
           projectId: foodwastezero-528ac
-
       # ---------- APK ----------
       - name: Build APK
         run: flutter build apk --release
         working-directory: frontend
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - name: Release APK on GitHub
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: app-release-${{ github.run_number }}
-          path: frontend/build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
+          files: frontend/build/app/outputs/flutter-apk/app-release.apk

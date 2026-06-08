@@ -104,7 +104,7 @@ class _MojeScreenState extends State<MineScreen> {
     Navigator.of(context).push(MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => AddOglasSheet(
-        showPriceField: true,
+        showPriceField: _isDavatelj,
         onSaved: () => ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Oglas uspešno objavljen! 🎉'),
@@ -121,6 +121,7 @@ class _MojeScreenState extends State<MineScreen> {
       fullscreenDialog: true,
       builder: (_) => AddOglasSheet(
         editDocId: doc.id,
+        showPriceField: _isDavatelj,
         initialTitle: d['title'] as String? ?? '',
         initialDesc: d['description'] as String? ?? '',
         initialCategory: d['category'] as String? ?? 'Sestavine',
