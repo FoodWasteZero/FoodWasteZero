@@ -18,14 +18,15 @@ class FoodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 14, left: 1, right: 1),
         decoration: BoxDecoration(
-          color: kCard,
+          color: c.card,
           borderRadius: kRadius16,
-          border: Border.all(color: const Color(0x0F000000), width: 0.8),
+          border: Border.all(color: c.border.withOpacity(0.5), width: 0.8),
           boxShadow: const [
             BoxShadow(
               color: Color(0x12000000),
@@ -55,10 +56,7 @@ class FoodCard extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // Background colour (fallback)
                       Container(color: oglas.imageColor),
-
-                      // Slika: base64 iz Firestora ali ikona
                       if (oglas.imageBase64 != null)
                         _Base64Image(base64: oglas.imageBase64!)
                       else
@@ -70,28 +68,20 @@ class FoodCard extends StatelessWidget {
                             color: kGreenMid.withOpacity(0.50),
                           ),
                         ),
-
-                      // Badges
                       if (oglas.isExpiringSoon)
                         Positioned(
                           top: 8, left: 8,
-                          child: _PillBadge(
-                            label: '⏰ Kmalu poteče',
-                            color: kOrange,
-                          ),
+                          child: _PillBadge(label: '⏰ Kmalu poteče', color: kOrange),
                         ),
                       Positioned(
-                          bottom: 8, left: 8,
-                          child: (oglas.price != null && oglas.price! > 0)
-                              ? _PillBadge(
-                                  label: '€ ${oglas.price!.toStringAsFixed(2)}',
-                                  color: const Color(0xFF5C6BC0),
-                                )
-                              : _PillBadge(
-                                  label: 'BREZPLAČNO',
-                                  color: kGreenLight,
-                                ),
-                        ),
+                        bottom: 8, left: 8,
+                        child: (oglas.price != null && oglas.price! > 0)
+                            ? _PillBadge(
+                                label: '€ ${oglas.price!.toStringAsFixed(2)}',
+                                color: const Color(0xFF5C6BC0),
+                              )
+                            : _PillBadge(label: 'BREZPLAČNO', color: kGreenLight),
+                      ),
                     ],
                   ),
                 ),
@@ -109,8 +99,7 @@ class FoodCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: kGreenPale,
                               borderRadius: kRadiusFull,
@@ -146,11 +135,14 @@ class FoodCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(oglas.title,
-                          style: kBodyBold.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: c.textDark),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 8),
-                      _InfoRow(Icons.location_on_outlined, oglas.location),
+                      _InfoRow(Icons.location_on_outlined, oglas.location, textColor: c.textMid),
                       const SizedBox(height: 3),
                       if (oglas.username != null) ...[
                         onAuthorTap != null
@@ -161,13 +153,15 @@ class FoodCard extends StatelessWidget {
                                   Icons.store_rounded,
                                   oglas.username!,
                                   highlight: true,
+                                  textColor: c.textMid,
                                 ),
                               )
-                            : _InfoRow(Icons.store_rounded, oglas.username!),
+                            : _InfoRow(Icons.store_rounded, oglas.username!, textColor: c.textMid),
                         const SizedBox(height: 3),
                       ],
                       _InfoRow(Icons.near_me_outlined,
-                          '${oglas.distanceKm.toStringAsFixed(1)} km stran'),
+                          '${oglas.distanceKm.toStringAsFixed(1)} km stran',
+                          textColor: c.textMid),
                       const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -203,7 +197,6 @@ class FoodCard extends StatelessWidget {
   }
 }
 
-// ── Base64 → Image widget ─────────────────────────────────────────────────────
 class _Base64Image extends StatelessWidget {
   final String base64;
   const _Base64Image({required this.base64});
@@ -212,13 +205,8 @@ class _Base64Image extends StatelessWidget {
   Widget build(BuildContext context) {
     try {
       final bytes = base64Decode(base64);
-      return Image.memory(
-        bytes,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-      );
+      return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
     } catch (_) {
-      // Decode failed — pokaži nič (fallback bo ikona pod njim)
       return const SizedBox.shrink();
     }
   }
@@ -228,19 +216,20 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
   final bool highlight;
-  const _InfoRow(this.icon, this.text, {this.highlight = false});
+  final Color textColor;
+  const _InfoRow(this.icon, this.text, {this.highlight = false, required this.textColor});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: highlight ? kGreenMid : kTextLight),
+        Icon(icon, size: 14, color: highlight ? kGreenMid : textColor),
         const SizedBox(width: 5),
         Flexible(
           child: Text(text,
-              style: kCaption.copyWith(
+              style: TextStyle(
                   fontSize: 14,
-                  color: highlight ? kGreenMid : kTextMid,
+                  color: highlight ? kGreenMid : textColor,
                   fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
                   decoration: highlight ? TextDecoration.underline : null),
               overflow: TextOverflow.ellipsis),
@@ -286,14 +275,10 @@ class _PillBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: color, borderRadius: kRadiusFull,
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: kRadiusFull),
       child: Text(label,
           style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700)),
+              color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
 }

@@ -64,6 +64,7 @@ class MineScreen extends StatefulWidget {
 }
 
 class _MojeScreenState extends State<MineScreen> {
+  AppColors get c => AppColors.of(context);
   bool _isDavatelj = false;
   StreamSubscription<User?>? _authSub;
 
@@ -147,15 +148,15 @@ class _MojeScreenState extends State<MineScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: kRadius12),
-        title: const Text('Izbriši oglas', style: kHeading2),
-        content: const Text(
+        title: Text('Izbriši oglas', style: kHeading2),
+        content: Text(
           'Ali ste prepričani, da želite izbrisati ta oglas?',
           style: kBody,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Prekliči', style: TextStyle(color: kTextLight, fontWeight: FontWeight.w600)),
+            child: Text('Prekliči', style: TextStyle(color: c.textLight, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -163,7 +164,7 @@ class _MojeScreenState extends State<MineScreen> {
               backgroundColor: Colors.red, elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: kRadius8),
             ),
-            child: const Text('Izbriši', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            child: Text('Izbriši', style: TextStyle(color: c.card, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -180,11 +181,12 @@ class _MojeScreenState extends State<MineScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       return Scaffold(
-        backgroundColor: kSurface,
+        backgroundColor: c.surface,
         body: SafeArea(
           child: Center(
             child: Padding(
@@ -195,12 +197,12 @@ class _MojeScreenState extends State<MineScreen> {
                   Container(
                     width: 80, height: 80,
                     decoration: BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
-                    child: const Icon(Icons.lock_outline_rounded, size: 40, color: kGreenMid),
+                    child: Icon(Icons.lock_outline_rounded, size: 40, color: kGreenMid),
                   ),
-                  const SizedBox(height: 20),
-                  const Text('Niste prijavljeni', style: kHeading2),
-                  const SizedBox(height: 8),
-                  const Text(
+                  SizedBox(height: 20),
+                  Text('Niste prijavljeni', style: kHeading2),
+                  SizedBox(height: 8),
+                  Text(
                     'Za ogled in dodajanje oglasov\nse prijavite v račun.',
                     style: kBody, textAlign: TextAlign.center,
                   ),
@@ -213,7 +215,7 @@ class _MojeScreenState extends State<MineScreen> {
     }
 
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.surface,
       body: UserListingsView(
         profileUid: user.uid,
         isOwner: true,
@@ -267,6 +269,7 @@ class AddOglasSheet extends StatefulWidget {
 }
 
 class _AddOglasSheetState extends State<AddOglasSheet> {
+  AppColors get c => AppColors.of(context);
   int _step = 0;
   String? _selectedCategory;
   bool _loading = false;
@@ -626,8 +629,9 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: c.card,
       appBar: AppBar(
         backgroundColor: const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
@@ -637,7 +641,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
           statusBarIconBrightness: Brightness.light,
         ),
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
+          icon: Icon(Icons.close_rounded),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(children: [
@@ -647,19 +651,19 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 color: Colors.white.withOpacity(0.2), borderRadius: kRadius8),
             child: Icon(
               widget.isEditing ? Icons.edit_rounded : Icons.add_circle_outline_rounded,
-              color: Colors.white, size: 18,
+              color: c.card, size: 18,
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
               widget.isEditing ? 'Uredi oglas' : 'Dodaj oglas',
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
+              style: TextStyle(
+                  color: c.card, fontWeight: FontWeight.w800, fontSize: 16),
             ),
             Text(
               _step == 0 ? 'Izberi kategorijo' : 'Izpolni podatke',
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              style: TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ]),
         ]),
@@ -676,7 +680,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
 
             // ── Korak 0: Kategorija ──────────────────────────────────────
             if (_step == 0) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               _OglasCategory(
                 icon: Icons.soup_kitchen_rounded, label: 'Kuhano',
                 sub: 'Pripravljeni obroki, juhe, enolončnice...',
@@ -684,7 +688,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 selected: _selectedCategory == 'Kuhano',
                 onTap: () => setState(() { _selectedCategory = 'Kuhano'; _step = 1; }),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               _OglasCategory(
                 icon: Icons.grass_rounded, label: 'Sestavine',
                 sub: 'Sadje, zelenjava, moka, jajca...',
@@ -692,7 +696,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 selected: _selectedCategory == 'Sestavine',
                 onTap: () => setState(() { _selectedCategory = 'Sestavine'; _step = 1; }),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               _OglasCategory(
                 icon: Icons.bakery_dining_rounded, label: 'Peka',
                 sub: 'Kruh, kolači, pecivo...',
@@ -700,7 +704,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 selected: _selectedCategory == 'Peka',
                 onTap: () => setState(() { _selectedCategory = 'Peka'; _step = 1; }),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               _OglasCategory(
                 icon: Icons.apple_rounded, label: 'Sadje & zelenjava',
                 sub: 'Sveže iz vrta ali kmetije...',
@@ -708,7 +712,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 selected: _selectedCategory == 'Sadje & zelenjava',
                 onTap: () => setState(() { _selectedCategory = 'Sadje & zelenjava'; _step = 1; }),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               // Ostalo je zdaj vedno vidno
               _OglasCategory(
                 icon: Icons.more_horiz_rounded, label: 'Ostalo',
@@ -730,8 +734,8 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius8),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.arrow_back_rounded, color: kGreenMid, size: 16),
-                      const SizedBox(width: 6),
+                      Icon(Icons.arrow_back_rounded, color: kGreenMid, size: 16),
+                      SizedBox(width: 6),
                       Text('Nazaj na kategorije',
                           style: kCaption.copyWith(
                               color: kGreenMid, fontWeight: FontWeight.w600)),
@@ -749,17 +753,17 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                     border: Border.all(color: kGreenMid.withOpacity(0.3)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.label_rounded, color: kGreenMid, size: 14),
-                    const SizedBox(width: 6),
+                    Icon(Icons.label_rounded, color: kGreenMid, size: 14),
+                    SizedBox(width: 6),
                     Text(_selectedCategory!,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 14, color: kGreenMid, fontWeight: FontWeight.w700)),
                   ]),
                 ),
 
               // Slika
               const _SectionLabel(icon: Icons.image_rounded, label: 'Fotografija (neobvezno)'),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
@@ -773,7 +777,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                   child: _buildImagePreview(),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Naziv (obvezno)
               _OglasFormField(
@@ -790,13 +794,13 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 2),
                   child: Row(children: [
-                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
-                    const SizedBox(width: 4),
+                    Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
+                    SizedBox(width: 4),
                     Text('Naziv oglasa je obvezen.',
                         style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
                   ]),
                 ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
               // Termin 1 (obvezno)
               _OglasFormField(
@@ -812,13 +816,13 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 2),
                   child: Row(children: [
-                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
-                    const SizedBox(width: 4),
+                    Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
+                    SizedBox(width: 4),
                     Text('Termin 1 je obvezen.',
                         style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
                   ]),
                 ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
                 // Število porcij
               _OglasFormField(
@@ -829,7 +833,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Grami (obvezno)
               _OglasFormField(
@@ -848,35 +852,35 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 2),
                   child: Row(children: [
-                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
-                    const SizedBox(width: 4),
+                    Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
+                    SizedBox(width: 4),
                     Text('Količina v gramih je obvezna.',
                         style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
                   ]),
                 ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
             
 
               // ── Cena ────────────────────────────────────────────────────
               if (widget.showPriceField) ...[
               const _SectionLabel(icon: Icons.euro_rounded, label: 'Cena'),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFFF5F7F5),
                     borderRadius: kRadius12,
-                    border: Border.all(color: kBorder),
+                    border: Border.all(color: c.border),
                   ),
                   child: Row(children: [
                     Container(
                       width: 44,
                       alignment: Alignment.center,
-                      child: const Text('€',
+                      child: Text('€',
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.w700, color: kGreenMid)),
                     ),
-                    Container(width: 1, height: 44, color: kBorder),
+                    Container(width: 1, height: 44, color: c.border),
                     Expanded(
                       child: TextField(
                         controller: _priceCtrl,
@@ -884,7 +888,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'^\d*[,.]?\d{0,2}')),
                         ],
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextDark),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.textDark),
                         decoration: InputDecoration(
                           hintText: '0,00',
                           hintStyle: kCaption.copyWith(fontSize: 15),
@@ -900,10 +904,10 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 2),
                   child: Text('Vnesite ceno v evrih (npr. 2,50)',
-                      style: kCaption.copyWith(color: kTextLight, fontSize: 12)),
+                      style: kCaption.copyWith(color: c.textLight, fontSize: 12)),
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               
 
               // Opis
@@ -914,12 +918,12 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 icon: Icons.notes_rounded,
                 maxLines: 2,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Rok uporabe
               const _SectionLabel(
                   icon: Icons.calendar_today_rounded, label: 'Rok uporabe (neobvezno)'),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               GestureDetector(
                 onTap: _pickDate,
                 child: Container(
@@ -933,7 +937,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                   child: Row(children: [
                     Icon(Icons.event_rounded,
                         color: _expiryDate != null ? kGreenMid : kTextLight, size: 18),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         _expiryDate != null
@@ -949,12 +953,12 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                     if (_expiryDate != null)
                       GestureDetector(
                         onTap: () => setState(() => _expiryDate = null),
-                        child: const Icon(Icons.close_rounded, color: kTextLight, size: 16),
+                        child: Icon(Icons.close_rounded, color: c.textLight, size: 16),
                       ),
                   ]),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Lokacija (obvezno)
               _OglasFormField(
@@ -971,8 +975,8 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 2),
                   child: Row(children: [
-                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
-                    const SizedBox(width: 4),
+                    Icon(Icons.error_outline_rounded, color: Colors.red, size: 14),
+                    SizedBox(width: 4),
                     Text('Naslov prevzema je obvezen.',
                         style: kCaption.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
                   ]),
@@ -985,28 +989,28 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                       width: 12, height: 12,
                       child: CircularProgressIndicator(
                         strokeWidth: 1.5,
-                        color: kTextLight,
+                        color: c.textLight,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Text('Iščem lokacijo na karti…',
-                        style: kCaption.copyWith(color: kTextLight, fontSize: 13)),
+                        style: kCaption.copyWith(color: c.textLight, fontSize: 13)),
                   ] else if (_geocodeOk) ...[
                     Icon(Icons.location_on_rounded, color: kGreenMid, size: 13),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Text('Lokacija najdena — bo vidna na heatmapi',
                         style: kCaption.copyWith(color: kGreenMid, fontSize: 13)),
                   ] else if (_locationCtrl.text.isNotEmpty) ...[
                     Icon(Icons.location_off_outlined, color: kOrange, size: 13),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Expanded(child: Text('Lokacija ni bila najdena — oglas bo shranjen brez koordinat',
                         style: kCaption.copyWith(color: kOrange, fontSize: 13))),
                   ] else
                     Text('Vnesite ulico in kraj prevzema.',
-                        style: kCaption.copyWith(color: kTextLight, fontSize: 13)),
+                        style: kCaption.copyWith(color: c.textLight, fontSize: 13)),
                 ]),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
 
               // Submit gumb
               SizedBox(
@@ -1018,20 +1022,20 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
                     shape: const RoundedRectangleBorder(borderRadius: kRadius12),
                   ),
                   child: _loading
-                      ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? SizedBox(width: 20, height: 20,
+                          child: CircularProgressIndicator(color: c.card, strokeWidth: 2))
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               widget.isEditing ? Icons.save_rounded : Icons.check_circle_rounded,
-                              color: Colors.white, size: 18,
+                              color: c.card, size: 18,
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Text(
                               widget.isEditing ? 'Shrani spremembe' : 'Objavi oglas',
-                              style: const TextStyle(
-                                  color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                              style: TextStyle(
+                                  color: c.card, fontWeight: FontWeight.w800, fontSize: 15),
                             ),
                           ],
                         ),
@@ -1055,7 +1059,7 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(color: Colors.red, borderRadius: kRadius8),
-              child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+              child: Icon(Icons.close_rounded, color: c.card, size: 14),
             ),
           ),
         ),
@@ -1079,12 +1083,12 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
         Container(
           width: 52, height: 52,
           decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius12),
-          child: const Icon(Icons.add_photo_alternate_rounded, color: kGreenMid, size: 26),
+          child: Icon(Icons.add_photo_alternate_rounded, color: kGreenMid, size: 26),
         ),
-        const SizedBox(height: 10),
-        const Text('Dodajte fotografijo',
+        SizedBox(height: 10),
+        Text('Dodajte fotografijo',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kGreenMid)),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text('Kliknite za izbiro iz galerije', style: kCaption.copyWith(fontSize: 13)),
       ],
     );
@@ -1097,11 +1101,11 @@ class _AddOglasSheetState extends State<AddOglasSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(color: Colors.black54, borderRadius: kRadius8),
-        child: const Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.edit_rounded, color: Colors.white, size: 13),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.edit_rounded, color: c.card, size: 13),
           SizedBox(width: 4),
           Text('Zamenjaj',
-              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              style: TextStyle(color: c.card, fontSize: 13, fontWeight: FontWeight.w600)),
         ]),
       ),
     ),
@@ -1117,13 +1121,14 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Align(
       alignment: Alignment.centerLeft,
       child: Row(children: [
         Icon(icon, color: kGreenMid, size: 16),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kTextDark)),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: c.textDark)),
       ]),
     );
   }
@@ -1157,14 +1162,15 @@ class _OglasFormField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Icon(icon, color: kGreenMid, size: 16),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kTextDark)),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: c.textDark)),
       ]),
-      const SizedBox(height: 6),
+      SizedBox(height: 6),
       Container(
         decoration: BoxDecoration(
           color: const Color(0xFFF5F7F5),
@@ -1179,7 +1185,7 @@ class _OglasFormField extends StatelessWidget {
           inputFormatters: inputFormatters,
           readOnly: readOnly,
           onTap: onTap,
-          style: const TextStyle(fontSize: 13, color: kTextDark),
+          style: TextStyle(fontSize: 13, color: c.textDark),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: kCaption.copyWith(fontSize: 13),
@@ -1211,6 +1217,7 @@ class _OglasCategory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1232,10 +1239,10 @@ class _OglasCategory extends StatelessWidget {
             decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: kRadius12),
             child: Icon(icon, color: color, size: 22),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: kBodyBold),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text(sub, style: kCaption),
           ])),
           Icon(Icons.chevron_right_rounded, color: color, size: 22),

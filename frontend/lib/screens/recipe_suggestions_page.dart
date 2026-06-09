@@ -23,12 +23,13 @@ class RecipeSuggestionsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final suggestions = _suggested.isNotEmpty ? _suggested : List<Map<String, dynamic>>.from(_recipes);
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.surface,
       appBar: AppBar(
-        title: const Text('Predlogi receptov', style: TextStyle(fontWeight: FontWeight.w800, fontSize: kFontLarge)),
-        backgroundColor: Colors.white,
+        title: Text('Predlogi receptov', style: TextStyle(fontWeight: FontWeight.w800, fontSize: kFontLarge)),
+        backgroundColor: c.card,
         foregroundColor: kTextDark,
         elevation: 0,
       ),
@@ -43,7 +44,7 @@ class RecipeSuggestionsPage extends StatelessWidget {
                 children: ingredients.map((i) => Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadiusFull),
-                  child: Text(i, style: const TextStyle(color: kGreenMid, fontSize: kFontSmall, fontWeight: FontWeight.w600)),
+                  child: Text(i, style: TextStyle(color: kGreenMid, fontSize: kFontSmall, fontWeight: FontWeight.w600)),
                 )).toList(),
               ),
             ),
@@ -60,27 +61,27 @@ class RecipeSuggestionsPage extends StatelessWidget {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: kRadius16, boxShadow: kCardShadow),
+                  decoration: BoxDecoration(color: c.card, borderRadius: kRadius16, boxShadow: kCardShadow),
                   child: Row(children: [
                     Container(
                       width: 52, height: 52,
                       decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius12),
                       child: Icon(r['icon'] as IconData, color: kGreenMid, size: 26),
                     ),
-                    const SizedBox(width: 14),
+                    SizedBox(width: 14),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(r['name'] as String, style: kBodyBold),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Row(children: [
-                        const Icon(Icons.access_time, size: kFontSmall, color: kTextLight),
-                        const SizedBox(width: 4),
+                        Icon(Icons.access_time, size: kFontSmall, color: c.textLight),
+                        SizedBox(width: 4),
                         Text(r['time'] as String, style: kCaption),
                       ]),
                     ])),
                     Container(
                       width: 34, height: 34,
                       decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadius8),
-                      child: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+                      child: Icon(Icons.arrow_forward_ios, color: c.card, size: 14),
                     ),
                   ]),
                 );

@@ -177,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen>
         .addListener(_navIndexListener!);
   }
 
-  // ── Tiho pridobi lokacijo ob zagonu (samo prosi za dovoljenje + GPS) ─────
+  // ── Tiho pridobi lokacijo ob zagonu ─────────────────────────────────────
   Future<void> _fetchLocationSilent() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -185,11 +185,12 @@ class _HomeScreenState extends State<HomeScreen>
 
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        // Pokaži sistemski dialog za dovoljenje — to je tisto "kot ostale aplikacije"
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) return;
+
+      if (mounted) setState(() => _locationLoading = true);
 
       // Najprej poskusi hitro zadnjo znano lokacijo (takojšen odziv)
       Position? lastKnown;
@@ -215,11 +216,12 @@ class _HomeScreenState extends State<HomeScreen>
         setState(() {
           _userLat = pos.latitude;
           _userLng = pos.longitude;
+          _locationLoading = false;
         });
         _reverseGeocode(pos.latitude, pos.longitude);
       }
     } catch (_) {
-      // Tiho spregledaj napake pri zagonu — uporabnik ni kliknil ničesar
+      if (mounted) setState(() => _locationLoading = false);
     }
   }
 
@@ -471,9 +473,31 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _setFilter(String? f) {
     final newFilter = (_activeFilter == f) ? null : f;
+    // Ako nema lokacije i klikne "Najbližje" — prikaži obavijest
+    if (newFilter == 'nearest' && _userLat == null) {
+      _fetchLocation(); // zatraži GPS
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(children: const [
+            Icon(Icons.location_off_rounded, color: Colors.white, size: 16),
+            SizedBox(width: 8),
+            Text('Vključi lokacijo za razvrščanje po razdalji'),
+          ]),
+          backgroundColor: const Color(0xFF1565C0),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: kRadius12),
+          action: SnackBarAction(
+            label: 'Vključi',
+            textColor: Colors.white,
+            onPressed: _fetchLocation,
+          ),
+        ),
+      );
+      return; // Ne aktiviraj filter dok nema lokacije
+    }
     setState(() => _activeFilter = newFilter);
-    // Kad aktiviramo "nearest" filter, takoj zahtevamo pravo lokacijo
-    if (newFilter == 'nearest') {
+    if (newFilter == 'nearest' && _userLat != null) {
       _fetchLocation();
     }
   }
@@ -1137,9 +1161,7 @@ class _HomeScreenState extends State<HomeScreen>
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
               color: Colors.white, letterSpacing: -0.2)),
         const SizedBox(width: 8),
-        GestureDetector(
-          onTap: _showMestoDialog,
-          child: Container(
+        Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.18),
@@ -1164,10 +1186,8 @@ class _HomeScreenState extends State<HomeScreen>
                 style: const TextStyle(
                     fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
               const SizedBox(width: 2),
-              const Icon(Icons.keyboard_arrow_down_rounded, size: 13, color: Colors.white70),
             ]),
           ),
-        ),
       ]),
       centerTitle: false,
       actions: [
@@ -2307,11 +2327,9 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> {
 
   void _doCenterOnPos(double lat, double lng) {
     if (_mapSize == Size.zero) return;
-    // Izračunaj relativnu poziciju korisnika na mapi
-    final refLat = widget.userLat ?? _kRefLat;
-    final refLng = widget.userLng ?? _kRefLng;
-    final (rx, ry) = _geoToRelative(lat, lng, refLat: refLat, refLng: refLng);
-    const targetScale = 2.5;
+    // Uvijek koristi fiksni centar Slovenije — ne userLat kao refLat (to je bio bug)
+    final (rx, ry) = _geoToRelative(lat, lng);
+    const targetScale = 3.0;
     // Pomakni mapu tako da je korisnikov pin na centru ekrana
     final offsetX = _mapSize.width  * (0.5 - rx) * targetScale;
     final offsetY = _mapSize.height * (0.5 - ry) * targetScale;
@@ -2630,14 +2648,54 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> {
                                     onHotspotTap: (hs) => setState(() =>
                                         _selectedHotspot = _selectedHotspot?.$5 == hs.$5 ? null : hs),
                                   ),
-                                  // Tappable user location pin — zoom in on tap
+                                  // Tappable user location pin — vidljivi plavi pin
                                   if (widget.userLat != null && widget.userLng != null)
                                     LayoutBuilder(builder: (ctx, constraints) {
                                       final (rx, ry) = _geoToRelative(widget.userLat!, widget.userLng!);
                                       final cx = rx * constraints.maxWidth;
                                       final cy = ry * constraints.maxHeight;
+                                      const pinSize = 16.0;
                                       const hitSize = 48.0;
                                       return Stack(children: [
+                                        // Outer pulse ring
+                                        Positioned(
+                                          left: cx - 14,
+                                          top: cy - 14,
+                                          width: 28,
+                                          height: 28,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: const Color(0xFF2196F3).withOpacity(0.25),
+                                              border: Border.all(
+                                                color: const Color(0xFF2196F3).withOpacity(0.4),
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // Inner blue dot
+                                        Positioned(
+                                          left: cx - pinSize / 2,
+                                          top: cy - pinSize / 2,
+                                          width: pinSize,
+                                          height: pinSize,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: const Color(0xFF2196F3),
+                                              border: Border.all(color: Colors.white, width: 2.5),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: const Color(0xFF2196F3).withOpacity(0.6),
+                                                  blurRadius: 8,
+                                                  spreadRadius: 2,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        // Hit area za tap
                                         Positioned(
                                           left: cx - hitSize / 2,
                                           top: cy - hitSize / 2,
@@ -2645,12 +2703,7 @@ class _HeatmapFullPageState extends State<HeatmapFullPage> {
                                           height: hitSize,
                                           child: GestureDetector(
                                             onTap: () => _doCenterOnPos(widget.userLat!, widget.userLng!),
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: Colors.transparent,
-                                              ),
-                                            ),
+                                            child: Container(color: Colors.transparent),
                                           ),
                                         ),
                                       ]);

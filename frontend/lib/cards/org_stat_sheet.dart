@@ -71,6 +71,7 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final total = oglas.portions ?? 1;
     final remaining = oglas.remainingPortions ?? total;
@@ -94,23 +95,23 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
 
     return Container(
       margin: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: c.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Drag handle
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Container(
             width: 40, height: 4,
             decoration: BoxDecoration(
-              color: kBorder,
+              color: c.border,
               borderRadius: kRadiusFull,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // Scrollable vsebina
           ConstrainedBox(
@@ -132,36 +133,36 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                       ),
                       child: Icon(oglas.icon, color: kGreenMid, size: 24),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             oglas.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
-                              color: kTextDark,
+                              color: c.textDark,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          SizedBox(height: 3),
                           _StatusBadge(oglas.status),
                         ],
                       ),
                     ),
                   ]),
 
-                  const SizedBox(height: 20),
-                  const Divider(height: 1, color: kBorder),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
+                  Divider(height: 1, color: c.border),
+                  SizedBox(height: 20),
 
                   // ── Cena ────────────────────────────────────────────────
                   _SectionTitle(
                     icon: Icons.euro_rounded,
                     label: 'Cena',
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -193,13 +194,13 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                               ),
                             ),
                             if (hasPrice && reserved > 0) ...[
-                              const SizedBox(height: 4),
+                              SizedBox(height: 4),
                               Text(
                                 'Skupaj za $reserved ${_porcijLabel(reserved)}: '
                                 '${totalPrice.toStringAsFixed(2)} €',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
-                                  color: kTextMid,
+                                  color: c.textMid,
                                 ),
                               ),
                             ],
@@ -218,26 +219,26 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                     ]),
                   ),
 
-                  const SizedBox(height: 20),
-                  const Divider(height: 1, color: kBorder),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
+                  Divider(height: 1, color: c.border),
+                  SizedBox(height: 20),
 
                   // ── Porcije ─────────────────────────────────────────────
                   _SectionTitle(
                     icon: Icons.restaurant_rounded,
                     label: 'Porcije',
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Row(children: [
                     Expanded(
                       child: _PorcijCard(
                         value: '$total',
                         label: 'Skupaj',
-                        color: kTextMid,
+                        color: c.textMid,
                         bgColor: kSurface,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: _PorcijCard(
                         value: '$reserved',
@@ -246,7 +247,7 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                         bgColor: const Color(0xFFFFF3E0),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: _PorcijCard(
                         value: '$remaining',
@@ -259,32 +260,32 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
 
                   // ── Rezervacije ─────────────────────────────────────────
                   if (_rezervacije.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    const Divider(height: 1, color: kBorder),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
+                    Divider(height: 1, color: c.border),
+                    SizedBox(height: 20),
                     _SectionTitle(
                       icon: Icons.people_rounded,
                       label: 'Aktivne rezervacije',
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: kSurface,
+                        color: c.surface,
                         borderRadius: kRadius12,
-                        border: Border.all(color: kBorder),
+                        border: Border.all(color: c.border),
                       ),
                       child: Row(children: [
                         Container(
                           width: 40, height: 40,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: kGreenPale,
                             shape: BoxShape.circle,
                           ),
                           child: Center(
                             child: Text(
                               '${_rezervacije.length}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 color: kGreenMid,
@@ -292,28 +293,28 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: _loadingRez
-                              ? const Text('Nalagam...',
-                                  style: TextStyle(color: kTextLight))
+                              ? Text('Nalagam...',
+                                  style: TextStyle(color: c.textLight))
                               : Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       '${_rezervacije.length} ${_rezervacije.length == 1 ? 'rezervacija' : 'rezervacij'} aktivnih',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
-                                        color: kTextDark,
+                                        color: c.textDark,
                                       ),
                                     ),
                                     if (reserved > 0)
                                       Text(
                                         '$reserved ${_porcijLabel(reserved)} rezerviranih',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 13,
-                                          color: kTextMid,
+                                          color: c.textMid,
                                         ),
                                       ),
                                   ],
@@ -325,14 +326,14 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
 
                   // ── Izbrani termin ───────────────────────────────────────
                   if (chosenTermin != null) ...[
-                    const SizedBox(height: 20),
-                    const Divider(height: 1, color: kBorder),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
+                    Divider(height: 1, color: c.border),
+                    SizedBox(height: 20),
                     _SectionTitle(
                       icon: Icons.event_available_rounded,
                       label: 'Izbrani termin prevzema',
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -341,12 +342,12 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                         border: Border.all(color: kGreenMid.withOpacity(0.25)),
                       ),
                       child: Row(children: [
-                        const Icon(Icons.check_circle_rounded,
+                        Icon(Icons.check_circle_rounded,
                             color: kGreenMid, size: 22),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Text(
                           _formatTermin(chosenTermin!),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: kGreenMid,
@@ -358,14 +359,14 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
 
                   // ── Vsi termini ──────────────────────────────────────────
                   if (termini.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    const Divider(height: 1, color: kBorder),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
+                    Divider(height: 1, color: c.border),
+                    SizedBox(height: 20),
                     _SectionTitle(
                       icon: Icons.schedule_rounded,
                       label: 'Termin prevzema',
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     ...termini.map((t) {
                       final isChosen = chosenTermin != null &&
                           t.isAtSameMomentAs(chosenTermin);
@@ -390,7 +391,7 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                             size: 16,
                             color: isChosen ? kGreenMid : kTextLight,
                           ),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 10),
                           Text(
                             _formatTermin(t),
                             style: TextStyle(
@@ -419,11 +420,11 @@ class _OrgPackageDetailSheetState extends State<OrgStatSheet> {
                 onPressed: () => Navigator.pop(context),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: kTextMid,
-                  side: const BorderSide(color: kBorder),
+                  side: BorderSide(color: c.border),
                   shape: const RoundedRectangleBorder(borderRadius: kRadius12),
                   padding: const EdgeInsets.symmetric(vertical: 13),
                 ),
-                child: const Text('Zapri',
+                child: Text('Zapri',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
@@ -442,15 +443,18 @@ class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.icon, required this.label});
 
   @override
-  Widget build(BuildContext context) => Row(children: [
-    Icon(icon, size: 16, color: kGreenMid),
-    const SizedBox(width: 6),
-    Text(label, style: const TextStyle(
-      fontSize: 15,
-      fontWeight: FontWeight.w800,
-      color: kTextDark,
-    )),
-  ]);
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Row(children: [
+      Icon(icon, size: 16, color: kGreenMid),
+      SizedBox(width: 6),
+      Text(label, style: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
+        color: c.textDark,
+      )),
+    ]);
+  }
 }
 
 class _PorcijCard extends StatelessWidget {
@@ -466,27 +470,30 @@ class _PorcijCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    decoration: BoxDecoration(
-      color: bgColor,
-      borderRadius: kRadius12,
-      border: Border.all(color: color.withOpacity(0.2)),
-    ),
-    child: Column(children: [
-      Text(value, style: TextStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.w900,
-        color: color,
-      )),
-      const SizedBox(height: 3),
-      Text(label, style: const TextStyle(
-        fontSize: 12,
-        color: kTextLight,
-        fontWeight: FontWeight.w500,
-      )),
-    ]),
-  );
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: kRadius12,
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(children: [
+        Text(value, style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+          color: color,
+        )),
+        SizedBox(height: 3),
+        Text(label, style: TextStyle(
+          fontSize: 12,
+          color: c.textLight,
+          fontWeight: FontWeight.w500,
+        )),
+      ]),
+    );
+  }
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -495,6 +502,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final Color color;
     final String label;
     final IconData icon;
@@ -517,7 +525,7 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 11, color: color),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         Text(label, style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,

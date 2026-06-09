@@ -19,6 +19,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
+  AppColors get c => AppColors.of(context);
   late TabController _tabCtrl;
 
   String _displayName = '';
@@ -172,8 +173,8 @@ class _ProfilePageState extends State<ProfilePage>
           padding: EdgeInsets.only(bottom: bottomInset),
           child: Container(
             margin: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: c.card,
               borderRadius: BorderRadius.all(Radius.circular(24)),
             ),
             child: SingleChildScrollView(
@@ -184,19 +185,19 @@ class _ProfilePageState extends State<ProfilePage>
               children: [
                 Row(
                   children: [
-                    const Text('Uredi profil',
+                    Text('Uredi profil',
                         style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
-                            color: kTextDark)),
+                            color: c.textDark)),
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close_rounded, color: kTextMid),
+                      icon: Icon(Icons.close_rounded, color: c.textMid),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 if (_userType == 'davatelj') ...[
                   _EditField(
                       ctrl: orgNameCtrl,
@@ -207,25 +208,25 @@ class _ProfilePageState extends State<ProfilePage>
                       ctrl: firstNameCtrl,
                       label: 'Prvo ime',
                       icon: Icons.person_outline_rounded),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _EditField(
                       ctrl: surnameCtrl,
                       label: 'Priimek',
                       icon: Icons.person_outline_rounded),
                 ],
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _EditField(
                     ctrl: emailCtrl,
                     label: 'E-pošta',
                     icon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress),
-                const SizedBox(height: 20),
-                const Text('Novo geslo (pustite prazno, če ne menjate)',
+                SizedBox(height: 20),
+                Text('Novo geslo (pustite prazno, če ne menjate)',
                     style: TextStyle(
                         fontSize: 12,
-                        color: kTextMid,
+                        color: c.textMid,
                         fontWeight: FontWeight.w600)),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 _EditField(
                   ctrl: pwCtrl,
                   label: 'Novo geslo',
@@ -238,11 +239,11 @@ class _ProfilePageState extends State<ProfilePage>
                         obscurePw
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: kTextLight,
+                        color: c.textLight,
                         size: 20),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _EditField(
                   ctrl: pw2Ctrl,
                   label: 'Ponovi geslo',
@@ -255,11 +256,11 @@ class _ProfilePageState extends State<ProfilePage>
                         obscurePw2
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: kTextLight,
+                        color: c.textLight,
                         size: 20),
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -355,16 +356,16 @@ class _ProfilePageState extends State<ProfilePage>
                               BorderRadius.all(Radius.circular(14))),
                     ),
                     child: saving
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2))
-                        : const Text('Shrani spremembe',
+                                color: c.card, strokeWidth: 2))
+                        : Text('Shrani spremembe',
                             style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
-                                color: Colors.white)),
+                                color: c.card)),
                   ),
                 ),
               ],
@@ -400,6 +401,7 @@ class _ProfilePageState extends State<ProfilePage>
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (_loadingUser) {
       return const Scaffold(
           body: Center(child: CircularProgressIndicator()));
@@ -412,7 +414,7 @@ class _ProfilePageState extends State<ProfilePage>
 
   Widget _buildGuestView() {
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.surface,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -425,23 +427,23 @@ class _ProfilePageState extends State<ProfilePage>
                   height: 96,
                   decoration: BoxDecoration(
                       color: kGreenPale, borderRadius: kRadiusFull),
-                  child: const Icon(Icons.person_outline_rounded,
+                  child: Icon(Icons.person_outline_rounded,
                       size: 52, color: kGreenMid),
                 ),
-                const SizedBox(height: 24),
-                const Text('Niste prijavljeni',
+                SizedBox(height: 24),
+                Text('Niste prijavljeni',
                     style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        color: kTextDark)),
-                const SizedBox(height: 10),
-                const Text(
+                        color: c.textDark)),
+                SizedBox(height: 10),
+                Text(
                   'Prijavite se ali se registrirajte, da dostopate do profila in svojih oglasov.',
                   textAlign: TextAlign.center,
                   style:
-                      TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
+                      TextStyle(color: c.textMid, fontSize: 14, height: 1.5),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -452,11 +454,11 @@ class _ProfilePageState extends State<ProfilePage>
                       shape: const RoundedRectangleBorder(
                           borderRadius: kRadius12),
                     ),
-                    child: const Text('Prijava / Registracija',
+                    child: Text('Prijava / Registracija',
                         style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
-                            color: Colors.white)),
+                            color: c.card)),
                   ),
                 ),
               ],
@@ -472,7 +474,7 @@ class _ProfilePageState extends State<ProfilePage>
   Widget _buildUporabnikView() {
     final user = FirebaseAuth.instance.currentUser!;
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.surface,
       body: SafeArea(
         child: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) => [
@@ -482,7 +484,7 @@ class _ProfilePageState extends State<ProfilePage>
                 children: [
                   _buildProfileHeader(),
                   _UporabnikStatsRow(uid: user.uid),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                 ],
               ),
             ),
@@ -511,7 +513,7 @@ class _ProfilePageState extends State<ProfilePage>
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.card,
         borderRadius: kRadius16,
         boxShadow: kCardShadow,
       ),
@@ -534,9 +536,9 @@ class _ProfilePageState extends State<ProfilePage>
         labelColor: Colors.white,
         unselectedLabelColor: kTextMid,
         labelStyle:
-            const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         unselectedLabelStyle:
-            const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         dividerColor: Colors.transparent,
         splashFactory: NoSplash.splashFactory,
         overlayColor: WidgetStateProperty.all(Colors.transparent),
@@ -547,7 +549,7 @@ class _ProfilePageState extends State<ProfilePage>
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.bookmark_rounded, size: 15),
-            const SizedBox(width: 5),
+            SizedBox(width: 5),
             Flexible(
               child: Text(
                 'Rezervirano',
@@ -588,13 +590,13 @@ class _ProfilePageState extends State<ProfilePage>
   Widget _buildDavateljView() {
     final user = FirebaseAuth.instance.currentUser!;
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.surface,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildProfileHeader(),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Expanded(
               child: _buildDavateljOglasi(user.uid),
             ),
@@ -617,7 +619,7 @@ class _ProfilePageState extends State<ProfilePage>
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting &&
             !snap.hasData) {
-          return const Center(
+          return Center(
               child: CircularProgressIndicator(color: kGreenMid));
         }
         if (snap.hasError) {
@@ -692,7 +694,7 @@ class _ProfilePageState extends State<ProfilePage>
               co2Kg: co2Kg,
               thisWeek: thisWeek,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             Row(children: [
               Container(
                 width: 4,
@@ -700,11 +702,11 @@ class _ProfilePageState extends State<ProfilePage>
                 decoration: BoxDecoration(
                     color: kGreenMid, borderRadius: kRadiusFull),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text('Aktivne objave (${aktivni.length})',
                   style: kHeading3.copyWith(fontSize: 15)),
             ]),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             if (aktivni.isEmpty)
               _buildInlineEmpty('Ni aktivnih objav',
                   'Kliknite + za dodajanje novega oglasa.'),
@@ -716,20 +718,20 @@ class _ProfilePageState extends State<ProfilePage>
                   context, _docToOglasProfile(doc)),
                 )),
             if (arhiv.isNotEmpty) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(children: [
                 Container(
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                      color: kTextLight, borderRadius: kRadiusFull),
+                      color: c.textLight, borderRadius: kRadiusFull),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text('Arhiv — prevzeto (${arhiv.length})',
                     style: kHeading3.copyWith(
-                        fontSize: 15, color: kTextMid)),
+                        fontSize: 15, color: c.textMid)),
               ]),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               ...arhiv.map((doc) => _DavateljOglasCard(
                     doc: doc,
                     showMarkPrevzeto: false,
@@ -755,7 +757,7 @@ class _ProfilePageState extends State<ProfilePage>
       builder: (context, rezSnap) {
         if (rezSnap.connectionState == ConnectionState.waiting &&
             !rezSnap.hasData) {
-          return const Center(
+          return Center(
               child: CircularProgressIndicator(color: kGreenMid));
         }
         if (rezSnap.hasError) {
@@ -820,7 +822,7 @@ class _ProfilePageState extends State<ProfilePage>
       builder: (context, rezSnap) {
         if (rezSnap.connectionState == ConnectionState.waiting &&
             !rezSnap.hasData) {
-          return const Center(
+          return Center(
               child: CircularProgressIndicator(color: kGreenMid));
         }
         if (rezSnap.hasError) {
@@ -909,7 +911,7 @@ class _ProfilePageState extends State<ProfilePage>
                   isDav
                       ? Icons.store_rounded
                       : Icons.person_rounded,
-                  color: Colors.white,
+                  color: c.card,
                   size: 30,
                 ),
               ),
@@ -922,23 +924,23 @@ class _ProfilePageState extends State<ProfilePage>
                   decoration: BoxDecoration(
                     color: const Color(0xFF00C853),
                     borderRadius: kRadiusFull,
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(color: c.card, width: 2),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: c.card,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 4),
@@ -955,11 +957,11 @@ class _ProfilePageState extends State<ProfilePage>
                                 : Icons.search_rounded,
                             color: Colors.amber,
                             size: 13),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Text(
                           isDav ? 'Organizacija' : 'Uporabnik',
-                          style: const TextStyle(
-                              color: Colors.white,
+                          style: TextStyle(
+                              color: c.card,
                               fontSize: 11,
                               fontWeight: FontWeight.w700),
                         ),
@@ -971,7 +973,7 @@ class _ProfilePageState extends State<ProfilePage>
           Column(
             children: [
               _HeaderBtn(icon: Icons.edit_rounded, onTap: _showEditProfile),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _HeaderBtn(
                   icon: Icons.logout_rounded, onTap: _logout, dimmed: true),
             ],
@@ -993,7 +995,7 @@ class _ProfilePageState extends State<ProfilePage>
           padding: EdgeInsets.zero,
           children: [
             _buildUpcomingPickups(allOglasi, user?.uid),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
           
           ],
         );
@@ -1029,30 +1031,30 @@ class _ProfilePageState extends State<ProfilePage>
         children: [
           Row(
             children: [
-              const Icon(Icons.schedule_rounded, size: 17, color: kGreenMid),
-              const SizedBox(width: 6),
+              Icon(Icons.schedule_rounded, size: 17, color: kGreenMid),
+              SizedBox(width: 6),
               Expanded(
                 child: Text('Prihajajoči prevzemi',
                     style: kHeading3.copyWith(fontSize: 15)),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (show.isEmpty)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: c.card,
                 borderRadius: kRadius12,
-                border: Border.all(color: kBorder),
+                border: Border.all(color: c.border),
               ),
-              child: const Center(
+              child: Center(
                 child: Column(children: [
                   Icon(Icons.event_available_rounded,
-                      color: kTextLight, size: 32),
+                      color: c.textLight, size: 32),
                   SizedBox(height: 8),
                   Text('Ni prihodnjih prevzemov',
-                      style: TextStyle(color: kTextLight, fontSize: 14)),
+                      style: TextStyle(color: c.textLight, fontSize: 14)),
                 ]),
               ),
             )
@@ -1080,13 +1082,13 @@ class _ProfilePageState extends State<ProfilePage>
                   color: kGreenPale, shape: BoxShape.circle),
               child: Icon(icon, size: 40, color: kGreenMid),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text(label, style: kHeading3, textAlign: TextAlign.center),
             if (subtitle != null) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(subtitle,
-                  style: const TextStyle(
-                      color: kTextLight, fontSize: 13, height: 1.5),
+                  style: TextStyle(
+                      color: c.textLight, fontSize: 13, height: 1.5),
                   textAlign: TextAlign.center),
             ],
           ],
@@ -1100,22 +1102,22 @@ class _ProfilePageState extends State<ProfilePage>
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.card,
         borderRadius: kRadius12,
-        border: Border.all(color: kBorder),
+        border: Border.all(color: c.border),
       ),
       child: Row(children: [
-        Icon(Icons.inbox_rounded, size: 28, color: kBorder),
-        const SizedBox(width: 12),
+        Icon(Icons.inbox_rounded, size: 28, color: c.border),
+        SizedBox(width: 12),
         Expanded(
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              Text(label, style: kBodyBold.copyWith(color: kTextMid)),
-              const SizedBox(height: 2),
+              Text(label, style: kBodyBold.copyWith(color: c.textMid)),
+              SizedBox(height: 2),
               Text(subtitle,
-                  style: const TextStyle(
-                      fontSize: 12, color: kTextLight)),
+                  style: TextStyle(
+                      fontSize: 12, color: c.textLight)),
             ])),
       ]),
     );
@@ -1159,6 +1161,7 @@ class _UporabnikStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('rezervacije')
@@ -1166,16 +1169,16 @@ class _UporabnikStatsRow extends StatelessWidget {
           .snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Padding(
+          return Padding(
             padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Center(child: CircularProgressIndicator(color: kGreenMid, strokeWidth: 2)),
           );
         }
         if (snap.hasError) {
-          return const Padding(
+          return Padding(
             padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Text('Napaka pri nalaganju analitike.',
-                style: TextStyle(color: kTextLight, fontSize: 12)),
+                style: TextStyle(color: c.textLight, fontSize: 12)),
           );
         }
         final docs = snap.data?.docs ?? [];
@@ -1219,8 +1222,8 @@ class _UporabnikStatsRow extends StatelessWidget {
                 child: Row(children: [
                   Container(width: 4, height: 16,
                       decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull)),
-                  const SizedBox(width: 8),
-                  const Text('Vaša analitika', style: kHeading3),
+                  SizedBox(width: 8),
+                  Text('Vaša analitika', style: kHeading3),
                 ]),
               ),
               Row(children: [
@@ -1231,7 +1234,7 @@ class _UporabnikStatsRow extends StatelessWidget {
                   color: kGreenMid,
                   subtitle: '${prevzetoDocs.length} obrokov prevzeto',
                 )),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(child: _AnalyticCard(
                   value: co2Label,
                   label: 'CO₂ prihranek',
@@ -1240,7 +1243,7 @@ class _UporabnikStatsRow extends StatelessWidget {
                   subtitle: 'prihranjenega CO₂',
                 )),
               ]),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Row(children: [
                 Expanded(child: _AnalyticCard(
                   value: '$totalPorcij',
@@ -1249,7 +1252,7 @@ class _UporabnikStatsRow extends StatelessWidget {
                   color: const Color(0xFF5C6BC0),
                   subtitle: 'skupaj porcij',
                 )),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(child: _AnalyticCard(
                   value: '$streak',
                   label: 'Dnevi zapored',
@@ -1257,7 +1260,7 @@ class _UporabnikStatsRow extends StatelessWidget {
                   color: const Color(0xFFE53935),
                   subtitle: streak > 0 ? 'aktivni streak! 🔥' : 'začni danes',
                 )),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(child: _AnalyticCard(
                   value: '${rezerviranoDocs.length}',
                   label: 'Čaka prevzem',
@@ -1290,10 +1293,11 @@ class _AnalyticCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.card,
         borderRadius: kRadius12,
         boxShadow: kCardShadow,
         border: Border.all(color: color.withOpacity(0.15)),
@@ -1309,16 +1313,16 @@ class _AnalyticCard extends StatelessWidget {
             ),
             child: Icon(icon, size: 16, color: color),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(value,
               style: TextStyle(
                   fontSize: 20, fontWeight: FontWeight.w900, color: color, height: 1)),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Text(label,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextDark)),
-          const SizedBox(height: 1),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c.textDark)),
+          SizedBox(height: 1),
           Text(subtitle,
-              style: const TextStyle(fontSize: 10, color: kTextLight),
+              style: TextStyle(fontSize: 10, color: c.textLight),
               maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
@@ -1350,6 +1354,7 @@ class _DavateljAnalyticsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final gramsLabel = totalGrams >= 1000
         ? '${(totalGrams / 1000).toStringAsFixed(1)} kg'
         : '${totalGrams} g';
@@ -1365,8 +1370,8 @@ class _DavateljAnalyticsSection extends StatelessWidget {
           child: Row(children: [
             Container(width: 4, height: 16,
                 decoration: BoxDecoration(color: kGreenMid, borderRadius: kRadiusFull)),
-            const SizedBox(width: 8),
-            const Text('Analitika organizacije', style: kHeading3),
+            SizedBox(width: 8),
+            Text('Analitika organizacije', style: kHeading3),
           ]),
         ),
         Row(children: [
@@ -1377,7 +1382,7 @@ class _DavateljAnalyticsSection extends StatelessWidget {
             color: kGreenMid,
             subtitle: '$thisWeek ta teden',
           )),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(child: _AnalyticCard(
             value: '$rezerviranih',
             label: 'Rezervirano',
@@ -1385,7 +1390,7 @@ class _DavateljAnalyticsSection extends StatelessWidget {
             color: const Color(0xFFFF6F00),
             subtitle: 'čaka prevzem',
           )),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(child: _AnalyticCard(
             value: '$prevzetih',
             label: 'Prevzeto',
@@ -1394,7 +1399,7 @@ class _DavateljAnalyticsSection extends StatelessWidget {
             subtitle: 'uspešnih dostav',
           )),
         ]),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Row(children: [
           Expanded(child: _AnalyticCard(
             value: gramsLabel,
@@ -1403,7 +1408,7 @@ class _DavateljAnalyticsSection extends StatelessWidget {
             color: const Color(0xFF2E7D32),
             subtitle: 'skupaj rešene hrane',
           )),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(child: _AnalyticCard(
             value: '$totalPorcij',
             label: 'Porcij oddano',
@@ -1411,7 +1416,7 @@ class _DavateljAnalyticsSection extends StatelessWidget {
             color: const Color(0xFF5C6BC0),
             subtitle: 'skupaj porcij',
           )),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(child: _AnalyticCard(
             value: co2Label,
             label: 'CO₂ prihranek',
@@ -1439,23 +1444,24 @@ class _DavateljOglasCard extends StatelessWidget {
   });
 
   Future<void> _markPrevzeto(BuildContext context) async {
+    final c = AppColors.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: kRadius12),
-        title: const Text('Označi kot prevzeto',
+        title: Text('Označi kot prevzeto',
             style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w800,
-                color: kTextDark)),
-        content: const Text(
+                color: c.textDark)),
+        content: Text(
             'Ali je bila hrana uspešno prevzeta pri donatorju?',
-            style: TextStyle(color: kTextMid, fontSize: 14)),
+            style: TextStyle(color: c.textMid, fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Prekliči',
-                style: TextStyle(color: kTextLight)),
+            child: Text('Prekliči',
+                style: TextStyle(color: c.textLight)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -1464,9 +1470,9 @@ class _DavateljOglasCard extends StatelessWidget {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                     borderRadius: kRadius8)),
-            child: const Text('Potrdi',
+            child: Text('Potrdi',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: c.card,
                     fontWeight: FontWeight.w700)),
           ),
         ],
@@ -1482,6 +1488,7 @@ class _DavateljOglasCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final d = doc.data() as Map<String, dynamic>;
     final title = d['title'] as String? ?? '—';
     final category = d['category'] as String? ?? '';
@@ -1537,7 +1544,7 @@ class _DavateljOglasCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.card,
           borderRadius: kRadius12,
           boxShadow: kCardShadow,
         ),
@@ -1569,7 +1576,7 @@ class _DavateljOglasCard extends StatelessWidget {
                                   : Icon(icon, color: kGreenMid, size: 22),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                               child: Column(
                                   crossAxisAlignment:
@@ -1579,11 +1586,11 @@ class _DavateljOglasCard extends StatelessWidget {
                                     style: kBodyBold,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis),
-                                const SizedBox(height: 3),
+                                SizedBox(height: 3),
                                 Row(children: [
                                   Icon(Icons.location_on_outlined,
-                                      size: 12, color: kTextLight),
-                                  const SizedBox(width: 3),
+                                      size: 12, color: c.textLight),
+                                  SizedBox(width: 3),
                                   Expanded(
                                       child: Text(location,
                                           style: kCaption,
@@ -1591,15 +1598,15 @@ class _DavateljOglasCard extends StatelessWidget {
                                           overflow:
                                               TextOverflow.ellipsis)),
                                 ]),
-                                const SizedBox(height: 3),
+                                SizedBox(height: 3),
                                 Row(children: [
                                   Icon(Icons.access_time_outlined,
-                                      size: 12, color: kTextLight),
-                                  const SizedBox(width: 3),
+                                      size: 12, color: c.textLight),
+                                  SizedBox(width: 3),
                                   Text(timeStr, style: kCaption),
                                 ]),
                               ])),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 9, vertical: 5),
@@ -1622,31 +1629,31 @@ class _DavateljOglasCard extends StatelessWidget {
                           waitlistLen > 0) ...[
                         Divider(
                             height: 1,
-                            color: kBorder.withOpacity(0.6)),
+                            color: c.border.withOpacity(0.6)),
                         Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 8),
                           child: Row(children: [
                             if (status == OglasStatus.rezervirano) ...[
-                              const Icon(
+                              Icon(
                                   Icons.person_outline_rounded,
                                   size: 13,
-                                  color: kTextMid),
-                              const SizedBox(width: 4),
-                              const Text('Rezervirano',
+                                  color: c.textMid),
+                              SizedBox(width: 4),
+                              Text('Rezervirano',
                                   style: TextStyle(
                                       fontSize: 12,
-                                      color: kTextMid,
+                                      color: c.textMid,
                                       fontWeight: FontWeight.w500)),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                             ],
                             if (waitlistLen > 0) ...[
-                              const Icon(Icons.queue_rounded,
+                              Icon(Icons.queue_rounded,
                                   size: 13,
                                   color: Color(0xFF5C6BC0)),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4),
                               Text('$waitlistLen v čakalni vrsti',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF5C6BC0),
                                       fontWeight: FontWeight.w600)),
@@ -1667,15 +1674,15 @@ class _DavateljOglasCard extends StatelessWidget {
                                   ),
                                   child: Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      children: const [
+                                      children: [
                                         Icon(Icons.check_rounded,
                                             size: 13,
-                                            color: Colors.white),
+                                            color: c.card),
                                         SizedBox(width: 4),
                                         Text('Prevzeto',
                                             style: TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.white,
+                                                color: c.card,
                                                 fontWeight:
                                                     FontWeight.w700)),
                                       ]),
@@ -1689,7 +1696,7 @@ class _DavateljOglasCard extends StatelessWidget {
                           status == OglasStatus.naRazpolago) ...[
                         Divider(
                             height: 1,
-                            color: kBorder.withOpacity(0.6)),
+                            color: c.border.withOpacity(0.6)),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
                               14, 8, 14, 10),
@@ -1756,6 +1763,7 @@ class _RezervacijaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final oglasData = oglasDoc?.data() as Map<String, dynamic>?;
     final title = oglasData?['title'] as String? ?? '—';
     final category = oglasData?['category'] as String? ?? '';
@@ -1801,7 +1809,7 @@ class _RezervacijaCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.card,
           borderRadius: kRadius12,
           boxShadow: kCardShadow,
         ),
@@ -1826,7 +1834,7 @@ class _RezervacijaCard extends StatelessWidget {
                               : Icon(icon, color: kGreenMid, size: 24),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1836,24 +1844,24 @@ class _RezervacijaCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                             if (username != null) ...[
-                              const SizedBox(height: 2),
+                              SizedBox(height: 2),
                               Text('od $username',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
                             ],
-                            const SizedBox(height: 4),
+                            SizedBox(height: 4),
                             Row(children: [
-                              Icon(Icons.restaurant_rounded, size: 12, color: kTextLight),
-                              const SizedBox(width: 3),
+                              Icon(Icons.restaurant_rounded, size: 12, color: c.textLight),
+                              SizedBox(width: 3),
                               Text(
                                 '$kolicina ${kolicina == 1 ? 'porcija' : kolicina < 5 ? 'porcije' : 'porcij'}',
                                 style: kCaption,
                               ),
                             ]),
-                            const SizedBox(height: 3),
+                            SizedBox(height: 3),
                             Row(children: [
-                              Icon(Icons.location_on_outlined, size: 12, color: kTextLight),
-                              const SizedBox(width: 3),
+                              Icon(Icons.location_on_outlined, size: 12, color: c.textLight),
+                              SizedBox(width: 3),
                               Expanded(
                                   child: Text(location,
                                       style: kCaption,
@@ -1861,32 +1869,32 @@ class _RezervacijaCard extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis)),
                             ]),
                             if (chosenTermin != null) ...[
-                              const SizedBox(height: 3),
+                              SizedBox(height: 3),
                               Row(children: [
                                 Icon(Icons.event_available_rounded, size: 12, color: kGreenMid),
-                                const SizedBox(width: 3),
+                                SizedBox(width: 3),
                                 Text(
                                   '${chosenTermin.day}.${chosenTermin.month}.${chosenTermin.year} '
                                   '${chosenTermin.hour.toString().padLeft(2, '0')}:${chosenTermin.minute.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600),
+                                  style: TextStyle(fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600),
                                 ),
                               ]),
                             ] else if (!isPrevzeto && expiryDate != null) ...[
-                              const SizedBox(height: 3),
+                              SizedBox(height: 3),
                               Row(children: [
-                                Icon(Icons.event_outlined, size: 12, color: kTextLight),
-                                const SizedBox(width: 3),
+                                Icon(Icons.event_outlined, size: 12, color: c.textLight),
+                                SizedBox(width: 3),
                                 Text('Rok: ${expiryDate.day}. ${expiryDate.month}. ${expiryDate.year}',
-                                    style: const TextStyle(fontSize: 12, color: kTextLight)),
+                                    style: TextStyle(fontSize: 12, color: c.textLight)),
                               ]),
                             ],
-                            const SizedBox(height: 4),
+                            SizedBox(height: 4),
                             Text(_timeAgo(createdAt),
-                                style: const TextStyle(fontSize: 11, color: kTextLight)),
+                                style: TextStyle(fontSize: 11, color: c.textLight)),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -1904,8 +1912,8 @@ class _RezervacijaCard extends StatelessWidget {
                             ),
                           ),
                           if (!isPrevzeto) ...[
-                            const SizedBox(height: 8),
-                            Icon(Icons.chevron_right_rounded, size: 20, color: kTextLight),
+                            SizedBox(height: 8),
+                            Icon(Icons.chevron_right_rounded, size: 20, color: c.textLight),
                           ],
                         ],
                       ),
@@ -1936,6 +1944,7 @@ class _UporabnikOglasCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final d = doc.data() as Map<String, dynamic>;
     final title = d['title'] as String? ?? '—';
     final category = d['category'] as String? ?? '';
@@ -1989,7 +1998,7 @@ class _UporabnikOglasCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.card,
           borderRadius: kRadius12,
           boxShadow: kCardShadow,
         ),
@@ -2024,7 +2033,7 @@ class _UporabnikOglasCard extends StatelessWidget {
                               : Icon(icon, color: kGreenMid, size: 24),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       // Podatki
                       Expanded(
                         child: Column(
@@ -2036,18 +2045,18 @@ class _UporabnikOglasCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
                           if (username != null) ...[
-                            const SizedBox(height: 2),
+                            SizedBox(height: 2),
                             Text('od $username',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 12,
                                     color: kGreenMid,
                                     fontWeight: FontWeight.w600)),
                           ],
-                          const SizedBox(height: 5),
+                          SizedBox(height: 5),
                           Row(children: [
                             Icon(Icons.location_on_outlined,
-                                size: 12, color: kTextLight),
-                            const SizedBox(width: 3),
+                                size: 12, color: c.textLight),
+                            SizedBox(width: 3),
                             Expanded(
                                 child: Text(location,
                                     style: kCaption,
@@ -2055,26 +2064,26 @@ class _UporabnikOglasCard extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis)),
                           ]),
                           if (!isPrevzeto && expiryDate != null) ...[
-                            const SizedBox(height: 3),
+                            SizedBox(height: 3),
                             Row(children: [
                               Icon(Icons.event_outlined,
-                                  size: 12, color: kTextLight),
-                              const SizedBox(width: 3),
+                                  size: 12, color: c.textLight),
+                              SizedBox(width: 3),
                               Text(
                                   'Rok: ${_formatDate(expiryDate)}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 12,
-                                      color: kTextLight)),
+                                      color: c.textLight)),
                             ]),
                           ],
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Text(_timeAgo(createdAt),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11,
-                                  color: kTextLight)),
+                                  color: c.textLight)),
                         ]),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       // Desna stran — status badge + chevron
                       Column(
                           mainAxisAlignment:
@@ -2096,9 +2105,9 @@ class _UporabnikOglasCard extends StatelessWidget {
                                   color: statusClr)),
                         ),
                         if (!isPrevzeto) ...[
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8),
                           Icon(Icons.chevron_right_rounded,
-                              size: 20, color: kTextLight),
+                              size: 20, color: c.textLight),
                         ],
                       ]),
                     ]),
@@ -2125,8 +2134,9 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final c = AppColors.of(context);
     return Container(
-      color: kSurface,
+      color: c.surface,
       padding: const EdgeInsets.only(bottom: 4),
       child: tabBar,
     );
@@ -2148,6 +2158,7 @@ class _HeaderBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2160,7 +2171,7 @@ class _HeaderBtn extends StatelessWidget {
               color:
                   Colors.white.withOpacity(dimmed ? 0.2 : 0.35)),
         ),
-        child: Icon(icon, color: Colors.white, size: 17),
+        child: Icon(icon, color: c.card, size: 17),
       ),
     );
   }
@@ -2256,6 +2267,7 @@ class _UpcomingPickupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final p = pickup;
     final timeStr =
         '${p.termin.day}. ${p.termin.month}. ${p.termin.year}  ${p.termin.hour.toString().padLeft(2, '0')}:${p.termin.minute.toString().padLeft(2, '0')}';
@@ -2265,9 +2277,9 @@ class _UpcomingPickupTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: c.card,
           borderRadius: kRadius12,
-          border: Border.all(color: kBorder),
+          border: Border.all(color: c.border),
         ),
         child: Row(
           children: [
@@ -2278,7 +2290,7 @@ class _UpcomingPickupTile extends StatelessWidget {
                   color: p.oglas.imageColor, borderRadius: kRadius8),
               child: Icon(p.oglas.icon, size: 18, color: kGreenDark),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2287,20 +2299,20 @@ class _UpcomingPickupTile extends StatelessWidget {
                       style: kBodyBold.copyWith(fontSize: 13),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 3),
+                  SizedBox(height: 3),
                   Row(children: [
-                    const Icon(Icons.schedule_rounded,
-                        size: 12, color: kTextLight),
-                    const SizedBox(width: 4),
+                    Icon(Icons.schedule_rounded,
+                        size: 12, color: c.textLight),
+                    SizedBox(width: 4),
                     Text(timeStr,
-                        style: const TextStyle(
-                            fontSize: 12, color: kTextLight)),
+                        style: TextStyle(
+                            fontSize: 12, color: c.textLight)),
                   ]),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 18, color: kTextLight),
+            Icon(Icons.chevron_right_rounded,
+                size: 18, color: c.textLight),
           ],
         ),
       ),
@@ -2327,20 +2339,21 @@ class _EditField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
       decoration: BoxDecoration(
-          color: kSurface,
+          color: c.surface,
           borderRadius: kRadius12,
-          border: Border.all(color: kBorder)),
+          border: Border.all(color: c.border)),
       child: TextField(
         controller: ctrl,
         obscureText: obscure,
         keyboardType: keyboardType,
-        style: const TextStyle(fontSize: 14, color: kTextDark),
+        style: TextStyle(fontSize: 14, color: c.textDark),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: kTextMid, fontSize: 13),
-          prefixIcon: Icon(icon, color: kTextLight, size: 20),
+          labelStyle: TextStyle(color: c.textMid, fontSize: 13),
+          prefixIcon: Icon(icon, color: c.textLight, size: 20),
           suffixIcon: suffix,
           border: InputBorder.none,
           contentPadding:
@@ -2358,6 +2371,7 @@ class _ProfileBase64Image extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     try {
       final bytes = base64Decode(base64);
       return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);

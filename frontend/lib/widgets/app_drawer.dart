@@ -104,16 +104,17 @@ class _DrawerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
       width: MediaQuery.of(context).size.width * 0.78,
       height: double.infinity,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           bottomLeft: Radius.circular(24),
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Color(0x33000000),
             blurRadius: 40,
@@ -138,19 +139,19 @@ class _DrawerPanel extends StatelessWidget {
                     child: const Icon(Icons.eco_rounded, color: kGreenMid, size: 20),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     'FoodWasteZero',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
-                      color: kTextDark,
+                      color: c.textDark,
                       letterSpacing: -0.3,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
                     onPressed: onClose,
-                    icon: const Icon(Icons.close_rounded, color: kTextMid, size: 22),
+                    icon: Icon(Icons.close_rounded, color: c.textMid, size: 22),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                   ),
@@ -160,7 +161,7 @@ class _DrawerPanel extends StatelessWidget {
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Divider(color: kBorder.withOpacity(0.6), height: 1),
+              child: Divider(color: c.border.withOpacity(0.6), height: 1),
             ),
             const SizedBox(height: 16),
             _MenuItem(
@@ -191,7 +192,7 @@ class _DrawerPanel extends StatelessWidget {
                 'FoodWasteZero v1.0',
                 style: TextStyle(
                   fontSize: 12,
-                  color: kTextLight.withOpacity(0.7),
+                  color: c.textLight.withOpacity(0.7),
                 ),
               ),
             ),
@@ -219,6 +220,7 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Material(
@@ -245,22 +247,21 @@ class _MenuItem extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(label,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: kTextDark,
+                          color: c.textDark,
                         )),
                       const SizedBox(height: 2),
                       Text(subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: kTextMid,
+                          color: c.textMid,
                         )),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded,
-                  color: kTextLight, size: 20),
+                Icon(Icons.chevron_right_rounded, color: c.textLight, size: 20),
               ],
             ),
           ),

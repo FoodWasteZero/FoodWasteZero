@@ -16,6 +16,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen>
     with TickerProviderStateMixin {
+  AppColors get c => AppColors.of(context);
 
   late final AnimationController _animCtrl;
   late final Animation<double> _blurAnim;
@@ -202,7 +203,7 @@ class _AuthScreenState extends State<AuthScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Registracija uspešna! Prijavite se. ✓'),
+          content: Text('Registracija uspešna! Prijavite se. ✓'),
           backgroundColor: kGreenMid,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: kRadius12),
@@ -239,6 +240,7 @@ class _AuthScreenState extends State<AuthScreen>
   // ── BUILD ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (widget.isModal) return _buildCard(context);
 
     final screenH = MediaQuery.of(context).size.height;
@@ -280,10 +282,11 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildCard(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: c.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
           BoxShadow(color: Color(0x40000000), blurRadius: 48, offset: Offset(0, -8)),
@@ -293,7 +296,7 @@ class _AuthScreenState extends State<AuthScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           Center(
             child: Container(
               width: 44, height: 4,
@@ -303,7 +306,7 @@ class _AuthScreenState extends State<AuthScreen>
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // Logo
           Padding(
@@ -324,10 +327,10 @@ class _AuthScreenState extends State<AuthScreen>
                     ),
                   ],
                 ),
-                child: const Icon(Icons.eco_rounded, color: Colors.white, size: 22),
+                child: Icon(Icons.eco_rounded, color: c.card, size: 22),
               ),
-              const SizedBox(width: 12),
-              const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('FoodWasteZero',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
                         color: Color(0xFF1A2E1A), letterSpacing: -0.3)),
@@ -336,7 +339,7 @@ class _AuthScreenState extends State<AuthScreen>
               ]),
             ]),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           // Tab bar
           Container(
@@ -359,11 +362,11 @@ class _AuthScreenState extends State<AuthScreen>
               ),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               tabs: const [Tab(text: 'Prijava'), Tab(text: 'Registracija')],
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
 
           Flexible(
             child: TabBarView(
@@ -384,10 +387,10 @@ class _AuthScreenState extends State<AuthScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Prijavi se', style: kHeading2),
-          const SizedBox(height: 4),
-          const Text('Vnesite svoje podatke za prijavo.', style: kBody),
-          const SizedBox(height: 20),
+          Text('Prijavi se', style: kHeading2),
+          SizedBox(height: 4),
+          Text('Vnesite svoje podatke za prijavo.', style: kBody),
+          SizedBox(height: 20),
 
           _InputField(
             label: 'E-mail',
@@ -397,7 +400,7 @@ class _AuthScreenState extends State<AuthScreen>
             hasError: _loginError != null,
             onChanged: (_) { if (_loginError != null) setState(() => _loginError = null); },
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _InputField(
             label: 'Geslo',
             icon: Icons.lock_outline_rounded,
@@ -410,7 +413,7 @@ class _AuthScreenState extends State<AuthScreen>
                 _loginPassVisible
                     ? Icons.visibility_off_outlined
                     : Icons.visibility_outlined,
-                size: 20, color: kTextLight,
+                size: 20, color: c.textLight,
               ),
               onPressed: () => setState(() => _loginPassVisible = !_loginPassVisible),
             ),
@@ -418,7 +421,7 @@ class _AuthScreenState extends State<AuthScreen>
 
           // Inline error message
           if (_loginError != null) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -429,7 +432,7 @@ class _AuthScreenState extends State<AuthScreen>
               ),
               child: Row(children: [
                 Icon(Icons.error_outline_rounded, color: Colors.red.shade600, size: 16),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _loginError!,
@@ -441,7 +444,7 @@ class _AuthScreenState extends State<AuthScreen>
             ),
           ],
 
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
 
           SizedBox(
             width: double.infinity,
@@ -454,18 +457,18 @@ class _AuthScreenState extends State<AuthScreen>
                 elevation: 0,
               ),
               child: _isLoading
-                  ? const SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Prijava',
-                      style: TextStyle(color: Colors.white,
+                  ? SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(color: c.card, strokeWidth: 2))
+                  : Text('Prijava',
+                      style: TextStyle(color: c.card,
                           fontWeight: FontWeight.w700, fontSize: 15)),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Center(
             child: TextButton(
               onPressed: () => _tabController.animateTo(1),
-              child: const Text('Nimate računa? Registrirajte se',
+              child: Text('Nimate računa? Registrirajte se',
                   style: TextStyle(color: kGreenMid, fontWeight: FontWeight.w600)),
             ),
           ),
@@ -482,24 +485,24 @@ class _AuthScreenState extends State<AuthScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Ustvari račun', style: kHeading2),
-          const SizedBox(height: 4),
-          const Text('Izpolnite podatke za registracijo.', style: kBody),
-          const SizedBox(height: 20),
+          Text('Ustvari račun', style: kHeading2),
+          SizedBox(height: 4),
+          Text('Izpolnite podatke za registracijo.', style: kBody),
+          SizedBox(height: 20),
 
           _InputField(
             label: _userType == 'uporabnik' ? 'Ime' : 'Ime organizacije',
             icon: Icons.person_outline_rounded,
             controller: _regNameCtrl,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (_userType == 'uporabnik') ...[
             _InputField(
               label: 'Priimek',
               icon: Icons.person_outline_rounded,
               controller: _regSurnameCtrl,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
           ],
           _InputField(
             label: 'E-mail',
@@ -507,7 +510,7 @@ class _AuthScreenState extends State<AuthScreen>
             controller: _regEmailCtrl,
             keyboardType: TextInputType.emailAddress,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _InputField(
             label: 'Geslo',
             icon: Icons.lock_outline_rounded,
@@ -520,12 +523,12 @@ class _AuthScreenState extends State<AuthScreen>
                 _regPassVisible
                     ? Icons.visibility_off_outlined
                     : Icons.visibility_outlined,
-                size: 20, color: kTextLight,
+                size: 20, color: c.textLight,
               ),
               onPressed: () => setState(() => _regPassVisible = !_regPassVisible),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _InputField(
             label: 'Ponovite geslo',
             icon: Icons.lock_outline_rounded,
@@ -537,7 +540,7 @@ class _AuthScreenState extends State<AuthScreen>
 
           // Inline error message
           if (_regError != null) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -548,7 +551,7 @@ class _AuthScreenState extends State<AuthScreen>
               ),
               child: Row(children: [
                 Icon(Icons.error_outline_rounded, color: Colors.red.shade600, size: 16),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _regError!,
@@ -559,8 +562,8 @@ class _AuthScreenState extends State<AuthScreen>
               ]),
             ),
           ],
-          const Text('Sem...', style: kHeading3),
-          const SizedBox(height: 10),
+          Text('Sem...', style: kHeading3),
+          SizedBox(height: 10),
           Row(children: [
             Expanded(child: _UserTypeCard(
               icon: Icons.person_rounded,
@@ -570,7 +573,7 @@ class _AuthScreenState extends State<AuthScreen>
               isOrg: false,
               onTap: () => setState(() => _userType = 'uporabnik'),
             )),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(child: _UserTypeCard(
               icon: Icons.store_rounded,
               title: 'Organizacija',
@@ -581,7 +584,7 @@ class _AuthScreenState extends State<AuthScreen>
             )),
           ]),
 
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
 
           SizedBox(
             width: double.infinity,
@@ -594,18 +597,18 @@ class _AuthScreenState extends State<AuthScreen>
                 elevation: 0,
               ),
               child: _isLoading
-                  ? const SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Registracija',
-                      style: TextStyle(color: Colors.white,
+                  ? SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(color: c.card, strokeWidth: 2))
+                  : Text('Registracija',
+                      style: TextStyle(color: c.card,
                           fontWeight: FontWeight.w700, fontSize: 15)),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Center(
             child: TextButton(
               onPressed: () => _tabController.animateTo(0),
-              child: const Text('Že imate račun? Prijavite se',
+              child: Text('Že imate račun? Prijavite se',
                   style: TextStyle(color: kGreenMid, fontWeight: FontWeight.w600)),
             ),
           ),
@@ -639,9 +642,10 @@ class _InputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.card,
         borderRadius: kRadius12,
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.05),
@@ -653,10 +657,10 @@ class _InputField extends StatelessWidget {
         obscureText: obscure,
         keyboardType: keyboardType,
         onChanged: onChanged,
-        style: const TextStyle(fontSize: 14, color: kTextDark),
+        style: TextStyle(fontSize: 14, color: c.textDark),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: kTextLight, fontSize: 14),
+          labelStyle: TextStyle(color: c.textLight, fontSize: 14),
           prefixIcon: Icon(icon, size: 20,
               color: hasError ? Colors.red.shade400 : kTextLight),
           suffixIcon: suffix,
@@ -702,6 +706,7 @@ class _UserTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     // Uporabnik: selected = light green pale bg, green text
     // Organizacija: selected = dark green bg, white text
     final Color bg;
@@ -747,16 +752,16 @@ class _UserTypeCard extends StatelessWidget {
               decoration: BoxDecoration(color: iconBg, borderRadius: kRadius12),
               child: Icon(icon, color: iconColor, size: 22),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Text(title,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: titleColor),
                 textAlign: TextAlign.center),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(subtitle,
                 style: TextStyle(fontSize: 11,
                     color: selected && isOrg ? Colors.white70 : kTextLight),
                 textAlign: TextAlign.center, maxLines: 2),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             if (selected)
               Container(
                 width: 20, height: 20,
@@ -771,7 +776,7 @@ class _UserTypeCard extends StatelessWidget {
                 width: 20, height: 20,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: kBorder, width: 1.5),
+                  border: Border.all(color: c.border, width: 1.5),
                 ),
               ),
           ],

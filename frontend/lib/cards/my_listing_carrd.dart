@@ -17,12 +17,13 @@ class MyListingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.card,
         borderRadius: kRadius16,
-        border: Border.all(color: kBorder),
+        border: Border.all(color: c.border),
         boxShadow: kCardShadow,
       ),
       child: Column(
@@ -42,10 +43,10 @@ class MyListingCard extends StatelessWidget {
                     borderRadius: kRadius12,
                   ),
                   child: Center(
-                    child: Icon(oglas.icon, size: 32, color: kTextMid),
+                    child: Icon(oglas.icon, size: 32, color: c.textMid),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 // Info
                 Expanded(
                   child: Column(
@@ -56,10 +57,10 @@ class MyListingCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               oglas.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: kTextDark,
+                                color: c.textDark,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -68,24 +69,24 @@ class MyListingCard extends StatelessWidget {
                           _buildStatusBadge(),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.location_on_outlined,
-                              size: 12, color: kTextLight),
-                          const SizedBox(width: 2),
+                          Icon(Icons.location_on_outlined,
+                              size: 12, color: c.textLight),
+                          SizedBox(width: 2),
                           Text(
                             oglas.location,
-                            style: const TextStyle(
-                                fontSize: 14, color: kTextLight),
+                            style: TextStyle(
+                                fontSize: 14, color: c.textLight),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Row(
                         children: [
                           _buildPriceBadge(),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           _buildTimeBadge(),
                         ],
                       ),
@@ -100,7 +101,7 @@ class MyListingCard extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: kSurface,
+              color: c.surface,
               borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(16)),
             ),
@@ -122,7 +123,7 @@ class MyListingCard extends StatelessWidget {
                   kGreenPale,
                   onEdit,
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 _buildActionBtn(
                   Icons.delete_outline_rounded,
                   kOrange,
@@ -156,7 +157,7 @@ class MyListingCard extends StatelessWidget {
               borderRadius: kRadiusFull,
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Text(
             isExp ? 'Potekajoč' : 'Aktiven',
             style: TextStyle(
@@ -196,7 +197,7 @@ class MyListingCard extends StatelessWidget {
           size: 11,
           color: oglas.isExpiringSoon ? kOrange : kTextLight,
         ),
-        const SizedBox(width: 2),
+        SizedBox(width: 2),
         Text(
           oglas.time,
           style: TextStyle(
@@ -214,18 +215,18 @@ class MyListingCard extends StatelessWidget {
   Widget _buildMiniStat(IconData icon, String count, String label) {
     return Row(
       children: [
-        Icon(icon, size: 13, color: kTextLight),
-        const SizedBox(width: 3),
+        Icon(icon, size: 13, color: c.textLight),
+        SizedBox(width: 3),
         Text(
           count,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: kTextMid),
+              color: c.textMid),
         ),
-        const SizedBox(width: 2),
+        SizedBox(width: 2),
         Text(label,
-            style: const TextStyle(fontSize: 14, color: kTextLight)),
+            style: TextStyle(fontSize: 14, color: c.textLight)),
       ],
     );
   }
@@ -235,7 +236,7 @@ class MyListingCard extends StatelessWidget {
       width: 1,
       height: 12,
       margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: kBorder,
+      color: c.border,
     );
   }
 
@@ -262,7 +263,7 @@ class MyListingCard extends StatelessWidget {
   void _confirmDelete(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: c.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -275,11 +276,11 @@ class MyListingCard extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: kBorder,
+                color: c.border,
                 borderRadius: kRadiusFull,
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             Container(
               width: 56,
               height: 56,
@@ -287,41 +288,41 @@ class MyListingCard extends StatelessWidget {
                 color: kOrangePale,
                 borderRadius: kRadiusFull,
               ),
-              child: const Icon(Icons.delete_outline_rounded,
+              child: Icon(Icons.delete_outline_rounded,
                   color: kOrange, size: 28),
             ),
-            const SizedBox(height: 14),
-            const Text('Izbriši oglas?',
+            SizedBox(height: 14),
+            Text('Izbriši oglas?',
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: kTextDark)),
-            const SizedBox(height: 6),
-            const Text(
+                    color: c.textDark)),
+            SizedBox(height: 6),
+            Text(
               'Ta oglas bo trajno izbrisan in ga ne boste mogli obnoviti.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: kTextLight),
+              style: TextStyle(fontSize: 13, color: c.textLight),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: kBorder),
+                      side: BorderSide(color: c.border),
                       shape: RoundedRectangleBorder(
                           borderRadius: kRadius12),
                       padding:
                           const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('Prekliči',
+                    child: Text('Prekliči',
                         style: TextStyle(
-                            color: kTextMid,
+                            color: c.textMid,
                             fontWeight: FontWeight.w600)),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
@@ -337,7 +338,7 @@ class MyListingCard extends StatelessWidget {
                       padding:
                           const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('Izbriši',
+                    child: Text('Izbriši',
                         style: TextStyle(
                             fontWeight: FontWeight.w700)),
                   ),

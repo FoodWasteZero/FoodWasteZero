@@ -13,6 +13,8 @@ import 'screens/pickup_confirm_page.dart';
 import 'common/theme.dart';
 import 'common/auth_helpers.dart';
 import 'services/offer_promotion_service.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'services/locale_service.dart';
 import 'services/theme_service.dart';
 
 void main() async {
@@ -25,7 +27,10 @@ void main() async {
     debugPrint('Firebase projectId: ${Firebase.app().options.projectId}');
   }
   await ensureFirestoreAccess();
+  // Učitaj sačuvani jezik i temu
+  await LocaleService.instance.load();
   await ThemeService.instance.load();
+  // Start client-driven offer promotion service (handles expired 3h offers)
   OfferPromotionService.instance.start();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -45,30 +50,46 @@ class _FoodWasteZeroAppState extends State<FoodWasteZeroApp> {
   @override
   void initState() {
     super.initState();
-    ThemeService.instance.addListener(_onThemeChanged);
+    LocaleService.instance.addListener(_onServiceChanged);
+    ThemeService.instance.addListener(_onServiceChanged);
   }
 
   @override
   void dispose() {
-    ThemeService.instance.removeListener(_onThemeChanged);
+    LocaleService.instance.removeListener(_onServiceChanged);
+    ThemeService.instance.removeListener(_onServiceChanged);
     super.dispose();
   }
 
-  void _onThemeChanged() => setState(() {});
+  void _onServiceChanged() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'FoodWasteZero',
       debugShowCheckedModeBanner: false,
+      // ── Locale ──────────────────────────────────────────────────────────────
+      locale: LocaleService.instance.locale,
+      supportedLocales: const [
+        Locale('sl'),
+        Locale('bs'),
+        Locale('en'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      // ── Theme ───────────────────────────────────────────────────────────────
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeService.instance.themeMode,
+      themeMode: ThemeService.instance.isDark ? ThemeMode.dark : ThemeMode.light,
       home: const _AuthGate(),
     );
   }
 }
 
+// ── Auth gate ──────────────────────────────────────────────────────────────────
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 

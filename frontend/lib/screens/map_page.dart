@@ -80,6 +80,7 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final oglas = widget.oglas;
 
     return Scaffold(
@@ -144,7 +145,7 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                       color: Colors.black.withOpacity(0.5),
                       borderRadius: kRadiusFull,
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.touch_app_rounded,
@@ -177,15 +178,15 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                       border: Border.all(
                           color: Colors.white.withOpacity(0.3)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.zoom_out_rounded,
-                            color: Colors.white, size: 16),
+                            color: c.card, size: 16),
                         SizedBox(width: 4),
                         Text('Cijela Slovenija',
                             style: TextStyle(
-                                color: Colors.white, fontSize: 12)),
+                                color: c.card, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -201,10 +202,10 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                 children: [
                   _MapBtn(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back_rounded,
-                        color: Colors.white, size: 20),
+                    child: Icon(Icons.arrow_back_rounded,
+                        color: c.card, size: 20),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -216,13 +217,13 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                             color: Colors.white.withOpacity(0.25)),
                       ),
                       child: Row(children: [
-                        const Icon(Icons.location_on_rounded,
-                            color: Colors.white, size: 14),
-                        const SizedBox(width: 6),
+                        Icon(Icons.location_on_rounded,
+                            color: c.card, size: 14),
+                        SizedBox(width: 6),
                         Expanded(
                           child: Text(oglas.location,
-                            style: const TextStyle(
-                                color: Colors.white,
+                            style: TextStyle(
+                                color: c.card,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600),
                             overflow: TextOverflow.ellipsis),
@@ -236,15 +237,15 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                           ),
                           child: Text(
                               '${oglas.distanceKm.toStringAsFixed(1)} km',
-                              style: const TextStyle(
-                                  color: Colors.white,
+                              style: TextStyle(
+                                  color: c.card,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700)),
                         ),
                       ]),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   // ── Moja lokacija kvadratić – klik = zoom ──────────────
                   _MapBtn(
                     onTap: _toggleZoom,
@@ -252,7 +253,7 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                       _zoomed
                           ? Icons.zoom_out_map_rounded
                           : Icons.my_location_rounded,
-                      color: Colors.white,
+                      color: c.card,
                       size: 20,
                     ),
                   ),
@@ -267,8 +268,8 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
             right: 0,
             bottom: 0,
             child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: c.card,
                 borderRadius:
                     BorderRadius.vertical(top: Radius.circular(28)),
               ),
@@ -280,9 +281,9 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                        color: kBorder, borderRadius: kRadiusFull),
+                        color: c.border, borderRadius: kRadiusFull),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   Row(
                     children: [
                       Container(
@@ -295,23 +296,23 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                         child: Icon(oglas.icon,
                             color: kGreenMid.withOpacity(0.55), size: 28),
                       ),
-                      const SizedBox(width: 14),
+                      SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(oglas.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: kTextDark),
+                                  color: c.textDark),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 4),
+                            SizedBox(height: 4),
                             Row(children: [
-                              const Icon(Icons.location_on_outlined,
-                                  size: 12, color: kTextLight),
-                              const SizedBox(width: 3),
+                              Icon(Icons.location_on_outlined,
+                                  size: 12, color: c.textLight),
+                              SizedBox(width: 3),
                               Text(oglas.location,
                                   style: kCaption.copyWith(fontSize: 14)),
                             ]),
@@ -329,11 +330,11 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                           children: [
                             Text(
                                 '${oglas.distanceKm.toStringAsFixed(1)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
                                     color: kGreenMid)),
-                            const Text('km',
+                            Text('km',
                                 style: TextStyle(
                                     fontSize: 13,
                                     color: kGreenMid,
@@ -343,13 +344,13 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: kSurface,
+                      color: c.surface,
                       borderRadius: kRadius12,
-                      border: Border.all(color: kBorder),
+                      border: Border.all(color: c.border),
                     ),
                     child: Column(
                       children: [
@@ -370,7 +371,7 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -379,11 +380,11 @@ class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
                               const SnackBar(
                                   content:
                                       Text('Navigacija se zaganja...'))),
-                      icon: const Icon(Icons.directions_rounded,
-                          color: Colors.white, size: 20),
-                      label: const Text('Začni navigacijo',
+                      icon: Icon(Icons.directions_rounded,
+                          color: c.card, size: 20),
+                      label: Text('Začni navigacijo',
                           style: TextStyle(
-                              color: Colors.white,
+                              color: c.card,
                               fontWeight: FontWeight.w800,
                               fontSize: 15)),
                       style: ElevatedButton.styleFrom(
@@ -765,10 +766,10 @@ class _SlovenijaMapPainter extends CustomPainter {
 
     if (zoomed) {
       final tp = TextPainter(
-        text: const TextSpan(
+        text: TextSpan(
           text: '📍 Ti si ovdje',
           style: TextStyle(
-            color: Colors.white,
+            color: c.card,
             fontSize: 13,
             fontWeight: FontWeight.w700,
             shadows: [Shadow(color: Colors.black, blurRadius: 6)],
@@ -861,8 +862,8 @@ class _SlovenijaMapPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: labels[i],
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: c.card,
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -922,6 +923,7 @@ class _RouteStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -941,12 +943,12 @@ class _RouteStep extends StatelessWidget {
               height: 24,
               margin: const EdgeInsets.symmetric(vertical: 3),
               decoration: BoxDecoration(
-                color: kBorder,
+                color: c.border,
                 borderRadius: kRadiusFull,
               ),
             ),
         ]),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -954,14 +956,14 @@ class _RouteStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: kTextDark),
+                        color: c.textDark),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 Text(sub, style: kCaption),
-                if (isFirst) const SizedBox(height: 20),
+                if (isFirst) SizedBox(height: 20),
               ],
             ),
           ),

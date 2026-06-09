@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../common/theme.dart';
 
@@ -18,6 +17,7 @@ class RecipePage extends StatefulWidget {
 
 class _RecipePageState extends State<RecipePage>
     with SingleTickerProviderStateMixin {
+  AppColors get c => AppColors.of(context);
   final Set<String> _selected = {};
   List<_Recipe> _recipes = [];
   bool _loadingRecipes = false;
@@ -112,12 +112,6 @@ class _RecipePageState extends State<RecipePage>
       _recipes = [];
     });
 
-    final apiKey = dotenv.maybeGet('OPENROUTER_API_KEY') ?? '';
-    if (apiKey.isEmpty) {
-      setState(() { _recipeError = 'Manjka OPENROUTER_API_KEY v .env'; _loadingRecipes = false; });
-      return;
-    }
-
     final sestavine = _selected.join(', ');
     final prompt = 'Si kuhar. Generiraj 3 kratke recepte z sestavinami: $sestavine. '
         'Odgovori SAMO z veljavnim JSON nizom. Brez Markdown. Brez ```json. Samo čisti JSON: '
@@ -128,39 +122,38 @@ class _RecipePageState extends State<RecipePage>
 
     try {
       final resp = await http.post(
-        Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://foodwastezero.app',
-          'X-Title': 'FoodWasteZero',
-        },
-        body: jsonEncode({
-          'model': 'meta-llama/llama-3.3-70b-instruct:free',
-          'messages': [
-            {'role': 'system', 'content': 'Odgovarjaš SAMO z veljavnim JSON nizom. Brez dodatnega besedila.'},
-            {'role': 'user', 'content': prompt},
-          ],
-          'max_tokens': 2048,
-        }),
-      );
+        Uri.parse('https://risbo.onrender.com/generate-recipe'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'prompt': prompt}),
+      ).timeout(const Duration(seconds: 90)); // Render free tier ima cold start ~60s
 
       if (resp.statusCode != 200) {
-        throw Exception('OpenRouter napaka ${resp.statusCode}: ${resp.body}');
+        throw Exception('Risbo API napaka ${resp.statusCode}');
       }
 
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final text = (body['choices'] as List).first['message']['content'] as String? ?? '';
+      final text = body['response'] as String? ?? '';
 
+      // Izvleci JSON array iz odgovora
       final cleaned = text
           .replaceAll(RegExp(r'```json\s*'), '')
           .replaceAll(RegExp(r'```\s*'), '')
           .trim();
 
-      final List<dynamic> jsonList = jsonDecode(cleaned);
+      final startIdx = cleaned.indexOf('[');
+      final endIdx = cleaned.lastIndexOf(']');
+      if (startIdx == -1 || endIdx == -1) throw Exception('Napaka pri razčlenjevanju receptov');
+
+      final jsonStr = cleaned.substring(startIdx, endIdx + 1);
+      final List<dynamic> jsonList = jsonDecode(jsonStr);
       final recipes = jsonList.map((e) => _Recipe.fromJson(e as Map<String, dynamic>)).toList();
 
       if (mounted) setState(() { _recipes = recipes; _loadingRecipes = false; });
+    } on TimeoutException {
+      if (mounted) setState(() {
+        _recipeError = 'Strežnik se zagotavlja (hladni zagon ~60s). Počakajte in poskusite znova.';
+        _loadingRecipes = false;
+      });
     } catch (e) {
       if (mounted) setState(() {
         _recipeError = 'Napaka: ${e.toString()}';
@@ -196,43 +189,35 @@ class _RecipePageState extends State<RecipePage>
     _scrollChat();
 
     try {
-      final apiKey = dotenv.maybeGet('OPENROUTER_API_KEY') ?? '';
-      if (apiKey.isEmpty) throw Exception('Manjka OPENROUTER_API_KEY');
+      // Složi kontekst pogovora v en prompt
+      final history = _chatMsgs
+          .map((m) => '${m.isAi ? "Asistent" : "Uporabnik"}: ${m.text}')
+          .join('\n');
 
-      final messages = <Map<String, String>>[
-        {
-          'role': 'system',
-          'content': 'Si prijazni kuhar pomočnik v aplikaciji FoodWasteZero. '
-              'Pomagaj z recepti, sestavinami in kuhanjem. '
-              'Odgovori kratko (največ 3 stavke). Piši v slovenščini.',
-        },
-        ..._chatMsgs.map((m) => {
-          'role': m.isAi ? 'assistant' : 'user',
-          'content': m.text,
-        }),
-      ];
+      final prompt = 'Si prijazni kuhar pomočnik v aplikaciji FoodWasteZero. '
+          'Pomagaj z recepti, sestavinami in kuhanjem. '
+          'Odgovori kratko (največ 3 stavke). Piši v slovenščini.\n\n'
+          'Pogovor do sedaj:\n$history\n\nTvoj odgovor:';
 
       final chatResp = await http.post(
-        Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://foodwastezero.app',
-          'X-Title': 'FoodWasteZero',
-        },
-        body: jsonEncode({
-          'model': 'meta-llama/llama-3.3-70b-instruct:free',
-          'messages': messages,
-          'max_tokens': 400,
-        }),
-      );
+        Uri.parse('https://risbo.onrender.com/generate-recipe'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'prompt': prompt}),
+      ).timeout(const Duration(seconds: 90));
 
-      if (chatResp.statusCode != 200) throw Exception('OpenRouter error');
+      if (chatResp.statusCode != 200) throw Exception('Risbo API error');
+
       final chatBody = jsonDecode(chatResp.body) as Map<String, dynamic>;
-      final reply = (chatBody['choices'] as List).first['message']['content'] as String? ?? 'Oprostite, nisem razumel.';
+      final reply = (chatBody['response'] as String? ?? 'Oprostite, nisem razumel.').trim();
 
       if (mounted) setState(() {
         _chatMsgs.add(_ChatMsg(text: reply, isAi: true));
+        _aiThinking = false;
+      });
+      _scrollChat();
+    } on TimeoutException {
+      if (mounted) setState(() {
+        _chatMsgs.add(_ChatMsg(text: 'Strežnik se zagotavlja (~60s hladni zagon). Počakajte in poskusite znova.', isAi: true));
         _aiThinking = false;
       });
       _scrollChat();
@@ -261,10 +246,11 @@ class _RecipePageState extends State<RecipePage>
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.surface,
       body: Stack(
         children: [
           AnimatedBuilder(
@@ -319,7 +305,7 @@ class _RecipePageState extends State<RecipePage>
             child: user == null
                 ? _buildNotLoggedIn()
                 : _loadingIngredients
-                    ? const Center(child: CircularProgressIndicator(color: kGreenMid))
+                    ? Center(child: CircularProgressIndicator(color: kGreenMid))
                     : _recipes.isNotEmpty
                         ? _buildRecipeList()
                         : _buildIngredientPicker(),
@@ -332,8 +318,8 @@ class _RecipePageState extends State<RecipePage>
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: c.card,
         boxShadow: [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
       ),
       child: Row(
@@ -345,7 +331,7 @@ class _RecipePageState extends State<RecipePage>
                 margin: const EdgeInsets.only(right: 12),
                 width: 36, height: 36,
                 decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius8),
-                child: const Icon(Icons.arrow_back_rounded, color: kGreenMid, size: 18),
+                child: Icon(Icons.arrow_back_rounded, color: kGreenMid, size: 18),
               ),
             ),
           Expanded(
@@ -354,15 +340,15 @@ class _RecipePageState extends State<RecipePage>
               children: [
                 Text(
                   _recipes.isNotEmpty ? 'Recepti za tebe' : 'Recepti',
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: kTextDark, letterSpacing: -0.5),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: c.textDark, letterSpacing: -0.5),
                 ),
                 if (_recipes.isNotEmpty)
                   Text(_selected.join(' · '),
-                      style: const TextStyle(fontSize: 11, color: kGreenMid, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 11, color: kGreenMid, fontWeight: FontWeight.w600),
                       maxLines: 1, overflow: TextOverflow.ellipsis)
                 else
-                  const Text('Izberi sestavine in generiraj recept z AI',
-                      style: TextStyle(fontSize: 12, color: kTextLight)),
+                  Text('Izberi sestavine in generiraj recept z AI',
+                      style: TextStyle(fontSize: 12, color: c.textLight)),
               ],
             ),
           ),
@@ -393,14 +379,14 @@ class _RecipePageState extends State<RecipePage>
         children: [
           Container(
             width: 72, height: 72,
-            decoration: const BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
-            child: const Icon(Icons.lock_outline_rounded, size: 36, color: kGreenMid),
+            decoration: BoxDecoration(color: kGreenPale, shape: BoxShape.circle),
+            child: Icon(Icons.lock_outline_rounded, size: 36, color: kGreenMid),
           ),
-          const SizedBox(height: 16),
-          const Text('Niste prijavljeni', style: kHeading2),
-          const SizedBox(height: 8),
-          const Text('Prijavite se za dostop do receptov.',
-              style: TextStyle(color: kTextLight, fontSize: 14), textAlign: TextAlign.center),
+          SizedBox(height: 16),
+          Text('Niste prijavljeni', style: kHeading2),
+          SizedBox(height: 8),
+          Text('Prijavite se za dostop do receptov.',
+              style: TextStyle(color: c.textLight, fontSize: 14), textAlign: TextAlign.center),
         ],
       ),
     );
@@ -417,7 +403,7 @@ class _RecipePageState extends State<RecipePage>
             color: kGreenPale, borderRadius: kRadius12,
             border: Border.all(color: kGreenMid.withOpacity(0.2)),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Text('👇', style: TextStyle(fontSize: 24)),
               SizedBox(width: 12),
@@ -425,10 +411,10 @@ class _RecipePageState extends State<RecipePage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Kako deluje', style: TextStyle(fontWeight: FontWeight.w800, color: kTextDark, fontSize: 13)),
+                    Text('Kako deluje', style: TextStyle(fontWeight: FontWeight.w800, color: c.textDark, fontSize: 13)),
                     SizedBox(height: 2),
                     Text('Izberi sestavine, ki jih imaš. AI bo ustvaril recepte posebej zate.',
-                        style: TextStyle(color: kTextMid, fontSize: 12, height: 1.4)),
+                        style: TextStyle(color: c.textMid, fontSize: 12, height: 1.4)),
                   ],
                 ),
               ),
@@ -439,12 +425,12 @@ class _RecipePageState extends State<RecipePage>
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
           child: Row(
             children: [
-              const Text('Tvoje sestavine', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: kTextDark)),
+              Text('Tvoje sestavine', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: c.textDark)),
               const Spacer(),
               if (_selected.isNotEmpty)
                 GestureDetector(
                   onTap: () => setState(() => _selected.clear()),
-                  child: const Text('Počisti', style: TextStyle(fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
+                  child: Text('Počisti', style: TextStyle(fontSize: 12, color: kGreenMid, fontWeight: FontWeight.w600)),
                 ),
             ],
           ),
@@ -454,9 +440,9 @@ class _RecipePageState extends State<RecipePage>
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: kRadius12, boxShadow: kCardShadow),
-              child: const Text('Nimaš še nobene rezervacije. Rezerviraj oglas na domači strani.',
-                  style: TextStyle(color: kTextLight, fontSize: 13, height: 1.5)),
+              decoration: BoxDecoration(color: c.card, borderRadius: kRadius12, boxShadow: kCardShadow),
+              child: Text('Nimaš še nobene rezervacije. Rezerviraj oglas na domači strani.',
+                  style: TextStyle(color: c.textLight, fontSize: 13, height: 1.5)),
             ),
           )
         else
@@ -483,7 +469,7 @@ class _RecipePageState extends State<RecipePage>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (sel) ...[const Icon(Icons.check_rounded, size: 13, color: Colors.white), const SizedBox(width: 5)],
+                          if (sel) ...[Icon(Icons.check_rounded, size: 13, color: c.card), SizedBox(width: 5)],
                           Text(ing, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: sel ? Colors.white : kGreenMid)),
                         ],
                       ),
@@ -507,15 +493,15 @@ class _RecipePageState extends State<RecipePage>
                   shape: RoundedRectangleBorder(borderRadius: kRadius12),
                 ),
                 child: _loadingRecipes
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: c.card, strokeWidth: 2.5))
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('✨', style: TextStyle(fontSize: 16)),
-                          const SizedBox(width: 8),
+                          Text('✨', style: TextStyle(fontSize: 16)),
+                          SizedBox(width: 8),
                           Text(
                             _selected.isEmpty ? 'Izberi sestavine' : 'Generiraj recepte (${_selected.length})',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                            style: TextStyle(color: c.card, fontWeight: FontWeight.w800, fontSize: 15),
                           ),
                         ],
                       ),
@@ -525,7 +511,7 @@ class _RecipePageState extends State<RecipePage>
         if (_recipeError != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: Text(_recipeError!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            child: Text(_recipeError!, style: TextStyle(color: Colors.red, fontSize: 13)),
           ),
       ],
     );
@@ -545,7 +531,7 @@ class _RecipePageState extends State<RecipePage>
   Widget _buildAiPanel() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.card,
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(-4, 0))],
       ),
       child: SafeArea(
@@ -556,12 +542,12 @@ class _RecipePageState extends State<RecipePage>
               color: kGreenMid,
               child: Row(
                 children: [
-                  const Text('✨', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 8),
-                  const Expanded(child: Text('AI pomočnik',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15))),
+                  Text('✨', style: TextStyle(fontSize: 18)),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('AI pomočnik',
+                      style: TextStyle(color: c.card, fontWeight: FontWeight.w800, fontSize: 15))),
                   GestureDetector(onTap: _toggleAi,
-                      child: const Icon(Icons.close_rounded, color: Colors.white70, size: 20)),
+                      child: Icon(Icons.close_rounded, color: Colors.white70, size: 20)),
                 ],
               ),
             ),
@@ -594,7 +580,7 @@ class _RecipePageState extends State<RecipePage>
                             color: kGreenPale, borderRadius: kRadiusFull,
                             border: Border.all(color: kGreenMid.withOpacity(0.3)),
                           ),
-                          child: Text(q, style: const TextStyle(fontSize: 11, color: kGreenMid, fontWeight: FontWeight.w600)),
+                          child: Text(q, style: TextStyle(fontSize: 11, color: kGreenMid, fontWeight: FontWeight.w600)),
                         ),
                       ),
                   ],
@@ -608,7 +594,7 @@ class _RecipePageState extends State<RecipePage>
                   Expanded(
                     child: TextField(
                       controller: _chatCtrl,
-                      style: const TextStyle(fontSize: 13),
+                      style: TextStyle(fontSize: 13),
                       decoration: InputDecoration(
                         hintText: 'Vprašaj karkoli...',
                         hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
@@ -619,13 +605,13 @@ class _RecipePageState extends State<RecipePage>
                       onSubmitted: _sendChat,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _sendChat(_chatCtrl.text),
                     child: Container(
                       width: 38, height: 38,
-                      decoration: const BoxDecoration(color: kGreenMid, shape: BoxShape.circle),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 16),
+                      decoration: BoxDecoration(color: kGreenMid, shape: BoxShape.circle),
+                      child: Icon(Icons.send_rounded, color: c.card, size: 16),
                     ),
                   ),
                 ],
@@ -654,6 +640,7 @@ class _RecipeCardState extends State<_RecipeCard> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final r = widget.recipe;
     final diffColor = r.difficulty == 'lahka'
         ? const Color(0xFF2E7D32)
@@ -661,7 +648,7 @@ class _RecipeCardState extends State<_RecipeCard> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: kRadius16, boxShadow: kCardShadow),
+      decoration: BoxDecoration(color: c.card, borderRadius: kRadius16, boxShadow: kCardShadow),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -674,24 +661,24 @@ class _RecipeCardState extends State<_RecipeCard> {
                   Container(
                     width: 52, height: 52,
                     decoration: BoxDecoration(color: kGreenPale, borderRadius: kRadius12),
-                    child: Center(child: Text(r.emoji, style: const TextStyle(fontSize: 26))),
+                    child: Center(child: Text(r.emoji, style: TextStyle(fontSize: 26))),
                   ),
-                  const SizedBox(width: 14),
+                  SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(r.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: kTextDark)),
-                        const SizedBox(height: 5),
+                        Text(r.name, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: c.textDark)),
+                        SizedBox(height: 5),
                         Row(children: [
-                          _Tag(text: r.time, icon: Icons.access_time_rounded, color: kTextLight),
-                          const SizedBox(width: 8),
+                          _Tag(text: r.time, icon: Icons.access_time_rounded, color: c.textLight),
+                          SizedBox(width: 8),
                           _Tag(text: r.difficulty, color: diffColor),
                         ]),
                       ],
                     ),
                   ),
-                  Icon(_expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, color: kTextLight),
+                  Icon(_expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, color: c.textLight),
                 ],
               ),
             ),
@@ -699,13 +686,13 @@ class _RecipeCardState extends State<_RecipeCard> {
           if (!_expanded)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: Text(r.description, style: const TextStyle(fontSize: 13, color: kTextMid, height: 1.5),
+              child: Text(r.description, style: TextStyle(fontSize: 13, color: c.textMid, height: 1.5),
                   maxLines: 2, overflow: TextOverflow.ellipsis),
             ),
           if (_expanded) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Text(r.description, style: const TextStyle(fontSize: 13, color: kTextMid, height: 1.5)),
+              child: Text(r.description, style: TextStyle(fontSize: 13, color: c.textMid, height: 1.5)),
             ),
             if (r.matchedIngredients.isNotEmpty)
               Padding(
@@ -718,14 +705,14 @@ class _RecipeCardState extends State<_RecipeCard> {
                       color: kGreenPale, borderRadius: kRadiusFull,
                       border: Border.all(color: kGreenMid.withOpacity(0.3)),
                     ),
-                    child: Text(ing, style: const TextStyle(fontSize: 11, color: kGreenMid, fontWeight: FontWeight.w700)),
+                    child: Text(ing, style: TextStyle(fontSize: 11, color: kGreenMid, fontWeight: FontWeight.w700)),
                   )).toList(),
                 ),
               ),
             if (r.steps.isNotEmpty) ...[
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text('Postopek', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: kTextDark)),
+                child: Text('Postopek', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: c.textDark)),
               ),
               for (int i = 0; i < r.steps.length; i++)
                 Padding(
@@ -735,12 +722,12 @@ class _RecipeCardState extends State<_RecipeCard> {
                     children: [
                       Container(
                         width: 22, height: 22,
-                        decoration: const BoxDecoration(color: kGreenMid, shape: BoxShape.circle),
+                        decoration: BoxDecoration(color: kGreenMid, shape: BoxShape.circle),
                         child: Center(child: Text('${i + 1}',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800))),
+                            style: TextStyle(color: c.card, fontSize: 11, fontWeight: FontWeight.w800))),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(r.steps[i], style: const TextStyle(fontSize: 13, color: kTextMid, height: 1.5))),
+                      SizedBox(width: 10),
+                      Expanded(child: Text(r.steps[i], style: TextStyle(fontSize: 13, color: c.textMid, height: 1.5))),
                     ],
                   ),
                 ),
@@ -755,7 +742,7 @@ class _RecipeCardState extends State<_RecipeCard> {
                     color: kGreenPale, borderRadius: kRadius8,
                     border: Border.all(color: kGreenMid.withOpacity(0.3)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text('✨', style: TextStyle(fontSize: 14)),
@@ -783,6 +770,7 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isAi = msg.isAi;
     return Align(
       alignment: isAi ? Alignment.centerLeft : Alignment.centerRight,
@@ -826,6 +814,7 @@ class _TypingIndicatorState extends State<_TypingIndicator> with SingleTickerPro
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AnimatedBuilder(
       animation: _c,
       builder: (_, __) => Row(
@@ -855,10 +844,11 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (icon != null) ...[Icon(icon, size: 11, color: color), const SizedBox(width: 3)],
+        if (icon != null) ...[Icon(icon, size: 11, color: color), SizedBox(width: 3)],
         Text(text, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
       ],
     );

@@ -204,3 +204,50 @@ class AppTheme {
     ),
   );
 }
+// ── Dark-aware color helpers ──────────────────────────────────────────────────
+// Koristiti ovako: final c = AppColors.of(context);
+// c.card, c.surface, c.textDark, itd.
+class AppColors {
+  final Color card;
+  final Color cardAlt;
+  final Color surface;
+  final Color border;
+  final Color textDark;
+  final Color textMid;
+  final Color textLight;
+
+  const AppColors._({
+    required this.card,
+    required this.cardAlt,
+    required this.surface,
+    required this.border,
+    required this.textDark,
+    required this.textMid,
+    required this.textLight,
+  });
+
+  static AppColors of(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return dark ? _dark : _light;
+  }
+
+  static const _light = AppColors._(
+    card: Colors.white,
+    cardAlt: Color(0xFFF5F5F5),
+    surface: kSurface,
+    border: kBorder,
+    textDark: kTextDark,
+    textMid: kTextMid,
+    textLight: kTextLight,
+  );
+
+  static const _dark = AppColors._(
+    card: kDarkCard,
+    cardAlt: kDarkCardAlt,
+    surface: kDarkSurface,
+    border: kDarkBorder,
+    textDark: kDarkTextDark,
+    textMid: kDarkTextMid,
+    textLight: kDarkTextLight,
+  );
+}

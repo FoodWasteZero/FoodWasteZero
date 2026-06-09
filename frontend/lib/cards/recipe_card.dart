@@ -10,6 +10,7 @@ class RecipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final borderColor = oglas.status == OglasStatus.prevzeto
         ? kGreenAccent
         : kOrange;
@@ -28,7 +29,7 @@ class RecipeCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.card,
         borderRadius: kRadius16,
         border: Border.all(color: borderColor, width: 2),
         boxShadow: kCardShadow,

@@ -158,9 +158,9 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Izberite termin'),
-          content: const Text('Pred rezervacijo izberite termin prevzema.'),
-          actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('V redu'))],
+          title: Text('Izberite termin'),
+          content: Text('Pred rezervacijo izberite termin prevzema.'),
+          actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('V redu'))],
         ),
       );
       return;
@@ -253,14 +253,14 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         context: context,
         builder: (ctx) => AlertDialog(
           shape: const RoundedRectangleBorder(borderRadius: kRadius16),
-          icon: const Icon(Icons.lock_clock_rounded, color: Colors.red, size: 32),
-          title: const Text('Preklic ni možen', style: TextStyle(fontWeight: FontWeight.w800)),
-          content: const Text('Rezervacije ni mogoče preklicati manj kot 24 ur pred rokom.'),
+          icon: Icon(Icons.lock_clock_rounded, color: Colors.red, size: 32),
+          title: Text('Preklic ni možen', style: TextStyle(fontWeight: FontWeight.w800)),
+          content: Text('Rezervacije ni mogoče preklicati manj kot 24 ur pred rokom.'),
           actions: [
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx),
               style: ElevatedButton.styleFrom(backgroundColor: kGreenMid, foregroundColor: Colors.white),
-              child: const Text('Razumem'),
+              child: Text('Razumem'),
             ),
           ],
         ),
@@ -378,6 +378,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final user = FirebaseAuth.instance.currentUser;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -388,8 +389,8 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     final mojaPozijaVVrsti = semVVrsti ? oglas.waitlist.indexOf(user!.uid) + 1 : 0;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: c.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       constraints: BoxConstraints(maxHeight: screenHeight * 0.90),
@@ -403,7 +404,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
               padding: const EdgeInsets.only(top: 14, bottom: 20),
               child: Container(
                 width: 40, height: 4,
-                decoration: BoxDecoration(color: kBorder, borderRadius: kRadiusFull),
+                decoration: BoxDecoration(color: c.border, borderRadius: kRadiusFull),
               ),
             ),
           ),
@@ -450,18 +451,18 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                             border: Border.all(color: kGreenMid.withOpacity(0.3), width: 0.8),
                           ),
                           child: Text(oglas.category,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 12, fontWeight: FontWeight.w600,
                                   color: kGreenMid, letterSpacing: 0.3)),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
 
                         // Naslov
                         Text(oglas.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 22, fontWeight: FontWeight.w900,
-                                color: kTextDark, height: 1.2)),
-                        const SizedBox(height: 12),
+                                color: c.textDark, height: 1.2)),
+                        SizedBox(height: 12),
 
                         // Avtor in cena
                         Container(
@@ -477,9 +478,9 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
                                     color: kGreenMid.withOpacity(0.12), borderRadius: kRadius8),
-                                child: const Icon(Icons.store_rounded, size: 14, color: kGreenMid),
+                                child: Icon(Icons.store_rounded, size: 14, color: kGreenMid),
                               ),
-                              const SizedBox(width: 10),
+                              SizedBox(width: 10),
                               if (oglas.username != null) ...[
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
@@ -488,13 +489,13 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                     openPublisherProfile(context, oglas);
                                   },
                                   child: Text(oglas.username!,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           fontSize: 14, fontWeight: FontWeight.w700,
                                           color: kGreenMid, decoration: TextDecoration.underline)),
                                 ),
-                                const SizedBox(width: 16),
-                                Container(width: 1, height: 14, color: kBorder.withOpacity(0.3)),
-                                const SizedBox(width: 16),
+                                SizedBox(width: 16),
+                                Container(width: 1, height: 14, color: c.border.withOpacity(0.3)),
+                                SizedBox(width: 16),
                               ],
                               const Spacer(),
                               // Cena
@@ -505,23 +506,23 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                     decoration: BoxDecoration(
                                         color: const Color(0xFF5C6BC0).withOpacity(0.12),
                                         borderRadius: kRadius8),
-                                    child: const Icon(Icons.euro_rounded,
+                                    child: Icon(Icons.euro_rounded,
                                         size: 12, color: Color(0xFF5C6BC0)),
                                   ),
-                                  const SizedBox(width: 6),
+                                  SizedBox(width: 6),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
                                         '${(oglas.price! * _selectedPortions).toStringAsFixed(2)} €',
-                                        style: const TextStyle(fontSize: 14,
+                                        style: TextStyle(fontSize: 14,
                                             fontWeight: FontWeight.w800, color: Color(0xFF5C6BC0)),
                                       ),
                                       if (_selectedPortions > 1)
                                         Text(
                                           '${oglas.price!.toStringAsFixed(2)} € / porcija',
-                                          style: const TextStyle(fontSize: 11,
+                                          style: TextStyle(fontSize: 11,
                                               color: Color(0xFF5C6BC0), fontWeight: FontWeight.w500),
                                         ),
                                     ],
@@ -533,11 +534,11 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                     padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
                                         color: kGreenMid.withOpacity(0.12), borderRadius: kRadius8),
-                                    child: const Icon(Icons.volunteer_activism_rounded,
+                                    child: Icon(Icons.volunteer_activism_rounded,
                                         size: 12, color: kGreenMid),
                                   ),
-                                  const SizedBox(width: 6),
-                                  const Text('Brezplačno',
+                                  SizedBox(width: 6),
+                                  Text('Brezplačno',
                                       style: TextStyle(fontSize: 14,
                                           fontWeight: FontWeight.w800, color: kGreenMid)),
                                 ]),
@@ -545,31 +546,31 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
 
                         // Opis
                         if (oglas.description.isNotEmpty) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+                            child: Divider(height: 1, color: c.border.withOpacity(0.5)),
                           ),
-                          const Text('Opis',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
-                          const SizedBox(height: 10),
+                          Text('Opis',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c.textDark)),
+                          SizedBox(height: 10),
                           Text(oglas.description,
-                              style: kBody.copyWith(height: 1.6, color: kTextMid, fontSize: 14)),
-                          const SizedBox(height: 20),
+                              style: kBody.copyWith(height: 1.6, color: c.textMid, fontSize: 14)),
+                          SizedBox(height: 20),
                         ],
 
                         // Termini prevzema
                         if (pickupTerms.isNotEmpty) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+                            child: Divider(height: 1, color: c.border.withOpacity(0.5)),
                           ),
-                          const Text('Termini prevzema',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
-                          const SizedBox(height: 10),
+                          Text('Termini prevzema',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c.textDark)),
+                          SizedBox(height: 10),
                           Wrap(
                             spacing: 8, runSpacing: 8,
                             children: [
@@ -593,10 +594,10 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                         padding: const EdgeInsets.all(4),
                                         decoration: BoxDecoration(
                                             color: kGreenMid.withOpacity(0.12), borderRadius: kRadius6),
-                                        child: const Icon(Icons.schedule_rounded,
+                                        child: Icon(Icons.schedule_rounded,
                                             size: 13, color: kGreenMid),
                                       ),
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8),
                                       Text(_formatPickupTerm(pickupTerms[i]),
                                           style: TextStyle(
                                               fontSize: 13, fontWeight: FontWeight.w700,
@@ -606,7 +607,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 20),
+                          SizedBox(height: 20),
                         ],
 
                         // Izbor števila porcij — prikaži samo če ni moje rezervacije
@@ -617,27 +618,27 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                             !_jeVzorecOglasa) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+                            child: Divider(height: 1, color: c.border.withOpacity(0.5)),
                           ),
-                          const Text('Število porcij',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
-                          const SizedBox(height: 10),
+                          Text('Število porcij',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c.textDark)),
+                          SizedBox(height: 10),
                           Builder(builder: (_) {
                             final maxPortions = oglas.remainingPortions ?? oglas.portions ?? 1;
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
-                                  color: kSurface, borderRadius: kRadius12,
-                                  border: Border.all(color: kBorder)),
+                                  color: c.surface, borderRadius: kRadius12,
+                                  border: Border.all(color: c.border)),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.restaurant_rounded, size: 16, color: kGreenMid),
-                                  const SizedBox(width: 10),
+                                  Icon(Icons.restaurant_rounded, size: 16, color: kGreenMid),
+                                  SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       'Na voljo: $maxPortions '
                                       '${maxPortions == 1 ? 'porcija' : maxPortions < 5 ? 'porcije' : 'porcij'}',
-                                      style: kCaption.copyWith(fontSize: 13, color: kTextMid),
+                                      style: kCaption.copyWith(fontSize: 13, color: c.textMid),
                                     ),
                                   ),
                                   _PortionButton(
@@ -648,8 +649,8 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 16),
                                     child: Text('$_selectedPortions',
-                                        style: const TextStyle(
-                                            fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark)),
+                                        style: TextStyle(
+                                            fontSize: 18, fontWeight: FontWeight.w800, color: c.textDark)),
                                   ),
                                   _PortionButton(
                                     icon: Icons.add_rounded,
@@ -660,17 +661,17 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                               ),
                             );
                           }),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16),
                         ],
 
                         // Lokacija in rok
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+                          child: Divider(height: 1, color: c.border.withOpacity(0.5)),
                         ),
-                        const Text('Lokacija in rok uporabe',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
-                        const SizedBox(height: 12),
+                        Text('Lokacija in rok uporabe',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c.textDark)),
+                        SizedBox(height: 12),
                         Wrap(
                           spacing: 8, runSpacing: 8,
                           children: [
@@ -684,11 +685,11 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                   color: oglas.isExpiringSoon ? kOrange : kYellow),
                           ],
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: 20),
 
                         // Info boxe
                         if (!_userTypeLoaded)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(bottom: 10),
                             child: LinearProgressIndicator(color: kGreenMid),
                           ),
@@ -699,7 +700,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                           ),
                         if (_isDavatelj && _userTypeLoaded && oglas.uid != user?.uid)
                           _InfoBox(
-                            icon: Icons.store_rounded, color: kTextMid,
+                            icon: Icons.store_rounded, color: c.textMid,
                             text: 'Kot organizacija lahko objavljate oglase. Rezervacije so namenjene uporabnikom.',
                           ),
                         if (jeMojaRezervacija) () {
@@ -720,18 +721,18 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                         if (!jeMojaRezervacija && !semVVrsti &&
                             oglas.waitlist.isNotEmpty)
                           _InfoBox(
-                            icon: Icons.people_outline_rounded, color: kTextMid,
+                            icon: Icons.people_outline_rounded, color: c.textMid,
                             text: '${oglas.waitlist.length} '
                                 '${oglas.waitlist.length == 1 ? 'oseba čaka' : 'osebe čakajo'} v vrsti.',
                           ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         Align(
                           alignment: Alignment.bottomRight,
                           child: Text(oglas.time,
-                              style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w500, color: kTextLight)),
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w500, color: c.textLight)),
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -742,15 +743,15 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
 
           // Gumbi — pritrjeni na dno
           Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: kBorder, width: 0.8)),
+            decoration: BoxDecoration(
+              color: c.card,
+              border: Border(top: BorderSide(color: c.border, width: 0.8)),
             ),
             padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + bottomInset),
             child: SafeArea(
               top: false,
               child: _loading || !_rezervacijaLoaded
-                  ? const Center(
+                  ? Center(
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: CircularProgressIndicator(color: kGreenMid, strokeWidth: 2.5),
@@ -765,6 +766,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
   }
 
   Widget _buildActionButtons(bool jeMojaRezervacija, bool semVVrsti) {
+    final c = AppColors.of(context);
     final hasLocation = oglas.latLng != null || oglas.location.isNotEmpty;
     final user = FirebaseAuth.instance.currentUser;
     final jeVlasnik = user != null && oglas.uid != null && oglas.uid == user.uid;
@@ -773,9 +775,9 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       flex: 2,
       child: ElevatedButton.icon(
         onPressed: hasLocation ? () { Navigator.pop(context); _openGoogleMaps(); } : null,
-        icon: const Icon(Icons.directions_rounded, size: 18, color: Colors.white),
-        label: const Text('Pelji me tja',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        icon: Icon(Icons.directions_rounded, size: 18, color: c.card),
+        label: Text('Pelji me tja',
+            style: TextStyle(color: c.card, fontWeight: FontWeight.w700)),
         style: ElevatedButton.styleFrom(
           backgroundColor: kGreenMid, elevation: 0,
           shape: const RoundedRectangleBorder(borderRadius: kRadius12),
@@ -787,11 +789,11 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
     final prekliciBtn = Expanded(
       child: OutlinedButton.icon(
         onPressed: _preklici,
-        icon: const Icon(Icons.cancel_outlined, size: 16),
-        label: const Text('Prekliči rezervacijo'),
+        icon: Icon(Icons.cancel_outlined, size: 16),
+        label: Text('Prekliči rezervacijo'),
         style: OutlinedButton.styleFrom(
           foregroundColor: kOrange,
-          side: const BorderSide(color: kOrange, width: 1.5),
+          side: BorderSide(color: kOrange, width: 1.5),
           shape: const RoundedRectangleBorder(borderRadius: kRadius12),
           padding: const EdgeInsets.symmetric(vertical: 13),
         ),
@@ -809,21 +811,21 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
           child: OutlinedButton(
             onPressed: null,
             style: OutlinedButton.styleFrom(
-              foregroundColor: kTextLight, side: const BorderSide(color: kBorder),
+              foregroundColor: kTextLight, side: BorderSide(color: c.border),
               shape: const RoundedRectangleBorder(borderRadius: kRadius12),
               padding: const EdgeInsets.symmetric(vertical: 13),
             ),
-            child: const Text('Prevzeto'),
+            child: Text('Prevzeto'),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         navBtn,
       ]);
     }
 
     // Moja aktivna rezervacija
     if (jeMojaRezervacija) {
-      return Row(children: [prekliciBtn, const SizedBox(width: 10), navBtn]);
+      return Row(children: [prekliciBtn, SizedBox(width: 10), navBtn]);
     }
 
     // V čakalni vrsti
@@ -832,17 +834,17 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         Expanded(
           child: OutlinedButton.icon(
             onPressed: _zapustiVrsto,
-            icon: const Icon(Icons.exit_to_app_rounded, size: 16),
-            label: const Text('Zapusti vrsto'),
+            icon: Icon(Icons.exit_to_app_rounded, size: 16),
+            label: Text('Zapusti vrsto'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF5C6BC0),
-              side: const BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
+              side: BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
               shape: const RoundedRectangleBorder(borderRadius: kRadius12),
               padding: const EdgeInsets.symmetric(vertical: 13),
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         navBtn,
       ]);
     }
@@ -855,17 +857,17 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
         Expanded(
           child: OutlinedButton.icon(
             onPressed: _dodajVVrsto,
-            icon: const Icon(Icons.queue_rounded, size: 16),
-            label: const Text('Čakalna vrsta'),
+            icon: Icon(Icons.queue_rounded, size: 16),
+            label: Text('Čakalna vrsta'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF5C6BC0),
-              side: const BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
+              side: BorderSide(color: Color(0xFF5C6BC0), width: 1.5),
               shape: const RoundedRectangleBorder(borderRadius: kRadius12),
               padding: const EdgeInsets.symmetric(vertical: 13),
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         navBtn,
       ]);
     }
@@ -875,17 +877,17 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
       Expanded(
         child: OutlinedButton.icon(
           onPressed: _rezerviraj,
-          icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-          label: const Text('Rezerviraj'),
+          icon: Icon(Icons.check_circle_outline_rounded, size: 16),
+          label: Text('Rezerviraj'),
           style: OutlinedButton.styleFrom(
             foregroundColor: kGreenMid,
-            side: const BorderSide(color: kGreenMid, width: 1.5),
+            side: BorderSide(color: kGreenMid, width: 1.5),
             shape: const RoundedRectangleBorder(borderRadius: kRadius12),
             padding: const EdgeInsets.symmetric(vertical: 13),
           ),
         ),
       ),
-      const SizedBox(width: 10),
+      SizedBox(width: 10),
       navBtn,
     ]);
   }
@@ -938,6 +940,7 @@ class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final color = statusColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -956,12 +959,15 @@ class _Badge extends StatelessWidget {
   final Color color;
   const _Badge({required this.label, required this.color});
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(color: color, borderRadius: kRadiusFull),
         child: Text(label,
-            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+            style: TextStyle(color: c.card, fontSize: 13, fontWeight: FontWeight.w700)),
       );
+  }
 }
 
 class _InfoBox extends StatelessWidget {
@@ -983,7 +989,7 @@ class _InfoBox extends StatelessWidget {
             decoration: BoxDecoration(color: color.withOpacity(0.18), borderRadius: kRadius8),
             child: Icon(icon, size: 16, color: color),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Text(text,
                 style: TextStyle(
@@ -1013,7 +1019,7 @@ class _InfoChip extends StatelessWidget {
                 color: (color ?? kTextMid).withOpacity(0.18), borderRadius: kRadius6),
             child: Icon(icon, size: 12, color: color ?? kTextMid),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text(label,
               style: TextStyle(fontSize: 13, color: color ?? kTextMid, fontWeight: FontWeight.w600)),
         ]),

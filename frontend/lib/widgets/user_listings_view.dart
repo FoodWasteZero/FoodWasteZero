@@ -27,6 +27,7 @@ class UserListingsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('oglasi')
@@ -34,7 +35,7 @@ class UserListingsView extends StatelessWidget {
           .snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Center(
+          return Center(
               child: CircularProgressIndicator(color: kGreenMid));
         }
         if (snap.hasError) {
@@ -84,6 +85,7 @@ class _OwnerList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final moji = docs.map(docToFoodOglas).toList();
 
     return CustomScrollView(
@@ -91,23 +93,23 @@ class _OwnerList extends StatelessWidget {
         SliverAppBar(
           pinned: true,
           backgroundColor: const Color(0xFF2E7D32),
-          title: const Text('Moje objave',
+          title: Text('Moje objave',
               style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w800)),
+                  color: c.card, fontWeight: FontWeight.w800)),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: ElevatedButton.icon(
                 onPressed: onAdd,
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Dodaj objavo'),
+                icon: Icon(Icons.add, size: 16),
+                label: Text('Dodaj objavo'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
+                  backgroundColor: c.card,
                   foregroundColor: kGreenMid,
                   elevation: 0,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  textStyle: const TextStyle(
+                  textStyle: TextStyle(
                       fontWeight: FontWeight.w700, fontSize: 14),
                   shape: RoundedRectangleBorder(borderRadius: kRadius8),
                 ),
@@ -145,6 +147,7 @@ class _PublicList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final aktivni = <QueryDocumentSnapshot>[];
     final arhiv = <QueryDocumentSnapshot>[];
 
@@ -162,7 +165,7 @@ class _PublicList extends StatelessWidget {
       children: [
         if (aktivni.isNotEmpty) ...[
           _SectionTitle('Aktivni oglasi'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           ...aktivni.map((doc) {
             final oglas = docToFoodOglas(doc);
             return Padding(
@@ -176,9 +179,9 @@ class _PublicList extends StatelessWidget {
           }),
         ],
         if (arhiv.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _SectionTitle('Arhiv'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           ...arhiv.map((doc) {
             final oglas = docToFoodOglas(doc);
             return Padding(
@@ -202,6 +205,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Row(
       children: [
         Container(
@@ -210,10 +214,10 @@ class _SectionTitle extends StatelessWidget {
           decoration: BoxDecoration(
               color: kGreenMid, borderRadius: kRadiusFull),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Text(label,
-            style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
+            style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w800, color: c.textDark)),
       ],
     );
   }
@@ -238,6 +242,7 @@ class _OwnerOglasCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Stack(
@@ -256,7 +261,7 @@ class _OwnerOglasCard extends StatelessWidget {
                     tooltip: 'Uredi',
                   ),
                 if (onEdit != null && onDelete != null)
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                 if (onDelete != null)
                   _ActionChip(
                     icon: Icons.delete_outline_rounded,
@@ -287,6 +292,7 @@ class _ActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Tooltip(
       message: tooltip,
       child: GestureDetector(
@@ -294,7 +300,7 @@ class _ActionChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: c.card,
             borderRadius: kRadius8,
             boxShadow: const [
               BoxShadow(
@@ -315,15 +321,16 @@ class _StreamError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (isOwner) {
       return CustomScrollView(
         slivers: [
-          const SliverAppBar(
+          SliverAppBar(
             pinned: true,
             backgroundColor: Color(0xFF2E7D32),
             title: Text('Moje objave',
                 style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w800)),
+                    color: c.card, fontWeight: FontWeight.w800)),
           ),
           SliverFillRemaining(
             child: Center(
@@ -352,10 +359,10 @@ class _StreamError extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, size: 48, color: kOrange),
-            const SizedBox(height: 12),
-            const Text('Napaka pri nalaganju', style: kHeading2),
-            const SizedBox(height: 8),
+            Icon(Icons.error_outline_rounded, size: 48, color: kOrange),
+            SizedBox(height: 12),
+            Text('Napaka pri nalaganju', style: kHeading2),
+            SizedBox(height: 8),
             Text(message, style: kBody, textAlign: TextAlign.center),
           ],
         ),
@@ -371,8 +378,9 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (!isOwner) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(40),
           child: Column(
@@ -389,12 +397,12 @@ class _EmptyState extends StatelessWidget {
 
     return CustomScrollView(
       slivers: [
-        const SliverAppBar(
+        SliverAppBar(
           pinned: true,
           backgroundColor: Color(0xFF2E7D32),
           title: Text('Moje objave',
               style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w800)),
+                  color: c.card, fontWeight: FontWeight.w800)),
         ),
         SliverFillRemaining(
           child: Center(
@@ -407,15 +415,15 @@ class _EmptyState extends StatelessWidget {
                     padding: const EdgeInsets.all(28),
                     decoration: BoxDecoration(
                         color: kGreenPale, shape: BoxShape.circle),
-                    child: const Icon(Icons.inbox_outlined,
+                    child: Icon(Icons.inbox_outlined,
                         size: 48, color: kGreenMid),
                   ),
-                  const SizedBox(height: 18),
-                  const Text('Moje objave', style: kHeading2),
-                  const SizedBox(height: 8),
-                  const Text('Še niste objavili nobenega oglasa.',
+                  SizedBox(height: 18),
+                  Text('Moje objave', style: kHeading2),
+                  SizedBox(height: 8),
+                  Text('Še niste objavili nobenega oglasa.',
                       style: kBody, textAlign: TextAlign.center),
-                  const SizedBox(height: 28),
+                  SizedBox(height: 28),
                   GestureDetector(
                     onTap: onAdd,
                     child: Container(
@@ -433,15 +441,15 @@ class _EmptyState extends StatelessWidget {
                               offset: const Offset(0, 6)),
                         ],
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.add_rounded,
-                              color: Colors.white, size: 20),
+                              color: c.card, size: 20),
                           SizedBox(width: 8),
                           Text('Dodaj prvi oglas',
                               style: TextStyle(
-                                  color: Colors.white,
+                                  color: c.card,
                                   fontWeight: FontWeight.w800,
                                   fontSize: 15)),
                         ],

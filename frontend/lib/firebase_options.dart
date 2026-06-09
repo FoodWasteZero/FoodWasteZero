@@ -17,17 +17,26 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web; 
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        return ios;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for ios - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -56,33 +65,5 @@ class DefaultFirebaseOptions {
     messagingSenderId: '387798170244',
     projectId: 'foodwastezero-528ac',
     storageBucket: 'foodwastezero-528ac.firebasestorage.app',
-  );
-
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBOON0GkHtpfB840UPbKrL7crddgR8tsc4',
-    appId: '1:387798170244:ios:5a295dbee0d7cc54f260d1',
-    messagingSenderId: '387798170244',
-    projectId: 'foodwastezero-528ac',
-    storageBucket: 'foodwastezero-528ac.firebasestorage.app',
-    iosBundleId: 'com.example.praktikum2',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBOON0GkHtpfB840UPbKrL7crddgR8tsc4',
-    appId: '1:387798170244:ios:5a295dbee0d7cc54f260d1',
-    messagingSenderId: '387798170244',
-    projectId: 'foodwastezero-528ac',
-    storageBucket: 'foodwastezero-528ac.firebasestorage.app',
-    iosBundleId: 'com.example.praktikum2',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyC02JY2sAvL2sVDzc2BaO-I-NKWsEwEW60',
-    appId: '1:387798170244:web:8b695b77bf54b85bf260d1',
-    messagingSenderId: '387798170244',
-    projectId: 'foodwastezero-528ac',
-    authDomain: 'foodwastezero-528ac.firebaseapp.com',
-    storageBucket: 'foodwastezero-528ac.firebasestorage.app',
-    measurementId: 'G-XD5XL9HQW9',
   );
 }

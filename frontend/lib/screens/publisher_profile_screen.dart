@@ -121,12 +121,13 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final me = FirebaseAuth.instance.currentUser;
     final isOwner = me != null && me.uid == widget.targetUid;
     final isGuest = isAppGuest(me);
 
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.surface,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -137,14 +138,14 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_rounded, color: kTextDark),
+                    icon: Icon(Icons.arrow_back_rounded, color: c.textDark),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text('Profil',
                         style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: kTextDark)),
+                            color: c.textDark)),
                   ),
                 ],
               ),
@@ -157,7 +158,7 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
               builder: (context, userSnap) {
                 if (userSnap.connectionState == ConnectionState.waiting &&
                     !userSnap.hasData) {
-                  return const Padding(
+                  return Padding(
                     padding: EdgeInsets.all(24),
                     child: Center(
                         child: CircularProgressIndicator(color: kGreenMid)),
@@ -192,7 +193,7 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                               size: 28,
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,23 +202,23 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                                   children: [
                                     Flexible(
                                       child: Text(name,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontSize: 20,
                                               fontWeight: FontWeight.w800,
-                                              color: kTextDark)),
+                                              color: c.textDark)),
                                     ),
                                     if (isDavatelj) ...[
-                                      const SizedBox(width: 6),
-                                      const Icon(Icons.verified_rounded,
+                                      SizedBox(width: 6),
+                                      Icon(Icons.verified_rounded,
                                           color: Color(0xFF029624), size: 22),
                                     ],
                                   ],
                                 ),
-                                const SizedBox(height: 4),
+                                SizedBox(height: 4),
                                 Text(
                                   isDavatelj ? 'Organizacija' : 'Uporabnik',
-                                  style: const TextStyle(
-                                      fontSize: 13, color: kTextLight),
+                                  style: TextStyle(
+                                      fontSize: 13, color: c.textLight),
                                 ),
                               ],
                             ),
@@ -225,7 +226,7 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                         ],
                       ),
                       if (!isOwner && !isGuest) ...[
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                         Row(
                           children: [
                             Expanded(
@@ -235,13 +236,13 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                                     : () => _toggleFollow(name),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: kGreenMid,
-                                  side: const BorderSide(color: kGreenMid),
+                                  side: BorderSide(color: kGreenMid),
                                   shape: RoundedRectangleBorder(
                                       borderRadius: kRadius8),
                                 ),
                                 child: Text(
                                   _following ? 'Ne sledi več' : 'Sledi',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontWeight: FontWeight.w700),
                                 ),
                               ),
@@ -249,25 +250,25 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                           ],
                         ),
                         if (_following) ...[
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: kCard,
+                              color: c.card,
                               borderRadius: kRadius12,
                               border: Border.all(
                                   color: const Color(0x0F000000)),
                             ),
                             child: Row(
                               children: [
-                                const Expanded(
+                                Expanded(
                                   child: Text(
                                     'Obveščaj me ob novih oglasih',
                                     style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
-                                        color: kTextDark),
+                                        color: c.textDark),
                                   ),
                                 ),
                                 Switch(
@@ -287,7 +288,7 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                 );
               },
             ),
-            const Divider(height: 1),
+            Divider(height: 1),
             Expanded(
               child: UserListingsView(
                 profileUid: widget.targetUid,

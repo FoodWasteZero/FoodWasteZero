@@ -9,6 +9,7 @@ import '../screens/auth_screen.dart';
 import '../services/notification_service.dart';
 
 void showNotificationsSheet(BuildContext context) {
+    final c = AppColors.of(context);
   final user = FirebaseAuth.instance.currentUser;
   if (isAppGuest(user)) {
     Navigator.of(context).push(
@@ -27,18 +28,18 @@ void showNotificationsSheet(BuildContext context) {
       minChildSize: 0.35,
       maxChildSize: 0.9,
       builder: (_, scrollCtrl) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: c.card,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Container(
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: kBorder,
+                color: c.border,
                 borderRadius: kRadiusFull,
               ),
             ),
@@ -46,21 +47,21 @@ void showNotificationsSheet(BuildContext context) {
               padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text('Obvestila',
                         style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            color: kTextDark)),
+                            color: c.textDark)),
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: Icon(Icons.close_rounded),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1),
+            Divider(height: 1),
             Expanded(
               child: StreamBuilder<List<AppNotification>>(
                 stream: NotificationService.instance
@@ -68,19 +69,19 @@ void showNotificationsSheet(BuildContext context) {
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting &&
                       !snap.hasData) {
-                    return const Center(
+                    return Center(
                         child: CircularProgressIndicator(color: kGreenMid));
                   }
                   final items = snap.data ?? [];
                   if (items.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Padding(
                         padding: EdgeInsets.all(32),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.notifications_none_rounded,
-                                size: 48, color: kTextLight),
+                                size: 48, color: c.textLight),
                             SizedBox(height: 12),
                             Text('Ni novih obvestil', style: kHeading2),
                           ],
@@ -120,6 +121,7 @@ class _NotificationTile extends StatelessWidget {
   });
 
   Future<void> _open(BuildContext context) async {
+    final c = AppColors.of(context);
     await NotificationService.instance.markRead(uid, notification.id);
     if (!context.mounted) return;
 
@@ -141,6 +143,7 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final unread = !notification.read;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -161,10 +164,10 @@ class _NotificationTile extends StatelessWidget {
                     color: kGreenMid.withOpacity(0.12),
                     borderRadius: kRadius8,
                   ),
-                  child: const Icon(Icons.campaign_rounded,
+                  child: Icon(Icons.campaign_rounded,
                       color: kGreenMid, size: 20),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,13 +180,13 @@ class _NotificationTile extends StatelessWidget {
                           fontSize: 14,
                           fontWeight:
                               unread ? FontWeight.w800 : FontWeight.w600,
-                          color: kTextDark,
+                          color: c.textDark,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         notification.title,
-                        style: const TextStyle(fontSize: 13, color: kTextMid),
+                        style: TextStyle(fontSize: 13, color: c.textMid),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -194,7 +197,7 @@ class _NotificationTile extends StatelessWidget {
                   Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: kGreenMid,
                       shape: BoxShape.circle,
                     ),
@@ -221,6 +224,7 @@ class NotificationBellButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final user = FirebaseAuth.instance.currentUser;
     final uid = user?.uid;
     final showBadge = uid != null && !isAppGuest(user);
@@ -268,14 +272,14 @@ class NotificationBellButton extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 5, vertical: 2),
                     constraints: const BoxConstraints(minWidth: 16),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: Colors.red,
                       borderRadius: BorderRadius.all(Radius.circular(10)),
                     ),
                     child: Text(
                       count > 9 ? '9+' : '$count',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: c.card,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                       ),
