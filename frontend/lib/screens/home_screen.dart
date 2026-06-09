@@ -502,14 +502,18 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  void _showAuthPopup() {
-    showModalBottomSheet(
+  void _showAuthPopup() async {
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       isDismissible: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AuthScreen(isModal: true),
     );
+    if (mounted) {
+      setState(() {}); // Refresh UI nakon zatvaranja modala
+      _loadUserType();
+    }
   }
 
   bool get _isGuest => isAppGuest(FirebaseAuth.instance.currentUser);
