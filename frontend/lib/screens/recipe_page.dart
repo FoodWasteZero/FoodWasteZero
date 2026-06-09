@@ -11,7 +11,7 @@ import '../common/theme.dart';
 // ─── AI API URL ──────────────────────────────────────────────────────────────
 // Za lokalni razvoj: 'http://localhost:8080'
 // Za produkcijo:     'https://risbo.onrender.com'
-const _kRisboBaseUrl = 'http://localhost:8080';
+const _kRisboBaseUrl = 'https://risbo.onrender.com';
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 
