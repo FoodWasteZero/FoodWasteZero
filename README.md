@@ -11,7 +11,8 @@
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](../../pulls)
   [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/FoodWasteZero/FoodWasteZero/flutter.yml?label=build)](../../actions)
 
-  [⬇️ Prenesi APK](https://github.com/FoodWasteZero/FoodWasteZero/actions/runs/26882968684/artifacts/7383949409) · [🐛 Prijavi napako](../../issues) · [🤝 Prispevaj](#prispevanje)
+  
+[⬇️ Prenesi APK](https://github.com/FoodWasteZero/FoodWasteZero/releases/latest)· [🐛 Prijavi napako](../../issues) · [🤝 Prispevaj](#prispevanje)
 
 </div>
 
@@ -39,9 +40,7 @@ Vsako leto se zavrže **tretjina vse hrane na svetu**. FoodWasteZero je naš odg
 
 ## Prenesi aplikacijo
 
-**Android APK** — najnovejši build, direktno iz CI/CD:
-
-👉 **[Prenesi FoodWasteZero.apk](https://github.com/FoodWasteZero/FoodWasteZero/actions/runs/26882968684/artifacts/7383949409)**
+Najnovejšo verzijo najdeš v [Releases](../../releases). Tam klikni .apk datotko in jo naloži.
 
 > Za namestitev omogoči **"Namestitev iz neznanih virov"** v Nastavitve → Varnost.
 
