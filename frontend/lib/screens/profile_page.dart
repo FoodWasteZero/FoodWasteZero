@@ -911,7 +911,7 @@ class _ProfilePageState extends State<ProfilePage>
                   isDav
                       ? Icons.store_rounded
                       : Icons.person_rounded,
-                  color: c.card,
+                  color: Colors.white,
                   size: 30,
                 ),
               ),
@@ -924,7 +924,7 @@ class _ProfilePageState extends State<ProfilePage>
                   decoration: BoxDecoration(
                     color: const Color(0xFF00C853),
                     borderRadius: kRadiusFull,
-                    border: Border.all(color: c.card, width: 2),
+                    border: Border.all(color: Colors.white, width: 2),
                   ),
                 ),
               ),
@@ -937,7 +937,7 @@ class _ProfilePageState extends State<ProfilePage>
               children: [
                 Text(name,
                     style: TextStyle(
-                        color: c.card,
+                        color: Colors.white,
                         fontSize: 17,
                         fontWeight: FontWeight.w800)),
                 SizedBox(height: 8),
@@ -961,7 +961,7 @@ class _ProfilePageState extends State<ProfilePage>
                         Text(
                           isDav ? 'Organizacija' : 'Uporabnik',
                           style: TextStyle(
-                              color: c.card,
+                              color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w700),
                         ),
@@ -1313,14 +1313,14 @@ class _AnalyticCard extends StatelessWidget {
             ),
             child: Icon(icon, size: 16, color: color),
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 10),
           Text(value,
               style: TextStyle(
                   fontSize: 20, fontWeight: FontWeight.w900, color: color, height: 1)),
-          SizedBox(height: 2),
+          SizedBox(height: 6),
           Text(label,
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c.textDark)),
-          SizedBox(height: 1),
+          SizedBox(height: 4),
           Text(subtitle,
               style: TextStyle(fontSize: 10, color: c.textLight),
               maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -2171,7 +2171,7 @@ class _HeaderBtn extends StatelessWidget {
               color:
                   Colors.white.withOpacity(dimmed ? 0.2 : 0.35)),
         ),
-        child: Icon(icon, color: c.card, size: 17),
+        child: Icon(icon, color: Colors.white, size: 17),
       ),
     );
   }

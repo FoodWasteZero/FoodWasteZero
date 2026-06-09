@@ -1,10 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import '../common/theme.dart';
+
+// ─── AI API URL ──────────────────────────────────────────────────────────────
+// Za lokalni razvoj: 'http://localhost:8080'
+// Za produkcijo:     'https://risbo.onrender.com'
+const _kRisboBaseUrl = 'http://localhost:8080';
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 
@@ -34,6 +41,10 @@ class _RecipePageState extends State<RecipePage>
 
   Set<String> _ingredients = {};
   bool _loadingIngredients = true;
+
+  // ── Slika sestavin ──────────────────────────────────────────────────────────
+  XFile? _pickedImage;
+  bool _generatingFromImage = false;
 
   @override
   void initState() {
@@ -67,37 +78,54 @@ class _RecipePageState extends State<RecipePage>
       return;
     }
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('oglasi')
-          .where('reservedByUid', isEqualTo: user.uid)
+      // Queryjaj kolekciju 'rezervacije' direktno po userId
+      final rezSnap = await FirebaseFirestore.instance
+          .collection('rezervacije')
+          .where('userId', isEqualTo: user.uid)
+          .where('status', whereIn: ['rezervirano', 'prevzeto'])
           .get();
 
-      final result = <String>{};
-      for (final doc in snap.docs) {
-        final d = doc.data();
-        final status = d['status'] as String? ?? '';
-        if (status != 'rezervirano' && status != 'prevzeto') {
-          if (status == 'naRazpolago') {
-            final reservedBy = d['reservedByUid'] as String? ?? '';
-            if (reservedBy.isEmpty) continue;
-          } else {
-            continue;
-          }
-        }
-        final title = d['title'] as String? ?? '';
-        final category = d['category'] as String? ?? '';
-        final parts = title.split(RegExp(r'[,;|/\n]'));
-        for (final p in parts) {
-          final t = p.trim();
-          if (t.length > 2 && t.length < 60) result.add(t);
-        }
-        if (category.isNotEmpty) result.add(category);
+      if (rezSnap.docs.isEmpty) {
+        if (mounted) setState(() => _loadingIngredients = false);
+        return;
       }
+
+      // Dohvati sve oglas IDje iz rezervacija
+      final oglasIds = rezSnap.docs
+          .map((d) => d.data()['oglasId'] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final result = <String>{};
+
+      // Firestore 'whereIn' max 30 po pozivu — dijelimo u grupe
+      for (var i = 0; i < oglasIds.length; i += 30) {
+        final end = i + 30 > oglasIds.length ? oglasIds.length : i + 30;
+        final chunk = oglasIds.sublist(i, end);
+        final oglasSnap = await FirebaseFirestore.instance
+            .collection('oglasi')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+
+        for (final doc in oglasSnap.docs) {
+          final d = doc.data();
+          final title = d['title'] as String? ?? '';
+          final category = d['category'] as String? ?? '';
+          final parts = title.split(RegExp(r'[,;|/\n]'));
+          for (final p in parts) {
+            final t = p.trim();
+            if (t.length > 2 && t.length < 60) result.add(t);
+          }
+          if (category.isNotEmpty) result.add(category);
+        }
+      }
+
       if (mounted) setState(() {
         _ingredients = result;
         _loadingIngredients = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (mounted) setState(() => _loadingIngredients = false);
     }
   }
@@ -122,7 +150,7 @@ class _RecipePageState extends State<RecipePage>
 
     try {
       final resp = await http.post(
-        Uri.parse('https://risbo.onrender.com/generate-recipe'),
+        Uri.parse('$_kRisboBaseUrl/generate-recipe'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'prompt': prompt}),
       ).timeout(const Duration(seconds: 90)); // Render free tier ima cold start ~60s
@@ -159,6 +187,135 @@ class _RecipePageState extends State<RecipePage>
         _recipeError = 'Napaka: ${e.toString()}';
         _loadingRecipes = false;
       });
+    }
+  }
+
+  // ── AI: generiraj iz slike ─────────────────────────────────────────────────
+
+  Future<void> _pickAndGenerateFromImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1024,
+    );
+    if (file == null) return;
+
+    setState(() {
+      _pickedImage = file;
+      _generatingFromImage = true;
+      _loadingRecipes = true;
+      _recipeError = null;
+      _recipes = [];
+    });
+
+    try {
+      final bytes = await File(file.path).readAsBytes();
+      final b64 = base64Encode(bytes);
+
+      final prompt = 'Na sliki so sestavine. Generiraj 3 kratke recepte z njimi. '
+          'Odgovori SAMO z veljavnim JSON nizom. Brez Markdown. Brez ```json. Samo čisti JSON: '
+          '[{"name":"...","emoji":"...","time":"15 min","difficulty":"lahka",'
+          '"description":"Kratek opis.","steps":["Korak 1.","Korak 2.","Korak 3."],'
+          '"matchedIngredients":["..."]}] '
+          'Vsak recept naj ima NAJVEČ 4 korake. Opisi naj bodo kratki.';
+
+      final resp = await http.post(
+        Uri.parse('$_kRisboBaseUrl/generate-recipe'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'prompt': prompt, 'images': [b64]}),
+      ).timeout(const Duration(seconds: 90));
+
+      if (resp.statusCode != 200) throw Exception('Risbo API napaka \${resp.statusCode}');
+
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final text = body['response'] as String? ?? '';
+
+      final cleaned = text
+          .replaceAll(RegExp(r'```json\s*'), '')
+          .replaceAll(RegExp(r'```\s*'), '')
+          .trim();
+
+      final startIdx = cleaned.indexOf('[');
+      final endIdx = cleaned.lastIndexOf(']');
+      if (startIdx == -1 || endIdx == -1) throw Exception('Napaka pri razčlenjevanju receptov');
+
+      final jsonStr = cleaned.substring(startIdx, endIdx + 1);
+      final List<dynamic> jsonList = jsonDecode(jsonStr);
+      final recipes = jsonList.map((e) => _Recipe.fromJson(e as Map<String, dynamic>)).toList();
+
+      if (mounted) setState(() {
+        _recipes = recipes;
+        _loadingRecipes = false;
+        _generatingFromImage = false;
+      });
+    } on TimeoutException {
+      if (mounted) setState(() {
+        _recipeError = 'Strežnik se zagotavlja (hladni zagon ~60s). Počakajte in poskusite znova.';
+        _loadingRecipes = false;
+        _generatingFromImage = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() {
+        _recipeError = 'Napaka: \${e.toString()}';
+        _loadingRecipes = false;
+        _generatingFromImage = false;
+      });
+    }
+  }
+
+  // ── AI: pošlji sliko v chat ─────────────────────────────────────────────────
+
+  Future<void> _sendChatWithImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1024,
+    );
+    if (file == null) return;
+
+    setState(() {
+      _chatMsgs.add(_ChatMsg(text: '📷 Slika sestavin', isAi: false, imageFile: file));
+      _aiThinking = true;
+    });
+    _scrollChat();
+
+    try {
+      final bytes = await File(file.path).readAsBytes();
+      final b64 = base64Encode(bytes);
+
+      final prompt = 'Si kuhar pomočnik. Na sliki so sestavine. '
+          'Predlagaj 2-3 ideje za obroke. Odgovori kratko v slovenščini.';
+
+      final resp = await http.post(
+        Uri.parse('$_kRisboBaseUrl/generate-recipe'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'prompt': prompt, 'images': [b64]}),
+      ).timeout(const Duration(seconds: 90));
+
+      if (resp.statusCode != 200) throw Exception('API error');
+
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final reply = (body['response'] as String? ?? 'Oprostite, nisem razumel.').trim();
+
+      if (mounted) setState(() {
+        _chatMsgs.add(_ChatMsg(text: reply, isAi: true));
+        _aiThinking = false;
+      });
+      _scrollChat();
+    } on TimeoutException {
+      if (mounted) setState(() {
+        _chatMsgs.add(_ChatMsg(text: 'Strežnik se zagotavlja (~60s). Poskusite znova.', isAi: true));
+        _aiThinking = false;
+      });
+      _scrollChat();
+    } catch (_) {
+      if (mounted) setState(() {
+        _chatMsgs.add(_ChatMsg(text: 'Napaka pri obdelavi slike.', isAi: true));
+        _aiThinking = false;
+      });
+      _scrollChat();
     }
   }
 
@@ -200,7 +357,7 @@ class _RecipePageState extends State<RecipePage>
           'Pogovor do sedaj:\n$history\n\nTvoj odgovor:';
 
       final chatResp = await http.post(
-        Uri.parse('https://risbo.onrender.com/generate-recipe'),
+        Uri.parse('$_kRisboBaseUrl/generate-recipe'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'prompt': prompt}),
       ).timeout(const Duration(seconds: 90));
@@ -459,7 +616,7 @@ class _RecipePageState extends State<RecipePage>
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                       decoration: BoxDecoration(
-                        color: sel ? kGreenMid : Colors.white,
+                        color: sel ? kGreenMid : c.card,
                         borderRadius: kRadiusFull,
                         border: Border.all(color: sel ? kGreenMid : kGreenMid.withOpacity(0.25), width: sel ? 0 : 1),
                         boxShadow: sel
@@ -479,35 +636,62 @@ class _RecipePageState extends State<RecipePage>
               ),
             ),
           ),
-        if (_ingredients.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            child: SizedBox(
-              width: double.infinity, height: 52,
-              child: ElevatedButton(
-                onPressed: _selected.isEmpty || _loadingRecipes ? null : _generateRecipes,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kGreenMid,
-                  disabledBackgroundColor: kGreenMid.withOpacity(0.35),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: kRadius12),
+        // ── Gumbi za generiranje ──────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: _generatingFromImage ? null : _pickAndGenerateFromImage,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  height: 52,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: _generatingFromImage ? kGreenMid.withOpacity(0.5) : c.cardAlt,
+                    borderRadius: kRadius12,
+                    border: Border.all(color: kGreenMid.withOpacity(0.3)),
+                  ),
+                  child: _generatingFromImage
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: kGreenMid, strokeWidth: 2.5))
+                      : Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.camera_alt_rounded, color: kGreenMid, size: 20),
+                          const SizedBox(width: 6),
+                          Text('Foto', style: TextStyle(color: kGreenMid, fontWeight: FontWeight.w700, fontSize: 14)),
+                        ]),
                 ),
-                child: _loadingRecipes
-                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: c.card, strokeWidth: 2.5))
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('✨', style: TextStyle(fontSize: 16)),
-                          SizedBox(width: 8),
-                          Text(
-                            _selected.isEmpty ? 'Izberi sestavine' : 'Generiraj recepte (${_selected.length})',
-                            style: TextStyle(color: c.card, fontWeight: FontWeight.w800, fontSize: 15),
-                          ),
-                        ],
-                      ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _selected.isEmpty || _loadingRecipes ? null : _generateRecipes,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kGreenMid,
+                      disabledBackgroundColor: kGreenMid.withOpacity(0.35),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: kRadius12),
+                    ),
+                    child: _loadingRecipes && !_generatingFromImage
+                        ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: c.card, strokeWidth: 2.5))
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('✨', style: TextStyle(fontSize: 16)),
+                              const SizedBox(width: 8),
+                              Text(
+                                _selected.isEmpty ? 'Izberi sestavine' : 'Generiraj (${_selected.length})',
+                                style: TextStyle(color: c.card, fontWeight: FontWeight.w800, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ],
           ),
+        ),
         if (_recipeError != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -588,24 +772,38 @@ class _RecipePageState extends State<RecipePage>
               ),
             Container(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade100))),
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: c.border.withOpacity(0.4)))),
               child: Row(
                 children: [
+                  // Foto dugme u chatu
+                  GestureDetector(
+                    onTap: _sendChatWithImage,
+                    child: Container(
+                      width: 38, height: 38,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: c.cardAlt,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: kGreenMid.withOpacity(0.3)),
+                      ),
+                      child: Icon(Icons.camera_alt_rounded, color: kGreenMid, size: 18),
+                    ),
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _chatCtrl,
-                      style: TextStyle(fontSize: 13),
+                      style: TextStyle(fontSize: 13, color: c.textDark),
                       decoration: InputDecoration(
                         hintText: 'Vprašaj karkoli...',
-                        hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
-                        filled: true, fillColor: kSurface,
+                        hintStyle: TextStyle(fontSize: 13, color: c.textLight),
+                        filled: true, fillColor: c.cardAlt,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         border: OutlineInputBorder(borderRadius: kRadius24, borderSide: BorderSide.none),
                       ),
                       onSubmitted: _sendChat,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _sendChat(_chatCtrl.text),
                     child: Container(
@@ -776,8 +974,7 @@ class _ChatBubble extends StatelessWidget {
       alignment: isAi ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.65),
         decoration: BoxDecoration(
           color: isAi ? kGreenPale : kGreenMid,
           borderRadius: BorderRadius.only(
@@ -787,8 +984,31 @@ class _ChatBubble extends StatelessWidget {
           ),
         ),
         child: isTyping
-            ? const _TypingIndicator()
-            : Text(msg.text, style: TextStyle(fontSize: 13, color: isAi ? kTextDark : Colors.white, height: 1.45)),
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                child: const _TypingIndicator(),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (msg.imageFile != null)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                      child: Image.file(
+                        File(msg.imageFile!.path),
+                        width: double.infinity,
+                        height: 120,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    child: Text(msg.text,
+                        style: TextStyle(fontSize: 13, color: isAi ? c.textDark : Colors.white, height: 1.45)),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -881,5 +1101,6 @@ class _Recipe {
 class _ChatMsg {
   final String text;
   final bool isAi;
-  _ChatMsg({required this.text, required this.isAi});
+  final XFile? imageFile;
+  _ChatMsg({required this.text, required this.isAi, this.imageFile});
 }

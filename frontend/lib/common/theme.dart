@@ -80,15 +80,12 @@ const kHeading2 = TextStyle(
 );
 const kHeading3 = TextStyle(
   fontSize: kFontMedium, fontWeight: FontWeight.w700,
-  color: kTextDark,
 );
 const kBody = TextStyle(
   fontSize: kFontBase, fontWeight: FontWeight.w400,
-  color: kTextMid,
 );
 const kBodyBold = TextStyle(
   fontSize: kFontBase, fontWeight: FontWeight.w600,
-  color: kTextDark,
 );
 const kCaption = TextStyle(
   fontSize: kFontSmall, fontWeight: FontWeight.w400,

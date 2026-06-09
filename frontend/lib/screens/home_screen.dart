@@ -551,8 +551,11 @@ class _HomeScreenState extends State<HomeScreen>
         final navSelectedIcon = Color.lerp(kGreenMid, Colors.white, t)!;
         final navUnselectedIcon = Color.lerp(Colors.grey, Colors.white.withOpacity(0.6), t)!;
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Scaffold(
-          backgroundColor: Color.lerp(kSurface, const Color(0xFFE8F5E9), t * 0.5)!,
+          backgroundColor: isDark
+              ? kDarkSurface
+              : Color.lerp(kSurface, const Color(0xFFE8F5E9), t * 0.5)!,
           body: _buildBody(),
           floatingActionButton: null,
           bottomNavigationBar: _buildBottomNav(
@@ -1206,12 +1209,14 @@ class _HomeScreenState extends State<HomeScreen>
       animation: _themeProgress,
       builder: (context, _) {
         final t = _themeProgress.value;
-        // Org mode: bijela pozadina s malo prozirnosti umjesto skoro prozirne
-        final bgColor = Color.lerp(Colors.white, Colors.white.withOpacity(0.92), t)!;
-        final iconColor = Color.lerp(kGreenMid, kGreenMid, t)!;
-        final textColor = Color.lerp(kTextDark, kTextDark, t)!;
-        final hintColor = Color.lerp(kTextLight, kTextLight, t)!;
-        final borderColor = Color.lerp(Colors.transparent, Colors.white.withOpacity(0.6), t)!;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final c = AppColors.of(context);
+        // Dark: use card color; Light: white
+        final bgColor = isDark ? kDarkCard : Color.lerp(Colors.white, Colors.white.withOpacity(0.92), t)!;
+        final iconColor = isDark ? kGreenLight : Color.lerp(kGreenMid, kGreenMid, t)!;
+        final textColor = isDark ? kDarkTextDark : Color.lerp(kTextDark, kTextDark, t)!;
+        final hintColor = isDark ? kDarkTextLight : Color.lerp(kTextLight, kTextLight, t)!;
+        final borderColor = isDark ? kDarkBorder : Color.lerp(Colors.transparent, Colors.white.withOpacity(0.6), t)!;
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -1340,13 +1345,14 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildHeatmapSection(List<FoodOglas> filtered) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Row(children: [
-            const Text('Toplotna karta', style: kHeading3),
+            Text('Toplotna karta', style: kHeading3.copyWith(color: c.textDark)),
           ]),
         ),
         HeatmapPreviewCard(onTap: () => Navigator.push(context,
@@ -1363,9 +1369,9 @@ class _HomeScreenState extends State<HomeScreen>
     return AnimatedBuilder(
       animation: _themeProgress,
       builder: (context, _) {
-        final t = _themeProgress.value;
-        final titleColor = Color.lerp(kTextDark, kTextDark, t)!; // ostaje tamno
-        final countColor = Color.lerp(kGreenMid, kGreenMid, t)!;
+        final c = AppColors.of(context);
+        final titleColor = c.textDark;
+        final countColor = kGreenMid;
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
           child: Row(children: [
@@ -1416,11 +1422,13 @@ class _HomeScreenState extends State<HomeScreen>
       animation: _themeProgress,
       builder: (context, _) {
         final t = _themeProgress.value;
-        // Tab aktivni: zeleni → bijeli; neaktivni: bijeli → bijeli s vidljivim rubom
+        final c = AppColors.of(context);
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        // Tab aktivni: zeleni → bijeli; neaktivni: card color (dark-aware)
         final activeTabBg = Color.lerp(kGreenMid, Colors.white, t)!;
         final activeTabText = Color.lerp(Colors.white, kGreenMid, t)!;
-        final inactiveTabBg = Color.lerp(Colors.white, Colors.white.withOpacity(0.88), t)!;
-        final inactiveTabText = Color.lerp(kTextMid, kTextMid, t)!;
+        final inactiveTabBg = isDark ? kDarkCardAlt : Color.lerp(Colors.white, Colors.white.withOpacity(0.88), t)!;
+        final inactiveTabText = isDark ? kDarkTextMid : Color.lerp(kTextMid, kTextMid, t)!;
         final activeShadow = Color.lerp(kGreenMid, Colors.black, t * 0.4)!;
 
         return Padding(
@@ -1442,10 +1450,14 @@ class _HomeScreenState extends State<HomeScreen>
                     decoration: BoxDecoration(
                       color: active ? activeTabBg : inactiveTabBg,
                       borderRadius: kRadiusFull,
+                      border: active ? null : Border.all(
+                        color: isDark ? kDarkBorder : c.border.withOpacity(0.5),
+                        width: 0.8,
+                      ),
                       boxShadow: active
                           ? [BoxShadow(color: activeShadow.withOpacity(0.35),
                                 blurRadius: 16, offset: const Offset(0, 5))]
-                          : [BoxShadow(color: Colors.black.withOpacity(0.04 * (1 - t * 0.7)),
+                          : [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.0 : 0.04 * (1 - t * 0.7)),
                                 blurRadius: 8, offset: const Offset(0, 2))],
                     ),
                     child: Text(_tabs[i], style: TextStyle(
@@ -1886,23 +1898,25 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: loading ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
-          color: active ? color : Colors.white,
+          color: active ? color : c.card,
           borderRadius: kRadius12,
+          border: active ? null : Border.all(color: c.border.withOpacity(0.5), width: 0.8),
           boxShadow: [
-            BoxShadow(color: color.withOpacity(active ? 0.35 : 0.12),
+            BoxShadow(color: color.withOpacity(active ? 0.35 : 0.10),
               blurRadius: 16, offset: const Offset(0, 4)),
           ],
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.max, children: [
           Container(width: 36, height: 36,
             decoration: BoxDecoration(
-              color: active ? Colors.white.withOpacity(0.25) : color.withOpacity(0.12),
+              color: active ? Colors.white.withOpacity(0.25) : color.withOpacity(0.15),
               borderRadius: kRadius8),
             child: loading
               ? Padding(

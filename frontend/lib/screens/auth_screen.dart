@@ -333,9 +333,9 @@ class _AuthScreenState extends State<AuthScreen>
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('FoodWasteZero',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
-                        color: Color(0xFF1A2E1A), letterSpacing: -0.3)),
+                        color: c.textDark, letterSpacing: -0.3)),
                 Text('Reši hrano. Pomagaj skupnosti.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF78909C))),
+                    style: TextStyle(fontSize: 13, color: c.textMid)),
               ]),
             ]),
           ),
@@ -345,13 +345,13 @@ class _AuthScreenState extends State<AuthScreen>
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 24),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F7F5),
+              color: c.surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: TabBar(
               controller: _tabController,
               labelColor: Colors.white,
-              unselectedLabelColor: kTextMid,
+              unselectedLabelColor: c.textMid,
               indicator: BoxDecoration(
                 color: kGreenMid,
                 borderRadius: BorderRadius.circular(10),
@@ -666,12 +666,12 @@ class _InputField extends StatelessWidget {
           suffixIcon: suffix,
           border: OutlineInputBorder(
             borderRadius: kRadius12,
-            borderSide: BorderSide(color: hasError ? Colors.red.shade300 : kBorder),
+            borderSide: BorderSide(color: hasError ? Colors.red.shade300 : c.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: kRadius12,
             borderSide: BorderSide(
-                color: hasError ? Colors.red.shade300 : kBorder,
+                color: hasError ? Colors.red.shade300 : c.border,
                 width: hasError ? 1.5 : 1),
           ),
           focusedBorder: OutlineInputBorder(
@@ -716,17 +716,17 @@ class _UserTypeCard extends StatelessWidget {
     final Color iconColor;
 
     if (isOrg) {
-      bg          = selected ? kGreenDark : Colors.white;
-      borderColor = selected ? kGreenDark : kBorder;
-      titleColor  = selected ? Colors.white : kTextDark;
-      iconBg      = selected ? Colors.white.withOpacity(0.18) : kSurface;
-      iconColor   = selected ? Colors.white : kTextMid;
+      bg          = selected ? kGreenDark : c.card;
+      borderColor = selected ? kGreenDark : c.border;
+      titleColor  = selected ? Colors.white : c.textDark;
+      iconBg      = selected ? Colors.white.withOpacity(0.18) : c.surface;
+      iconColor   = selected ? Colors.white : c.textMid;
     } else {
-      bg          = selected ? kGreenPale : Colors.white;
-      borderColor = selected ? kGreenMid : kBorder;
-      titleColor  = selected ? kGreenMid : kTextDark;
-      iconBg      = selected ? kGreenMid : kSurface;
-      iconColor   = selected ? Colors.white : kTextMid;
+      bg          = selected ? kGreenPale : c.card;
+      borderColor = selected ? kGreenMid : c.border;
+      titleColor  = selected ? kGreenMid : c.textDark;
+      iconBg      = selected ? kGreenMid : c.surface;
+      iconColor   = selected ? Colors.white : c.textMid;
     }
 
     return GestureDetector(

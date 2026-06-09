@@ -16,19 +16,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _locationEnabled = true;
   String _radius = '5';
 
-  // Jezik — inicijalizira se iz LocaleService
   String get _language => LocaleService.instance.code;
 
   @override
   void initState() {
     super.initState();
-    // Slušaj promjene jezika da se UI ažurira
     LocaleService.instance.addListener(_onLocaleChanged);
+    ThemeService.instance.addListener(_onLocaleChanged);
   }
 
   @override
   void dispose() {
     LocaleService.instance.removeListener(_onLocaleChanged);
+    ThemeService.instance.removeListener(_onLocaleChanged);
     super.dispose();
   }
 
@@ -68,18 +68,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
+    final c = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: c.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: c.card,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: kTextDark, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: c.textDark, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(s.settingsTitle,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark)),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.textDark)),
         centerTitle: false,
       ),
       body: ListView(
@@ -144,14 +146,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsCard(children: [
             _InfoTile(
               icon: Icons.info_outline_rounded,
-              iconColor: kTextMid,
+              iconColor: isDark ? kDarkTextMid : kTextMid,
               title: s.version,
               value: '1.0.0',
             ),
             const _Divider(),
             _InfoTile(
               icon: Icons.school_rounded,
-              iconColor: kTextMid,
+              iconColor: isDark ? kDarkTextMid : kTextMid,
               title: s.project,
               value: 'Praktikum II — FERI',
             ),
@@ -171,12 +173,13 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12, fontWeight: FontWeight.w700,
-          color: kTextLight, letterSpacing: 0.8,
+          color: c.textLight, letterSpacing: 0.8,
         )),
     );
   }
@@ -188,9 +191,12 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: kRadius16, boxShadow: kCardShadow),
+        color: c.card, borderRadius: kRadius16, boxShadow: kCardShadow,
+        border: Border.all(color: c.border.withOpacity(0.5), width: 0.8),
+      ),
       child: Column(children: children),
     );
   }
@@ -201,9 +207,10 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(left: 64),
-      child: Divider(height: 1, color: kBorder.withOpacity(0.5)),
+      child: Divider(height: 1, color: c.border.withOpacity(0.5)),
     );
   }
 }
@@ -224,6 +231,7 @@ class _ToggleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -231,7 +239,7 @@ class _ToggleTile extends StatelessWidget {
           Container(
             width: 38, height: 38,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1), borderRadius: kRadius12),
+              color: iconColor.withOpacity(0.12), borderRadius: kRadius12),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 14),
@@ -239,8 +247,8 @@ class _ToggleTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextDark)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextMid)),
+                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: c.textDark)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: c.textMid)),
               ],
             ),
           ),
@@ -265,6 +273,7 @@ class _TapTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return InkWell(
       borderRadius: kRadius16,
       onTap: onTap,
@@ -275,15 +284,15 @@ class _TapTile extends StatelessWidget {
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1), borderRadius: kRadius12),
+                color: iconColor.withOpacity(0.12), borderRadius: kRadius12),
               child: Icon(icon, color: iconColor, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(child: Text(title,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextDark))),
-            Text(value, style: const TextStyle(fontSize: 13, color: kTextMid)),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: c.textDark))),
+            Text(value, style: TextStyle(fontSize: 13, color: c.textMid)),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded, color: kTextLight, size: 18),
+            Icon(Icons.chevron_right_rounded, color: c.textLight, size: 18),
           ],
         ),
       ),
@@ -304,6 +313,7 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -311,13 +321,13 @@ class _InfoTile extends StatelessWidget {
           Container(
             width: 38, height: 38,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.08), borderRadius: kRadius12),
+              color: iconColor.withOpacity(0.10), borderRadius: kRadius12),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(child: Text(title,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextDark))),
-          Text(value, style: const TextStyle(fontSize: 13, color: kTextMid)),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: c.textDark))),
+          Text(value, style: TextStyle(fontSize: 13, color: c.textMid)),
         ],
       ),
     );
@@ -334,6 +344,7 @@ class _LanguageSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
+    final c = AppColors.of(context);
     final langs = [
       ('sl', s.langSlovenian, '🇸🇮'),
       ('bs', s.langBosnian,   '🇧🇦'),
@@ -342,14 +353,14 @@ class _LanguageSheet extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: kRadius24),
+      decoration: BoxDecoration(color: c.card, borderRadius: kRadius24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(s.langPickerTitle,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c.textDark)),
           ),
           ...langs.map((l) => ListTile(
             leading: Text(l.$3, style: const TextStyle(fontSize: 24)),
@@ -357,7 +368,7 @@ class _LanguageSheet extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: selected == l.$1 ? kGreenMid : kTextDark,
+                color: selected == l.$1 ? kGreenMid : c.textDark,
               )),
             trailing: selected == l.$1
               ? const Icon(Icons.check_circle_rounded, color: kGreenMid)
@@ -374,44 +385,69 @@ class _LanguageSheet extends StatelessWidget {
 
 // ── Radius picker sheet ────────────────────────────────────────────────────────
 
-class _RadiusSheet extends StatelessWidget {
+class _RadiusSheet extends StatefulWidget {
   final String selected;
   final ValueChanged<String> onSelect;
   const _RadiusSheet({required this.selected, required this.onSelect});
 
   @override
+  State<_RadiusSheet> createState() => _RadiusSheetState();
+}
+
+class _RadiusSheetState extends State<_RadiusSheet> {
+  late String _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.selected;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final s = AppStrings.of(context);
     final radii = ['1', '2', '5', '10', '20', '50'];
     return Container(
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: kRadius24),
+      decoration: BoxDecoration(color: c.card, borderRadius: kRadius24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(AppStrings.of(context).searchRadius,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextDark)),
+            child: Text(s.searchRadius,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c.textDark)),
           ),
-          ...radii.map((r) => ListTile(
-            leading: Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(
-                color: selected == r ? kGreenPale : kSurface,
-                borderRadius: kRadius12,
+          ...radii.map((r) {
+            final isSelected = _current == r;
+            return ListTile(
+              leading: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: isSelected ? kGreenMid.withOpacity(0.15) : c.cardAlt,
+                  borderRadius: kRadius12,
+                ),
+                child: Icon(Icons.radar_rounded,
+                  color: isSelected ? kGreenMid : c.textLight, size: 20),
               ),
-              child: Icon(Icons.radar_rounded,
-                color: selected == r ? kGreenMid : kTextLight, size: 20),
-            ),
-            title: Text('$r km',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextDark)),
-            trailing: selected == r
-              ? const Icon(Icons.check_circle_rounded, color: kGreenMid)
-              : null,
-            shape: const RoundedRectangleBorder(borderRadius: kRadius12),
-            onTap: () => onSelect(r),
-          )),
+              title: Text('$r km',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? kGreenMid : c.textDark,
+                )),
+              trailing: isSelected
+                ? const Icon(Icons.check_circle_rounded, color: kGreenMid)
+                : null,
+              shape: const RoundedRectangleBorder(borderRadius: kRadius12),
+              onTap: () {
+                setState(() => _current = r);
+                widget.onSelect(r);
+              },
+            );
+          }),
           const SizedBox(height: 8),
         ],
       ),
