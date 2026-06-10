@@ -122,13 +122,15 @@ class _AuthGateState extends State<_AuthGate> {
     if (!mounted) return;
     final newUid = user?.uid;
     final isGuest = user == null || user.isAnonymous;
+    // Uvijek rebuilda kad se UID promijeni (anon -> email login)
     if (newUid == _prevUid && !_loading) return;
     setState(() {
       _prevUid = newUid;
       _loading = false;
       _homeKey = UniqueKey();
     });
-    if (isGuest && user == null) {
+    // Ako nema usera, prijavi anonimno za Firestore pristup
+    if (user == null) {
       ensureFirestoreAccess();
     }
   }

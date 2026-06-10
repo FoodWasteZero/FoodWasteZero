@@ -645,7 +645,13 @@ class _HomeScreenState extends State<HomeScreen>
 
     return CustomScrollView(controller: _listScrollCtrl, slivers: [
       _buildSliverAppBar(),
-      if (_isGuest) SliverToBoxAdapter(child: _buildGuestBanner()),
+      SliverToBoxAdapter(child: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snap) {
+          if (isAppGuest(snap.data)) return _buildGuestBanner();
+          return const SizedBox.shrink();
+        },
+      )),
       if (currentUser != null && !currentUser.isAnonymous)
         SliverToBoxAdapter(child: _PendingOfferBannerStream(uid: currentUser.uid)),
       SliverToBoxAdapter(child: _buildSearchBar()),
