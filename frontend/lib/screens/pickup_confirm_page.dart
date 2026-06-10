@@ -32,6 +32,7 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
   bool _loading = true;
   bool _saving = false;
   bool _errorVisible = false;
+  bool _authPromptShown = false;
   String? _error;
   Map<String, dynamic>? _rezData;
   Map<String, dynamic>? _oglasData;
@@ -40,6 +41,25 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _maybePromptAuth();
+  }
+
+  void _maybePromptAuth() {
+    if (_authPromptShown || !mounted || _loading) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (isAppGuest(user)) {
+      _authPromptShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showAuth();
+        }
+      });
+    }
   }
 
   Future<void> _loadData() async {
@@ -77,6 +97,8 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
         _oglasData = oglasDoc.data() as Map<String, dynamic>;
         _loading = false;
       });
+
+      _maybePromptAuth();
     } catch (e) {
       setState(() {
         _error = 'Napaka pri nalaganju: $e';
@@ -120,8 +142,7 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
     final ownerUid = oglasData['uid'] as String?;
     if (ownerUid == null || user == null || user.uid != ownerUid) {
       setState(() {
-        _error =
-            'Ta potrditvena stran je namenjena organizaciji, ki je objavo ustvarila.';
+        _error = 'Prijavi se mora ista uporabnik, ki je ustvaril oglas.';
         _errorVisible = true;
       });
       return;
@@ -193,11 +214,14 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     final title = (_oglasData?['title'] as String?) ?? 'Prevzem';
     final currentStatus =
         (_rezData?['status'] as String?) ?? 'rezervirano';
     final kolicina =
         (_rezData?['kolicinaPorcij'] as num?)?.toInt() ?? 1;
+    final ownerUid = _oglasData?['uid'] as String?;
+    final isOwner = user != null && !user.isAnonymous && ownerUid != null && user.uid == ownerUid;
 
     return Scaffold(
       backgroundColor: kSurface,
@@ -221,13 +245,29 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Sken QR kode odpre to stran. Organizacija potrdi prevzem s spodnjim gumbom.',
+                      'Po skenu QR kode se prijavi avtor oglasa, ki potrdi prevzem.',
                       style: kBody.copyWith(color: kTextMid),
                     ),
                     const SizedBox(height: 16),
                     Text(
                         'Trenutni status: ${currentStatus.toUpperCase()}'),
                     const Spacer(),
+                    if (!isAppGuest(user) && !isOwner) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.08),
+                          borderRadius: kRadius12,
+                          border: Border.all(color: Colors.orange.withOpacity(0.25)),
+                        ),
+                        child: const Text(
+                          'Prijavljena oseba ni avtor tega oglasa. Prijavi se z računom, ki je ustvaril oglas.',
+                          style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
                     if (_errorVisible && _error != null) ...[
                       Text(_error!,
                           style: const TextStyle(color: Colors.red)),
@@ -255,23 +295,27 @@ class _PickupConfirmPageState extends State<PickupConfirmPage> {
                           ],
                         ),
                       )
-                    else if (FirebaseAuth.instance.currentUser == null ||
-                        FirebaseAuth
-                            .instance.currentUser!.isAnonymous)
+                    else if (isAppGuest(FirebaseAuth.instance.currentUser))
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                            onPressed: _showAuth,
+                            child: const Text('Prijavi se'),
+                          ),
+                      )
+                    else if (!isOwner)
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _showAuth,
-                          child: const Text(
-                              'Prijavi se kot organizacija'),
+                          child: const Text('Prijavi se'),
                         ),
                       )
                     else
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed:
-                              _saving ? null : _confirmPickup,
+                          onPressed: _saving ? null : _confirmPickup,
                           child: _saving
                               ? const SizedBox(
                                   width: 18,

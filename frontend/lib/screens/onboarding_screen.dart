@@ -37,7 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       iconBgColor: Color(0xFFE8F5E9),
       title: 'Dobrodošli v FoodWasteZero',
       description:
-          'Skupaj zmanjšujemo odpadanje hrane v Mariboru. Povežemo tiste, ki imajo odvečno hrano, s tistimi, ki jo potrebujejo — brezplačno.',
+          'Skupaj zmanjšujemo količino odpadne hrane v Sloveniji. Povezujemo skupnost ljudi, ki jim je mar za naravo.',
       gradientStart: Color(0xFF1B5E20),
       gradientEnd: Color(0xFF388E3C),
       features: [],
@@ -48,7 +48,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       iconBgColor: Color(0xFFE3F2FD),
       title: 'Brskajte in rezervirajte',
       description:
-          'Na domači strani vidite vse razpoložljive oglase. Tapnite oglas za podrobnosti in ga rezervirajte z enim klikom.',
+          'Na domači strani vidite vse razpoložljive oglase. Kliknite oglas za prikaz podrobnosti in ga rezervirajte z enim klikom.',
       gradientStart: Color(0xFF0D47A1),
       gradientEnd: Color(0xFF1976D2),
       features: [
@@ -63,7 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       iconBgColor: Color(0xFFF3E5F5),
       title: 'Delite odvečno hrano',
       description:
-          'Ste organizacija? Objavite oglas v 30 sekundah — dodajte sliko, opis in lokacijo. Uporabniki lahko rezervirajo.',
+          'Ste organizacija ali oseba ki se zavzema za naravo? Objavite oglas v 30 sekundah — dodajte sliko, opis in lokacijo. Uporabniki vam oglas rezervirajo in prevzamejo odvečno hrano.',
       gradientStart: Color(0xFF4A148C),
       gradientEnd: Color(0xFF7B1FA2),
       features: [
@@ -78,7 +78,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       iconBgColor: Color(0xFFFFF3E0),
       title: 'Zemljevid in navigacija',
       description:
-          'Oglejte si vse oglase na interaktivnem zemljevidu. Tapnite točko in odprite navigacijo do donatorja.',
+          'Oglejte si vse oglase na interaktivnem zemljevidu. Kliknite točko in odprite navigacijo do donatorja.',
       gradientStart: Color(0xFFBF360C),
       gradientEnd: Color(0xFFE64A19),
       features: [
@@ -93,7 +93,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       iconBgColor: Color(0xFFE0F2F1),
       title: 'Vaš profil in aktivnost',
       description:
-          'Pod profilom najdete rezervacije in prevzete obroke. Davatelji vidijo svoje objave in celoten arhiv.',
+          'Pod profilom najdete rezervacije, prevzete obroke in prihodnje prevzeme za vaše objave. Organizacije vidijo svoje objave',
       gradientStart: Color(0xFF004D40),
       gradientEnd: Color(0xFF00796B),
       features: [
