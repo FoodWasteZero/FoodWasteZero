@@ -20,7 +20,7 @@
 
 ## Kaj je FoodWasteZero?
 
-FoodWasteZero je odprtokodna mobilna aplikacija, ki pomaga zmanjšati količino zavržene hrane. Restavracije, pekarne in posamezniki objavijo presežno hrano — drugi jo prevzamejo brezplačno ali po simbolični ceni, preden konča v smeteh.
+FoodWasteZero je mobilna aplikacija, ki pomaga zmanjšati količino zavržene hrane. Restavracije, pekarne in posamezniki objavijo presežno hrano — drugi jo prevzamejo brezplačno ali po simbolični ceni, preden konča v smeteh.
 
 Vsako leto se zavrže **tretjina vse hrane na svetu**. FoodWasteZero je naš odgovor na ta problem.
 
@@ -52,7 +52,7 @@ Najnovejšo verzijo najdeš v [Releases](../../releases). Tam klikni .apk datotk
 |-------|-------------|
 | Mobilna aplikacija | Flutter (Dart) |
 | Backend & Auth | Firebase (Firestore, Auth, Storage) |
-| Obvestila | Firebase Cloud Messaging |
+| Pošljanje Emailov | Resend + Render |
 | Zemljevid | Google Maps API |
 | CI/CD | GitHub Actions |
 
