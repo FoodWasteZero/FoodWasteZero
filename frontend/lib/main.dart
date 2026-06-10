@@ -27,10 +27,8 @@ void main() async {
     debugPrint('Firebase projectId: ${Firebase.app().options.projectId}');
   }
   await ensureFirestoreAccess();
-  // Učitaj sačuvani jezik i temu
   await LocaleService.instance.load();
   await ThemeService.instance.load();
-  // Start client-driven offer promotion service (handles expired 3h offers)
   OfferPromotionService.instance.start();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -68,7 +66,6 @@ class _FoodWasteZeroAppState extends State<FoodWasteZeroApp> {
     return MaterialApp(
       title: 'FoodWasteZero',
       debugShowCheckedModeBanner: false,
-      // ── Locale ─────────────────────────────────────────────────────────
       locale: LocaleService.instance.locale,
       supportedLocales: const [
         Locale('sl'),
@@ -80,7 +77,6 @@ class _FoodWasteZeroAppState extends State<FoodWasteZeroApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      // ── Theme ──────────────────────────────────────────────────────────
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeService.instance.isDark ? ThemeMode.dark : ThemeMode.light,
@@ -89,7 +85,6 @@ class _FoodWasteZeroAppState extends State<FoodWasteZeroApp> {
   }
 }
 
-// ── Auth gate ──────────────────────────────────────────────────────────
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
@@ -121,18 +116,12 @@ class _AuthGateState extends State<_AuthGate> {
   void _onAuthChanged(User? user) {
     if (!mounted) return;
     final newUid = user?.uid;
-    final isGuest = user == null || user.isAnonymous;
-    // Uvijek rebuilda kad se UID promijeni (anon -> email login)
     if (newUid == _prevUid && !_loading) return;
     setState(() {
       _prevUid = newUid;
       _loading = false;
       _homeKey = UniqueKey();
     });
-    // Ako nema usera, prijavi anonimno za Firestore pristup
-    if (user == null) {
-      ensureFirestoreAccess();
-    }
   }
 
   Future<void> _onOnboardingDone() async {
