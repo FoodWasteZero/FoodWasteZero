@@ -3705,7 +3705,7 @@ class _PendingOfferBannerStream extends StatelessWidget {
   }
 }
 
-
+//
 // ── UI helpers ─────────────────────────────────────────────────────────────────
 class _HeatStat extends StatelessWidget {
   final String value, label;
