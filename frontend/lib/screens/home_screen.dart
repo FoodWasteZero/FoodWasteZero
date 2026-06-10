@@ -160,10 +160,14 @@ class _HomeScreenState extends State<HomeScreen>
     });
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
-      if (user == null) {
+      if (user == null || user.isAnonymous) {
+        // Odjava ili anon — resetiraj davatelj stanje bez full rebuilda
         _themeAnim.reverse();
-        setState(() { _isDavatelj = false; _navIndex = 0; });
+        if (_isDavatelj || _navIndex != 0) {
+          setState(() { _isDavatelj = false; _navIndex = 0; });
+        }
       } else {
+        // Prijava s emailom — samo učitaj tip korisnika
         _loadUserType();
       }
     });

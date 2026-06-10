@@ -98,7 +98,6 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
-  Key _homeKey = UniqueKey();
   bool _loading = true;
   bool _showOnboarding = false;
   String? _prevUid;
@@ -121,15 +120,12 @@ class _AuthGateState extends State<_AuthGate> {
   void _onAuthChanged(User? user) {
     if (!mounted) return;
     final newUid = user?.uid;
-    final isGuest = user == null || user.isAnonymous;
-    // Uvijek rebuilda kad se UID promijeni (anon -> email login)
     if (newUid == _prevUid && !_loading) return;
     setState(() {
       _prevUid = newUid;
       _loading = false;
-      _homeKey = UniqueKey();
+      // Ne koristimo UniqueKey — HomeScreen sam sluša auth stream
     });
-    // Ako nema usera, prijavi anonimno za Firestore pristup
     if (user == null) {
       ensureFirestoreAccess();
     }
@@ -170,7 +166,7 @@ class _AuthGateState extends State<_AuthGate> {
     if (_showOnboarding) {
       return OnboardingScreen(onDone: _onOnboardingDone);
     }
-    return HomeScreen(key: _homeKey);
+    return const HomeScreen();
   }
 }
 
