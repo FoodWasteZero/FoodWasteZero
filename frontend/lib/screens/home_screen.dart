@@ -160,14 +160,10 @@ class _HomeScreenState extends State<HomeScreen>
     });
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
-      if (user == null || user.isAnonymous) {
-        // Odjava ili anon — resetiraj davatelj stanje bez full rebuilda
+      if (user == null) {
         _themeAnim.reverse();
-        if (_isDavatelj || _navIndex != 0) {
-          setState(() { _isDavatelj = false; _navIndex = 0; });
-        }
+        setState(() { _isDavatelj = false; _navIndex = 0; });
       } else {
-        // Prijava s emailom — samo učitaj tip korisnika
         _loadUserType();
       }
     });
@@ -645,19 +641,19 @@ class _HomeScreenState extends State<HomeScreen>
       return _buildOrgHomeContent(filtered, availableCount, expiringCount, reservedCount);
     }
 
-    final currentUser = FirebaseAuth.instance.currentUser;
-
     return CustomScrollView(controller: _listScrollCtrl, slivers: [
       _buildSliverAppBar(),
       SliverToBoxAdapter(child: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snap) {
-          if (isAppGuest(snap.data)) return _buildGuestBanner();
+          final user = snap.data;
+          if (isAppGuest(user)) return _buildGuestBanner();
+          if (user != null && !user.isAnonymous) {
+            return _PendingOfferBannerStream(uid: user.uid);
+          }
           return const SizedBox.shrink();
         },
       )),
-      if (currentUser != null && !currentUser.isAnonymous)
-        SliverToBoxAdapter(child: _PendingOfferBannerStream(uid: currentUser.uid)),
       SliverToBoxAdapter(child: _buildSearchBar()),
       SliverToBoxAdapter(child: _buildQuickActionsRow()),
       SliverToBoxAdapter(child: _buildHeatmapSection(filtered)),
