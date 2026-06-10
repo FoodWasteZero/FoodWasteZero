@@ -27,10 +27,8 @@ void main() async {
     debugPrint('Firebase projectId: ${Firebase.app().options.projectId}');
   }
   await ensureFirestoreAccess();
-  // Učitaj sačuvani jezik i temu
   await LocaleService.instance.load();
   await ThemeService.instance.load();
-  // Start client-driven offer promotion service (handles expired 3h offers)
   OfferPromotionService.instance.start();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -68,7 +66,6 @@ class _FoodWasteZeroAppState extends State<FoodWasteZeroApp> {
     return MaterialApp(
       title: 'FoodWasteZero',
       debugShowCheckedModeBanner: false,
-      // ── Locale ──────────────────────────────────────────────────────────────
       locale: LocaleService.instance.locale,
       supportedLocales: const [
         Locale('sl'),
@@ -80,7 +77,6 @@ class _FoodWasteZeroAppState extends State<FoodWasteZeroApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      // ── Theme ───────────────────────────────────────────────────────────────
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeService.instance.isDark ? ThemeMode.dark : ThemeMode.light,
@@ -89,7 +85,6 @@ class _FoodWasteZeroAppState extends State<FoodWasteZeroApp> {
   }
 }
 
-// ── Auth gate ──────────────────────────────────────────────────────────────────
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
@@ -98,6 +93,7 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
+  Key _homeKey = UniqueKey();
   bool _loading = true;
   bool _showOnboarding = false;
   String? _prevUid;
@@ -130,6 +126,8 @@ class _AuthGateState extends State<_AuthGate> {
     if (user == null || (user.isAnonymous && isInitialLoad)) {
       ensureFirestoreAccess();
     }
+      _homeKey = UniqueKey();
+    });
   }
 
   Future<void> _onOnboardingDone() async {
@@ -167,7 +165,7 @@ class _AuthGateState extends State<_AuthGate> {
     if (_showOnboarding) {
       return OnboardingScreen(onDone: _onOnboardingDone);
     }
-    return const HomeScreen();
+    return HomeScreen(key: _homeKey);
   }
 }
 
