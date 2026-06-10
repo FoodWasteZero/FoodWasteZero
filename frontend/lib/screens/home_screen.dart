@@ -167,8 +167,9 @@ class _HomeScreenState extends State<HomeScreen>
           setState(() { _isDavatelj = false; _navIndex = 0; });
         }
       } else {
-        // Prijava s emailom — samo učitaj tip korisnika
+        // Prijava s emailom — učitaj tip korisnika IN rebuildi UI
         _loadUserType();
+        setState(() {}); // Osvježi UI po prijavi
       }
     });
     _navIndexListener = () {

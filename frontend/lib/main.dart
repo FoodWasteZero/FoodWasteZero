@@ -121,12 +121,13 @@ class _AuthGateState extends State<_AuthGate> {
     if (!mounted) return;
     final newUid = user?.uid;
     if (newUid == _prevUid && !_loading) return;
+    final bool isInitialLoad = _loading;
     setState(() {
       _prevUid = newUid;
       _loading = false;
-      // Ne koristimo UniqueKey — HomeScreen sam sluša auth stream
     });
-    if (user == null) {
+    // ensureFirestoreAccess samo ob odjavi ali pri prvem zagonu brez prijave
+    if (user == null || (user.isAnonymous && isInitialLoad)) {
       ensureFirestoreAccess();
     }
   }

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../common/theme.dart';
 import '../models/models.dart';
 
-// ── Modern food listing card ──────────────────────────────────────────────────
 class FoodCard extends StatelessWidget {
   final FoodOglas oglas;
   final VoidCallback? onTap;
@@ -19,181 +18,239 @@ class FoodCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasPrice = oglas.price != null && oglas.price! > 0;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14, left: 1, right: 1),
+        height: 148,
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: c.card,
-          borderRadius: kRadius16,
-          border: Border.all(color: c.border.withOpacity(0.5), width: 0.8),
-          boxShadow: const [
+          borderRadius: kRadius12,
+          border: Border.all(color: c.border.withOpacity(0.45), width: 0.8),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x12000000),
-              blurRadius: 18,
-              spreadRadius: -2,
-              offset: Offset(0, 6),
-            ),
-            BoxShadow(
-              color: Color(0x08000000),
-              blurRadius: 4,
-              offset: Offset(0, 1),
+              color: Colors.black.withOpacity(isDark ? 0.0 : 0.055),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Left image block ──────────────────────────────────────
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.38,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(color: oglas.imageColor),
-                      if (oglas.imageBase64 != null)
-                        _Base64Image(base64: oglas.imageBase64!)
-                      else
-                        Align(
-                          alignment: Alignment.center,
-                          child: Icon(
-                            oglas.icon,
-                            size: 44,
-                            color: kGreenMid.withOpacity(0.50),
-                          ),
-                        ),
-                      if (oglas.isExpiringSoon)
-                        Positioned(
-                          top: 8, left: 8,
-                          child: _PillBadge(label: '⏰ Kmalu poteče', color: kOrange),
-                        ),
-                      Positioned(
-                        bottom: 8, left: 8,
-                        child: (oglas.price != null && oglas.price! > 0)
-                            ? _PillBadge(
-                                label: '€ ${oglas.price!.toStringAsFixed(2)}',
-                                color: const Color(0xFF5C6BC0),
-                              )
-                            : _PillBadge(label: 'BREZPLAČNO', color: kGreenLight),
-                      ),
-                    ],
-                  ),
-                ),
+        child: Row(
+          children: [
+            // ── Thumbnail ─────────────────────────────────────────────────
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomLeft: Radius.circular(12),
               ),
+              child: SizedBox(
+                width: 148,
+                height: 148,
+                child: Stack(fit: StackFit.expand, children: [
+                  Container(color: oglas.imageColor),
+                  if (oglas.imageBase64 != null)
+                    _Base64Image(base64: oglas.imageBase64!)
+                  else
+                    Center(
+                      child: Icon(oglas.icon, size: 48,
+                          color: kGreenMid.withOpacity(0.45)),
+                    ),
+                  // Dark gradient overlay at bottom for badge readability
+                  Positioned(
+                    left: 0, right: 0, bottom: 0,
+                    child: Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.62),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Price badge bottom-left
+                  Positioned(
+                    bottom: 7, left: 7,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: hasPrice ? const Color(0xFF5C6BC0) : kGreenMid,
+                        borderRadius: kRadius6,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.45),
+                              blurRadius: 6, offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: Text(
+                        hasPrice ? '€${oglas.price!.toStringAsFixed(2)}' : 'BREZPLAČNO',
+                        style: const TextStyle(color: Colors.white,
+                            fontSize: 11, fontWeight: FontWeight.w800,
+                            shadows: [Shadow(color: Colors.black45, blurRadius: 4)]),
+                      ),
+                    ),
+                  ),
+                  // Expiring badge top-left
+                  if (oglas.isExpiringSoon)
+                    Positioned(
+                      top: 7, left: 7,
+                      child: Container(
+                        width: 24, height: 24,
+                        decoration: BoxDecoration(
+                          color: kOrange,
+                          borderRadius: kRadius6,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.4),
+                                blurRadius: 5, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        child: const Icon(Icons.bolt_rounded,
+                            color: Colors.white, size: 15),
+                      ),
+                    ),
+                ]),
+              ),
+            ),
 
-              // ── Right content ─────────────────────────────────────────
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: kGreenPale,
-                              borderRadius: kRadiusFull,
-                            ),
-                            child: Text(oglas.category,
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: kGreenMid)),
-                          ),
-                          if (oglas.isDavatelj)
-                            Tooltip(
-                              message: 'Verificirana organizacija',
-                              child: Stack(
-                                alignment: Alignment.center,
+            // ── Content ───────────────────────────────────────────────────
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(13, 11, 11, 11),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Top: category pill + verified + time
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: kGreenPale, borderRadius: kRadius6),
+                        child: Text(oglas.category,
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w700,
+                                color: kGreenMid)),
+                      ),
+                      if (oglas.isDavatelj) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.verified_rounded,
+                            color: Color(0xFF029624), size: 15),
+                      ],
+                      const Spacer(),
+                      Text(oglas.time,
+                          style: const TextStyle(
+                              fontSize: 11.5, color: kTextLight)),
+                    ]),
+
+                    // Title — 2 lines allowed
+                    Text(oglas.title,
+                        style: TextStyle(
+                            fontSize: 15.5, fontWeight: FontWeight.w700,
+                            color: c.textDark, height: 1.25),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+
+                    // Location + distance badge inline
+                    Row(children: [
+                      const Icon(Icons.location_on_outlined,
+                          size: 13, color: kTextLight),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(oglas.location,
+                            style: const TextStyle(
+                                fontSize: 12.5, color: kTextLight),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: kGreenPale, borderRadius: kRadius6),
+                        child: Text(
+                          '${oglas.distanceKm.toStringAsFixed(1)} km',
+                          style: const TextStyle(
+                              fontSize: 11, color: kGreenMid,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ]),
+
+                    // Bottom: author + status dot
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (oglas.username != null)
+                          Flexible(
+                            child: GestureDetector(
+                              onTap: onAuthorTap,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
-                                    width: 20, height: 20,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.verified_rounded,
-                                    color: Color(0xFF029624),
-                                    size: 22,
+                                  const Icon(Icons.store_rounded,
+                                      size: 12, color: kGreenMid),
+                                  const SizedBox(width: 3),
+                                  Flexible(
+                                    child: Text(oglas.username!,
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: kGreenMid,
+                                            fontWeight: FontWeight.w600),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
                                   ),
                                 ],
                               ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(oglas.title,
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: c.textDark),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 8),
-                      _InfoRow(Icons.location_on_outlined, oglas.location, textColor: c.textMid),
-                      const SizedBox(height: 3),
-                      if (oglas.username != null) ...[
-                        onAuthorTap != null
-                            ? GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: onAuthorTap,
-                                child: _InfoRow(
-                                  Icons.store_rounded,
-                                  oglas.username!,
-                                  highlight: true,
-                                  textColor: c.textMid,
-                                ),
-                              )
-                            : _InfoRow(Icons.store_rounded, oglas.username!, textColor: c.textMid),
-                        const SizedBox(height: 3),
+                          )
+                        else
+                          const SizedBox.shrink(),
+                        _StatusDot(status: oglas.status),
                       ],
-                      _InfoRow(Icons.near_me_outlined,
-                          '${oglas.distanceKm.toStringAsFixed(1)} km stran',
-                          textColor: c.textMid),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _StatusChip(status: oglas.status),
-                          Container(
-                            width: 40, height: 40,
-                            decoration: BoxDecoration(
-                              color: kGreenMid,
-                              borderRadius: kRadius8,
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x552E7D32),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(Icons.arrow_forward_ios,
-                                color: Colors.white, size: 13),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+
+            // ── Chevron ───────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Icon(Icons.chevron_right_rounded,
+                  color: c.textLight, size: 22),
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StatusDot extends StatelessWidget {
+  final OglasStatus status;
+  const _StatusDot({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = statusColor(status);
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+          width: 7, height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text(statusLabel(status),
+          style: TextStyle(fontSize: 11.5, color: color,
+              fontWeight: FontWeight.w600)),
+    ]);
   }
 }
 
@@ -204,65 +261,11 @@ class _Base64Image extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     try {
-      final bytes = base64Decode(base64);
-      return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+      return Image.memory(base64Decode(base64),
+          fit: BoxFit.cover, gaplessPlayback: true);
     } catch (_) {
       return const SizedBox.shrink();
     }
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final bool highlight;
-  final Color textColor;
-  const _InfoRow(this.icon, this.text, {this.highlight = false, required this.textColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: highlight ? kGreenMid : textColor),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(text,
-              style: TextStyle(
-                  fontSize: 14,
-                  color: highlight ? kGreenMid : textColor,
-                  fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
-                  decoration: highlight ? TextDecoration.underline : null),
-              overflow: TextOverflow.ellipsis),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final OglasStatus status;
-  const _StatusChip({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = statusColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: kRadiusFull,
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Text(
-        statusLabel(status),
-        style: TextStyle(
-          color: color.withOpacity(0.7),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
   }
 }
 
@@ -272,13 +275,11 @@ class _PillBadge extends StatelessWidget {
   const _PillBadge({required this.label, required this.color});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(color: color, borderRadius: kRadiusFull),
-      child: Text(label,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: color, borderRadius: kRadius6),
+        child: Text(label,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+      );
 }

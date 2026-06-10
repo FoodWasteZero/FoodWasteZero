@@ -24,5 +24,8 @@ Future<void> signOutAnonymousIfNeeded() async {
   final user = FirebaseAuth.instance.currentUser;
   if (user != null && user.isAnonymous) {
     await FirebaseAuth.instance.signOut();
+    // Na webu signOut() je async in treba malo časa
+    // da authStateChanges konča preden začnemo signIn
+    if (kIsWeb) await Future.delayed(const Duration(milliseconds: 300));
   }
 }

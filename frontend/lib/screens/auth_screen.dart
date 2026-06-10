@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -119,9 +120,10 @@ class _AuthScreenState extends State<AuthScreen>
       await signOutAnonymousIfNeeded();
       await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: email, password: pass);
-      if (mounted && widget.isModal) {
+      if (!mounted) return;
+      if (widget.isModal) {
         Navigator.of(context).pop();
-      } else if (mounted) {
+      } else {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
           (_) => false,
@@ -129,6 +131,9 @@ class _AuthScreenState extends State<AuthScreen>
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) setState(() => _loginError = _authError(e.code));
+    } catch (e, st) {
+      debugPrint('LOGIN ERROR: $e | $st');
+      if (mounted) setState(() => _loginError = 'Napaka: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -220,6 +225,9 @@ class _AuthScreenState extends State<AuthScreen>
       _tabController.animateTo(0);
     } on FirebaseAuthException catch (e) {
       if (mounted) setState(() => _regError = _authError(e.code));
+    } catch (e, st) {
+      debugPrint('REGISTER ERROR: $e | $st');
+      if (mounted) setState(() => _regError = 'Napaka: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

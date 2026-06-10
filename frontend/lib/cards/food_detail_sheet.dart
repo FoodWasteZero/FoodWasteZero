@@ -491,7 +491,7 @@ class _FoodDetailSheetState extends State<FoodDetailSheet> {
                                   child: Text(oglas.username!,
                                       style: TextStyle(
                                           fontSize: 14, fontWeight: FontWeight.w700,
-                                          color: kGreenMid, decoration: TextDecoration.underline)),
+                                          color: kGreenMid)),
                                 ),
                                 SizedBox(width: 16),
                                 Container(width: 1, height: 14, color: c.border.withOpacity(0.3)),

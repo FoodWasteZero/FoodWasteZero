@@ -889,7 +889,7 @@ class _ProfilePageState extends State<ProfilePage>
           end: Alignment.bottomRight,
           colors: isDav
               ? [const Color(0xFF1B5E20), const Color(0xFF2E7D32)]
-              : [const Color(0xFF1565C0), const Color(0xFF1976D2)],
+              : [const Color(0xFF1B5E20), const Color(0xFF2E7D32)],
         ),
         borderRadius: kRadius16,
         boxShadow: kElevatedShadow,

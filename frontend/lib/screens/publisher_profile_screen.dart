@@ -171,7 +171,7 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                 final name = _displayName(data);
 
                 return Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -230,22 +230,36 @@ class _PublisherProfileScreenState extends State<PublisherProfileScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: OutlinedButton(
-                                onPressed: _followLoading
-                                    ? null
-                                    : () => _toggleFollow(name),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: kGreenMid,
-                                  side: BorderSide(color: kGreenMid),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: kRadius8),
-                                ),
-                                child: Text(
-                                  _following ? 'Ne sledi več' : 'Sledi',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w700),
-                                ),
-                              ),
+                              child: _following
+                                  ? OutlinedButton.icon(
+                                      onPressed: _followLoading ? null : () => _toggleFollow(name),
+                                      icon: const Icon(Icons.person_remove_outlined, size: 16),
+                                      label: const Text('Ne sledi več',
+                                          style: TextStyle(fontWeight: FontWeight.w700)),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: kTextMid,
+                                        side: BorderSide(color: kBorder),
+                                        shape: RoundedRectangleBorder(borderRadius: kRadius8),
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                      ),
+                                    )
+                                  : ElevatedButton.icon(
+                                      onPressed: _followLoading ? null : () => _toggleFollow(name),
+                                      icon: _followLoading
+                                          ? const SizedBox(width: 14, height: 14,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                          : const Icon(Icons.person_add_rounded, size: 16, color: Colors.white),
+                                      label: const Text('Sledi',
+                                          style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: kGreenDark,
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(borderRadius: kRadius8),
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shadowColor: kGreenMid.withOpacity(0.4),
+                                      ),
+                                    ),
                             ),
                           ],
                         ),
