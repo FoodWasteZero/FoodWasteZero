@@ -28,6 +28,7 @@ class _RecipePageState extends State<RecipePage>
   final Set<String> _selected = {};
   List<_Recipe> _recipes = [];
   bool _loadingRecipes = false;
+  bool _tipShown = false;
   String? _recipeError;
 
   bool _aiOpen = false;
@@ -130,6 +131,29 @@ class _RecipePageState extends State<RecipePage>
     }
   }
 
+  // ── Tip toast ─────────────────────────────────────────────────────────────
+  void _showTipSnackbar() {
+    if (_tipShown) return;
+    _tipShown = true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(children: [
+          Icon(Icons.touch_app_rounded, color: Colors.white, size: 18),
+          SizedBox(width: 10),
+          Expanded(child: Text(
+            '💡 Namig: Tapni recept za podrobnosti in korake.',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          )),
+        ]),
+        backgroundColor: const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+      ),
+    );
+  }
+
   // ── AI: generiraj recepte z Gemini ─────────────────────────────────────────
 
   Future<void> _generateRecipes() async {
@@ -176,7 +200,10 @@ class _RecipePageState extends State<RecipePage>
       final List<dynamic> jsonList = jsonDecode(jsonStr);
       final recipes = jsonList.map((e) => _Recipe.fromJson(e as Map<String, dynamic>)).toList();
 
-      if (mounted) setState(() { _recipes = recipes; _loadingRecipes = false; });
+      if (mounted) {
+        setState(() { _recipes = recipes; _loadingRecipes = false; });
+        _showTipSnackbar();
+      }
     } on TimeoutException {
       if (mounted) setState(() {
         _recipeError = 'Strežnik se zagotavlja (hladni zagon ~60s). Počakajte in poskusite znova.';
@@ -244,11 +271,14 @@ class _RecipePageState extends State<RecipePage>
       final List<dynamic> jsonList = jsonDecode(jsonStr);
       final recipes = jsonList.map((e) => _Recipe.fromJson(e as Map<String, dynamic>)).toList();
 
-      if (mounted) setState(() {
-        _recipes = recipes;
-        _loadingRecipes = false;
-        _generatingFromImage = false;
-      });
+      if (mounted) {
+        setState(() {
+          _recipes = recipes;
+          _loadingRecipes = false;
+          _generatingFromImage = false;
+        });
+        _showTipSnackbar();
+      }
     } on TimeoutException {
       if (mounted) setState(() {
         _recipeError = 'Strežnik se zagotavlja (hladni zagon ~60s). Počakajte in poskusite znova.';
