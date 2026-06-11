@@ -126,8 +126,7 @@ class _AuthGateState extends State<_AuthGate> {
     if (user == null || (user.isAnonymous && isInitialLoad)) {
       ensureFirestoreAccess();
     }
-      _homeKey = UniqueKey();
-    });
+    _homeKey = UniqueKey();
   }
 
   Future<void> _onOnboardingDone() async {
