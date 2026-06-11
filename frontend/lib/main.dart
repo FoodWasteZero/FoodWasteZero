@@ -121,12 +121,22 @@ class _AuthGateState extends State<_AuthGate> {
     setState(() {
       _prevUid = newUid;
       _loading = false;
+      _homeKey = UniqueKey(); // Mora biti znotraj setState da se widget dejansko rebuilda
     });
-    // ensureFirestoreAccess samo ob odjavi ali pri prvem zagonu brez prijave
-    if (user == null || (user.isAnonymous && isInitialLoad)) {
-      ensureFirestoreAccess();
+    // ensureFirestoreAccess samo pri prvem zagonu brez prijave ali po odjavi
+    // POZOR: ne kliči ensureFirestoreAccess med aktivnim login procesom!
+    // Preverimo ali je signIn v teku s kratkim zamikom
+    if (user == null) {
+      // Počakaj malo — mogoče je signOut del login procesa (odjava anon pred prijavo)
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+        final current = FirebaseAuth.instance.currentUser;
+        if (current == null) ensureFirestoreAccess();
+      });
+    } else if (user.isAnonymous && isInitialLoad) {
+      // Samo ob prvem zagonu če je že anon prijavljen
+      // (ne kliči ponovno če smo ravno odjavili anon pred email prijavo)
     }
-    _homeKey = UniqueKey();
   }
 
   Future<void> _onOnboardingDone() async {

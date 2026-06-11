@@ -135,6 +135,7 @@ class _AuthScreenState extends State<AuthScreen>
       debugPrint('LOGIN ERROR: $e | $st');
       if (mounted) setState(() => _loginError = 'Napaka: ${e.toString()}');
     } finally {
+      loginDone();
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -229,6 +230,7 @@ class _AuthScreenState extends State<AuthScreen>
       debugPrint('REGISTER ERROR: $e | $st');
       if (mounted) setState(() => _regError = 'Napaka: ${e.toString()}');
     } finally {
+      loginDone();
       if (mounted) setState(() => _isLoading = false);
     }
   }
