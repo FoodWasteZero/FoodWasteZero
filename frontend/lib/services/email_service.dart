@@ -6,6 +6,20 @@ import 'package:http/http.dart' as http;
 class EmailService {
   static const _resendUrl = 'https://api.resend.com/emails';
 
+  static String? _webProxyUrl() {
+    final buildTimeValue = const String.fromEnvironment('EMAIL_PROXY_URL');
+    if (buildTimeValue.trim().isNotEmpty) {
+      return buildTimeValue.trim();
+    }
+
+    final envValue = dotenv.maybeGet('EMAIL_PROXY_URL')?.trim();
+    if (envValue != null && envValue.isNotEmpty) {
+      return envValue;
+    }
+
+    return null;
+  }
+
   static Future<void> sendClaimEmail({
     required String to,
     required String title,
@@ -14,7 +28,7 @@ class EmailService {
   }) async {
     final isWeb = kIsWeb;
     if (isWeb) {
-      final proxyUrl = dotenv.maybeGet('EMAIL_PROXY_URL');
+      final proxyUrl = _webProxyUrl();
       if (proxyUrl == null || proxyUrl.isEmpty) {
         throw StateError('EMAIL_PROXY_URL is missing from .env for web');
       }
@@ -87,7 +101,7 @@ class EmailService {
   }) async {
     final isWeb = kIsWeb;
     if (isWeb) {
-      final proxyUrl = dotenv.maybeGet('EMAIL_PROXY_URL');
+      final proxyUrl = _webProxyUrl();
       if (proxyUrl == null || proxyUrl.isEmpty) {
         throw StateError('EMAIL_PROXY_URL is missing from .env for web');
       }
@@ -267,7 +281,7 @@ class EmailService {
     ''';
 
     if (isWeb) {
-      final proxyUrl = dotenv.maybeGet('EMAIL_PROXY_URL');
+      final proxyUrl = _webProxyUrl();
       if (proxyUrl == null || proxyUrl.isEmpty) {
         throw StateError('EMAIL_PROXY_URL is missing from .env for web');
       }
